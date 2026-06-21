@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gestión LoRaWAN</title>
+
+<style>
+
+body{
+font-family:Arial,sans-serif;
+max-width:1000px;
+margin:auto;
+padding:20px;
+}
+
+input{
+width:100%;
+padding:15px;
+font-size:20px;
+box-sizing:border-box;
+}
+
+button{
+padding:12px;
+font-size:16px;
+cursor:pointer;
+margin:4px;
+}
+
+#resultado{
+margin-top:20px;
+padding:20px;
+border:1px solid #ccc;
+border-radius:8px;
+}
+
+.equipo{
+padding:10px;
+border-bottom:1px solid #eee;
+}
+
+.stats{
+padding:15px;
+border:1px solid #ddd;
+border-radius:8px;
+margin-bottom:15px;
+}
+
+.almacen{
+color:green;
+font-weight:bold;
+}
+
+.retirado{
+color:orange;
+font-weight:bold;
+}
+
+.instalado{
+color:blue;
+font-weight:bold;
+}
+
+.averia{
+color:red;
+font-weight:bold;
+}
+
+.acciones{
+margin-top:20px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h2>Gestión Emisores LoRaWAN</h2>
+
+<div id="stats" class="stats">
+Cargando datos...
+</div>
+
+<input
+id="busqueda"
+placeholder="Código, DevEUI o Caja"
+onkeydown="if(event.key==='Enter') buscar()"
+
+>
+
+<button onclick="buscar()">Buscar</button>
+
+<div id="resultado"></div>
+
+<script>
+
+const API =
+"https://script.google.com/macros/s/AKfycbzz8jwBBYvxLJBdYlf6OrTzPBKK_ojTu4D5w2LZsxVMksLo3-WBk6EUFIFBEWTEVBKNzA/exec";
+
+let equipos = [];
+
+window.onload = async () => {
+
+const r = await fetch(API);
+
+equipos = await r.json();
+
+actualizarStats();
+
+};
+
+function actualizarStats(){
+
+const almacen =
+equipos.filter(e=>e.estado==="Almacén").length;
+
+const retirado =
+equipos.filter(e=>e.estado==="Retirado").length;
+
+const instalado =
+equipos.filter(e=>e.estado==="Instalado").length;
+
+const averia =
+equipos.filter(e=>e.estado==="Avería").length;
+
+document.getElementById("stats").innerHTML =
+
+`
+<b>Total:</b> ${equipos.length}
+<br><br>
+
+🟢 Almacén: ${almacen}
+<br>
+
+🟠 Retirado: ${retirado}
+<br>
+
+🔵 Instalado: ${instalado}
+<br>
+
+🔴 Avería: ${averia}
+`;
+
+}
+
+function claseEstado(estado){
+
+if(estado==="Almacén") return "almacen";
+if(estado==="Retirado") return "retirado";
+if(estado==="Instalado") return "instalado";
+if(estado==="Avería") return "averia";
+
+return "";
+
+}
+
+function buscar(){
+
+const valor =
+document.getElementById("busqueda")
+.value
+.trim()
+.toUpperCase();
+
+if(!valor) return;
+
+const equipo = equipos.find(e =>
+
+String(e.codigo || "").toUpperCase() === valor ||
+
+String(e.deveui || "").toUpperCase() === valor
+
+);
+
+if(equipo){
+
+mostrarEquipo(equipo);
+
+return;
+
+}
+
+const equiposCaja =
+equipos.filter(e =>
+
+String(e.caja) === valor
+
+);
+
+if(equiposCaja.length){
+
+mostrarCaja(valor,equiposCaja);
+
+return;
+
+}
+
+document.getElementById("resultado").innerHTML =
+"<h3>No encontrado</h3>";
+
+}
+
+function mostrarCaja(caja,lista){
+
+let html =
+
+`
+<h3>📦 Caja ${caja}</h3>
+
+<p>Total equipos: <b>${lista.length}</b></p>
+`;
+
+lista.forEach(e=>{
+
+html +=
+
+`
+<div class="equipo">
+
+<b>${e.codigo}</b>
+
+<br>
+
+${e.deveui}
+
+<br>
+
+<span class="${claseEstado(e.estado)}">
+${e.estado || "-"}
+</span>
+
+</div>
+`;
+
+});
+
+document.getElementById("resultado").innerHTML =
+html;
+
+}
+
+function mostrarEquipo(equipo){
+
+document.getElementById("resultado").innerHTML =
+
+`
+<h3>Equipo</h3>
+
+<p><b>Código:</b> ${equipo.codigo}</p>
+
+<p><b>DevEUI:</b> ${equipo.deveui}</p>
+
+<p style="font-size:28px">
+📦 Caja ${equipo.caja}
+</p>
+
+<p>
+
+<b>Estado:</b>
+
+<span class="${claseEstado(equipo.estado)}">
+${equipo.estado || "-"}
+</span>
+
+</p>
+
+<p>
+<b>Fecha:</b>
+${equipo.fecha || "-"}
+</p>
+
+<p>
+<b>Usuario:</b>
+${equipo.usuario || "-"}
+</p>
+
+<div class="acciones">
+
+<button onclick="cambiarEstado('${equipo.codigo}','retirar')">
+Retirar
+</button>
+
+<button onclick="cambiarEstado('${equipo.codigo}','instalado')">
+Instalar
+</button>
+
+<button onclick="cambiarEstado('${equipo.codigo}','averia')">
+Avería
+</button>
+
+<button onclick="cambiarEstado('${equipo.codigo}','almacen')">
+Almacén
+</button>
+
+</div>
+
+`;
+
+}
+
+async function cambiarEstado(codigo,accion){
+
+const equipo =
+equipos.find(e=>e.codigo===codigo);
+
+if(!equipo) return;
+
+const usuario =
+prompt("Usuario:");
+
+if(usuario===null) return;
+
+const r = await fetch(API,{
+
+method:"POST",
+
+headers:{
+"Content-Type":"application/json"
+},
+
+body:JSON.stringify({
+
+fila:equipo.fila,
+
+codigo:equipo.codigo,
+
+deveui:equipo.deveui,
+
+usuario:usuario,
+
+accion:accion
+
+})
+
+});
+
+const respuesta =
+await r.text();
+
+if(respuesta==="OK"){
+
+if(accion==="retirar")
+equipo.estado="Retirado";
+
+if(accion==="instalado")
+equipo.estado="Instalado";
+
+if(accion==="averia")
+equipo.estado="Avería";
+
+if(accion==="almacen")
+equipo.estado="Almacén";
+
+equipo.usuario=usuario;
+
+equipo.fecha=
+new Date().toLocaleString();
+
+actualizarStats();
+
+mostrarEquipo(equipo);
+
+alert("Actualizado correctamente");
+
+}else{
+
+alert("Error actualizando");
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
