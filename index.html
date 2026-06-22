@@ -104,7 +104,11 @@ const API =
 "https://script.google.com/macros/s/AKfycbzz8jwBBYvxLJBdYlf6OrTzPBKK_ojTu4D5w2LZsxVMksLo3-WBk6EUFIFBEWTEVBKNzA/exec";
 
 let equipos = [];
+const PASSWORD = "JFA2026";
 
+let admin =
+localStorage.getItem("admin") === "si";
+  
 window.onload = async () => {
 
 const r = await fetch(API);
@@ -112,6 +116,8 @@ const r = await fetch(API);
 equipos = await r.json();
 
 actualizarStats();
+
+actualizarModoAdmin();
 
 };
 
@@ -296,6 +302,8 @@ ${equipo.fecha || "-"}
 ${equipo.usuario || "-"}
 </p>
 
+${admin ? `
+
 <div class="acciones">
 
 <button onclick="cambiarEstado('${equipo.codigo}','retirar')">
@@ -316,10 +324,65 @@ Almacén
 
 </div>
 
+` : ""}
+
 `;
 
 }
 
+  function loginAdmin(){
+
+if(admin){
+
+admin = false;
+
+localStorage.removeItem("admin");
+
+actualizarModoAdmin();
+
+return;
+
+}
+
+const pass =
+prompt("Contraseña administrador:");
+
+if(pass === PASSWORD){
+
+admin = true;
+
+localStorage.setItem("admin","si");
+
+actualizarModoAdmin();
+
+alert("Modo administrador activado");
+
+}else{
+
+alert("Contraseña incorrecta");
+
+}
+
+}
+
+function actualizarModoAdmin(){
+
+const btn =
+document.getElementById("btnAdmin");
+
+if(admin){
+
+btn.innerHTML =
+"🔒 Modo administrador";
+
+}else{
+
+btn.innerHTML =
+"🔓 Modo consulta";
+
+}
+
+}
 async function cambiarEstado(codigo,accion){
 
 const equipo =
