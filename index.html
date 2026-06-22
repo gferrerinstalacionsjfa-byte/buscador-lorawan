@@ -313,29 +313,17 @@ prompt("Usuario:");
 
 if(usuario===null) return;
 
-const r = await fetch(API,{
+const url =
+API +
+"?accion=" + encodeURIComponent(accion) +
+"&fila=" + encodeURIComponent(equipo.fila) +
+"&codigo=" + encodeURIComponent(equipo.codigo) +
+"&deveui=" + encodeURIComponent(equipo.deveui) +
+"&usuario=" + encodeURIComponent(usuario);
 
-method:"POST",
+try{
 
-headers:{
-"Content-Type":"application/json"
-},
-
-body:JSON.stringify({
-
-fila:equipo.fila,
-
-codigo:equipo.codigo,
-
-deveui:equipo.deveui,
-
-usuario:usuario,
-
-accion:accion
-
-})
-
-});
+const r = await fetch(url);
 
 const respuesta =
 await r.text();
@@ -354,10 +342,17 @@ equipo.estado="Avería";
 if(accion==="almacen")
 equipo.estado="Almacén";
 
-equipo.usuario=usuario;
+if(accion==="almacen"){
 
-equipo.fecha=
-new Date().toLocaleString();
+equipo.fecha="";
+equipo.usuario="";
+
+}else{
+
+equipo.usuario=usuario;
+equipo.fecha=new Date().toLocaleString();
+
+}
 
 actualizarStats();
 
@@ -367,7 +362,15 @@ alert("Actualizado correctamente");
 
 }else{
 
-alert("Error actualizando");
+alert("Error: " + respuesta);
+
+}
+
+}catch(error){
+
+console.error(error);
+
+alert("Error de comunicación");
 
 }
 
