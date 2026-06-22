@@ -111,13 +111,13 @@ localStorage.getItem("admin") === "si";
   
 window.onload = async () => {
 
-const r = await fetch(API);
+    actualizarModoAdmin();
 
-equipos = await r.json();
+    const r = await fetch(API);
 
-actualizarStats();
+    equipos = await r.json();
 
-actualizarModoAdmin();
+    actualizarStats();
 
 };
 
