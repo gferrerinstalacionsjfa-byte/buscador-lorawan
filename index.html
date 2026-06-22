@@ -157,7 +157,7 @@ return "";
 
 }
 
-function buscar(){
+async function buscar(){
 
 const valor =
 document.getElementById("busqueda")
@@ -167,11 +167,15 @@ document.getElementById("busqueda")
 
 if(!valor) return;
 
+// BUSCAR CODIGO O DEVEUI LOCALMENTE
+
 const equipo = equipos.find(e =>
 
-String(e.codigo || "").toUpperCase() === valor ||
+String(e.codigo || "")
+.toUpperCase() === valor ||
 
-String(e.deveui || "").toUpperCase() === valor
+String(e.deveui || "")
+.toUpperCase() === valor
 
 );
 
@@ -183,18 +187,32 @@ return;
 
 }
 
-const equiposCaja =
-equipos.filter(e =>
+// BUSCAR CAJA DIRECTAMENTE EN APPS SCRIPT
 
-String(e.caja) === valor
+try{
 
+const r =
+await fetch(
+API + "?q=" + encodeURIComponent(valor)
 );
 
-if(equiposCaja.length){
+const datos =
+await r.json();
 
-mostrarCaja(valor,equiposCaja);
+if(datos.tipo === "caja"){
+
+mostrarCaja(
+datos.caja,
+datos.equipos
+);
 
 return;
+
+}
+
+}catch(error){
+
+console.error(error);
 
 }
 
@@ -202,7 +220,6 @@ document.getElementById("resultado").innerHTML =
 "<h3>No encontrado</h3>";
 
 }
-
 function mostrarCaja(caja,lista){
 
 let html =
