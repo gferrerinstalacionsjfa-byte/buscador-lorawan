@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html>
 <head>
 <meta charset="utf-8">
@@ -88,7 +87,6 @@ Cargando datos...
 id="busqueda"
 placeholder="Código, DevEUI o Caja"
 onkeydown="if(event.key==='Enter') buscar()"
-
 >
 
 <button onclick="buscar()">Buscar</button>
@@ -167,15 +165,13 @@ document.getElementById("busqueda")
 
 if(!valor) return;
 
-// BUSCAR CODIGO O DEVEUI LOCALMENTE
+// Buscar código o DevEUI localmente
 
 const equipo = equipos.find(e =>
 
-String(e.codigo || "")
-.toUpperCase() === valor ||
+String(e.codigo || "").toUpperCase() === valor ||
 
-String(e.deveui || "")
-.toUpperCase() === valor
+String(e.deveui || "").toUpperCase() === valor
 
 );
 
@@ -187,7 +183,7 @@ return;
 
 }
 
-// BUSCAR CAJA DIRECTAMENTE EN APPS SCRIPT
+// Buscar caja en Apps Script
 
 try{
 
@@ -220,6 +216,7 @@ document.getElementById("resultado").innerHTML =
 "<h3>No encontrado</h3>";
 
 }
+
 function mostrarCaja(caja,lista){
 
 let html =
