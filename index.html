@@ -327,6 +327,10 @@ Avería
 Almacén
 </button>
 
+<button onclick="asignarSerieSonda('${equipo.codigo}')">
+📝 Asignar serie sonda
+</button>
+
 </div>
 
 ` : ""}
@@ -384,6 +388,62 @@ btn.innerHTML =
 
 btn.innerHTML =
 "🔓 Modo consulta";
+
+}
+
+}
+
+  async function asignarSerieSonda(codigo){
+
+const equipo =
+equipos.find(e => e.codigo === codigo);
+
+if(!equipo) return;
+
+const serie =
+prompt(
+"Número de serie de la sonda:",
+equipo.serieSonda || ""
+);
+
+if(
+serie === null ||
+serie.trim() === ""
+) return;
+
+const url =
+API +
+"?accion=serieSonda" +
+"&fila=" + encodeURIComponent(equipo.fila) +
+"&serie=" + encodeURIComponent(serie);
+
+try{
+
+const r =
+await fetch(url);
+
+const respuesta =
+await r.text();
+
+if(respuesta === "OK"){
+
+equipo.serieSonda = serie;
+
+mostrarEquipo(equipo);
+
+alert("Serie guardada");
+
+}else{
+
+alert("Error: " + respuesta);
+
+}
+
+}catch(error){
+
+console.error(error);
+
+alert("Error de comunicación");
 
 }
 
