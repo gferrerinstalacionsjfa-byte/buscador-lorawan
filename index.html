@@ -452,6 +452,67 @@ btn.innerHTML =
 
   async function asignarSerieSonda(codigo){
 
+async function escanearSerieSonda(codigo){
+
+  const equipo =
+    equipos.find(
+      e => e.codigo === codigo
+    );
+
+  if(!equipo) return;
+
+  document.getElementById(
+    "scannerModal"
+  ).style.display = "block";
+
+  const html5QrCode =
+    new Html5Qrcode("scanner");
+
+  const cameraId =
+    localStorage.getItem("cameraId");
+
+  try{
+
+    await html5QrCode.start(
+
+      cameraId || {
+        facingMode:"environment"
+      },
+
+      {
+        fps:10,
+        qrbox:250
+      },
+
+      async (decodedText)=>{
+
+        await html5QrCode.stop();
+
+        document.getElementById(
+          "scannerModal"
+        ).style.display = "none";
+
+        guardarSerieSonda(
+          equipo,
+          decodedText
+        );
+
+      }
+
+    );
+
+  }catch(error){
+
+    console.error(error);
+
+    alert(
+      "Error iniciando cámara"
+    );
+
+  }
+
+}
+    
 const equipo =
 equipos.find(e => e.codigo === codigo);
 
