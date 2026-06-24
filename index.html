@@ -261,7 +261,27 @@ mostrarEquipo(equipo);
 return;
 
 }
+const caja = Number(valor);
 
+if(!isNaN(caja)){
+
+  const listaCaja =
+    equipos.filter(
+      e => Number(e.caja) === caja
+    );
+
+  if(listaCaja.length){
+
+    mostrarCaja(
+      caja,
+      listaCaja
+    );
+
+    return;
+
+  }
+
+}
 // Buscar caja en Apps Script
 
 try{
