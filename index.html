@@ -5,7 +5,28 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Gestión LoRaWAN</title>
   
-<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://unpkg.com/html5-qrcode">
+window.addEventListener(
+  "hashchange",
+  () => {
+
+    const codigo =
+      location.hash
+      .replace("#","")
+      .toUpperCase();
+
+    if(!codigo) return;
+
+    document.getElementById(
+      "busqueda"
+    ).value = codigo;
+
+    buscar();
+
+  }
+);
+  
+</script>
   
 <style>
 
