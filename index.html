@@ -236,11 +236,21 @@ if(!valor) return;
 
 // Buscar código o DevEUI localmente
 
+if(valor === "TODOS"){
+
+  mostrarTodos();
+
+  return;
+
+}
+  
 const equipo = equipos.find(e =>
 
 String(e.codigo || "").toUpperCase() === valor ||
 
-String(e.deveui || "").toUpperCase() === valor
+String(e.deveui || "").toUpperCase() === valor ||
+
+String(e.serieSonda || "").toUpperCase() === valor
 
 );
 
@@ -311,6 +321,18 @@ ${e.deveui}
 
 <br>
 
+🔧 ${e.tipoSonda || "-"}
+
+<br>
+
+📏 ${e.metraje || "-"} m
+
+<br>
+
+🏷️ ${e.serieSonda || "Sin asignar"}
+
+<br>
+
 <span class="${claseEstado(e.estado)}">
 ${e.estado || "-"}
 </span>
@@ -325,6 +347,51 @@ html;
 
 }
 
+  function mostrarTodos(){
+
+  let html =
+    "<h3>Inventario completo</h3>";
+
+  equipos.forEach(e => {
+
+    html += `
+    <div class="equipo">
+
+      <b>${e.codigo}</b>
+
+      <br>
+
+      ${e.deveui}
+
+      <br>
+
+      🔧 ${e.tipoSonda || "-"}
+
+      <br>
+
+      📏 ${e.metraje || "-"} m
+
+      <br>
+
+      🏷️ ${e.serieSonda || "Sin asignar"}
+
+      <br>
+
+      <span class="${claseEstado(e.estado)}">
+        ${e.estado || "-"}
+      </span>
+
+    </div>
+    `;
+
+  });
+
+  document.getElementById(
+    "resultado"
+  ).innerHTML = html;
+
+}
+  
 function mostrarEquipo(equipo){
 
     history.replaceState(
