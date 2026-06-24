@@ -452,6 +452,60 @@ btn.innerHTML =
 
   async function asignarSerieSonda(codigo){
 
+  const equipo =
+    equipos.find(e => e.codigo === codigo);
+
+  if(!equipo) return;
+
+  const serie =
+    prompt(
+      "Número de serie de la sonda:",
+      equipo.serieSonda || ""
+    );
+
+  if(
+    serie === null ||
+    serie.trim() === ""
+  ) return;
+
+  const url =
+    API +
+    "?accion=serieSonda" +
+    "&fila=" + encodeURIComponent(equipo.fila) +
+    "&serie=" + encodeURIComponent(serie);
+
+  try{
+
+    const r =
+      await fetch(url);
+
+    const respuesta =
+      await r.text();
+
+    if(respuesta === "OK"){
+
+      equipo.serieSonda = serie;
+
+      mostrarEquipo(equipo);
+
+      alert("Serie guardada");
+
+    }else{
+
+      alert("Error: " + respuesta);
+
+    }
+
+  }catch(error){
+
+    console.error(error);
+
+    alert("Error de comunicación");
+
+  }
+
+}
+
 async function escanearSerieSonda(codigo){
 
   const equipo =
@@ -492,10 +546,38 @@ async function escanearSerieSonda(codigo){
           "scannerModal"
         ).style.display = "none";
 
-        guardarSerieSonda(
-          equipo,
-          decodedText
-        );
+        const url =
+          API +
+          "?accion=serieSonda" +
+          "&fila=" + encodeURIComponent(equipo.fila) +
+          "&serie=" + encodeURIComponent(decodedText);
+
+        const r =
+          await fetch(url);
+
+        const respuesta =
+          await r.text();
+
+        if(respuesta === "OK"){
+
+          equipo.serieSonda =
+            decodedText;
+
+          mostrarEquipo(equipo);
+
+          alert(
+            "Serie guardada:\n\n" +
+            decodedText
+          );
+
+        }else{
+
+          alert(
+            "Error: " +
+            respuesta
+          );
+
+        }
 
       }
 
@@ -512,76 +594,33 @@ async function escanearSerieSonda(codigo){
   }
 
 }
-    
-const equipo =
-equipos.find(e => e.codigo === codigo);
-
-if(!equipo) return;
-
-const serie =
-prompt(
-"Número de serie de la sonda:",
-equipo.serieSonda || ""
-);
-
-if(
-serie === null ||
-serie.trim() === ""
-) return;
-
-const url =
-API +
-"?accion=serieSonda" +
-"&fila=" + encodeURIComponent(equipo.fila) +
-"&serie=" + encodeURIComponent(serie);
-
-try{
-
-const r =
-await fetch(url);
-
-const respuesta =
-await r.text();
-
-if(respuesta === "OK"){
-
-equipo.serieSonda = serie;
-
-mostrarEquipo(equipo);
-
-alert("Serie guardada");
-
-}else{
-
-alert("Error: " + respuesta);
-
-}
-
-}catch(error){
-
-console.error(error);
-
-alert("Error de comunicación");
-
-}
-} 
 
 async function seleccionarCamara(){
 
-  const cameras = await Html5Qrcode.getCameras();
+  const cameras =
+    await Html5Qrcode.getCameras();
 
-  let texto = "Cámaras disponibles:\n\n";
+  let texto =
+    "Cámaras disponibles:\n\n";
 
   cameras.forEach((c,i)=>{
-    texto += (i+1) + ". " + (c.label || ("Cámara "+(i+1))) + "\n";
+    texto +=
+      (i+1) +
+      ". " +
+      (c.label || ("Cámara " + (i+1))) +
+      "\n";
   });
 
   const seleccion =
-    prompt(texto + "\nNúmero de cámara:");
+    prompt(
+      texto +
+      "\nNúmero de cámara:"
+    );
 
   if(!seleccion) return;
 
-  const idx = Number(seleccion) - 1;
+  const idx =
+    Number(seleccion) - 1;
 
   if(cameras[idx]){
 
@@ -590,11 +629,14 @@ async function seleccionarCamara(){
       cameras[idx].id
     );
 
-    alert("Cámara guardada");
+    alert(
+      "Cámara guardada"
+    );
 
   }
 
 }
+
 function cerrarEscaner(){
 
   document.getElementById(
@@ -602,57 +644,6 @@ function cerrarEscaner(){
   ).style.display = "none";
 
 }
-async function probarEscaner(){
-
-  document.getElementById(
-  "scannerModal"
-).style.display = "block";
-
-  const html5QrCode =
-    new Html5Qrcode("scanner");
-
-  const cameraId =
-    localStorage.getItem("cameraId");
-
-  try{
-
-    await html5QrCode.start(
-
-      cameraId || { facingMode:"environment" },
-
-      {
-        fps:10,
-        qrbox:250
-      },
-
-      async (decodedText)=>{
-
-        await html5QrCode.stop();
-
-       document.getElementById(
-  "scannerModal"
-).style.display = "none";
-
-        alert(
-          "Código leído:\n\n" +
-          decodedText
-        );
-
-      }
-
-    );
-
-  }catch(error){
-
-    console.error(error);
-
-    alert("Error iniciando cámara");
-
-  }
-
-}
-
-
 async function cambiarEstado(codigo,accion){
 
 const equipo =
