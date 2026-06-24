@@ -348,8 +348,11 @@ html;
 
 function mostrarEquipo(equipo){
 
-    window.location.hash =
-  equipo.codigo.toUpperCase();
+    history.replaceState(
+  null,
+  null,
+  "#" + equipo.codigo.toUpperCase()
+);
   
 document.getElementById("resultado").innerHTML =
 
