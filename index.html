@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Gestión LoRaWAN</title>
   
-<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://unpkg.com/@zxing/library@latest"></script>
   
 <style>
 
@@ -102,7 +102,13 @@ onkeydown="if(event.key==='Enter') buscar()"
 📷 Probar lector
 </button>
 
-<div id="scanner" style="display:none; max-width:400px; margin:20px auto;"></div>
+<button onclick="seleccionarCamara()">
+⚙️ Seleccionar cámara
+</button>
+
+<div id="scanner" style="display:none;">
+  <video id="video" width="320"></video>
+</div>
   
 <div id="resultado"></div>
 
@@ -465,6 +471,41 @@ alert("Error de comunicación");
 
 }
 } 
+
+async function seleccionarCamara(){
+
+  const cameras = await Html5Qrcode.getCameras();
+
+  let texto = "Cámaras disponibles:
+
+";
+
+  cameras.forEach((c,i)=>{
+    texto += (i+1) + ". " + (c.label || ("Cámara "+(i+1))) + "
+";
+  });
+
+  const seleccion =
+    prompt(texto + "
+Número de cámara:");
+
+  if(!seleccion) return;
+
+  const idx = Number(seleccion) - 1;
+
+  if(cameras[idx]){
+
+    localStorage.setItem(
+      "cameraId",
+      cameras[idx].id
+    );
+
+    alert("Cámara guardada");
+
+  }
+
+}
+
 async function probarEscaner(){
 
   const scanner =
@@ -475,25 +516,30 @@ async function probarEscaner(){
   const html5QrCode =
     new Html5Qrcode("scanner");
 
+  const cameraId =
+    localStorage.getItem("cameraId");
+
   try{
 
     await html5QrCode.start(
 
-      { facingMode: "environment" },
+      cameraId || { facingMode:"environment" },
 
       {
-        fps: 10,
-        qrbox: 250
+        fps:10,
+        qrbox:250
       },
 
-      async (decodedText) => {
+      async (decodedText)=>{
 
         await html5QrCode.stop();
 
         scanner.style.display = "none";
 
         alert(
-          "Código leído:\n\n" +
+          "Código leído:
+
+" +
           decodedText
         );
 
@@ -510,6 +556,7 @@ async function probarEscaner(){
   }
 
 }
+
 
 async function cambiarEstado(codigo,accion){
 
