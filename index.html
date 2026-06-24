@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Gestión LoRaWAN</title>
   
-<script src="https://unpkg.com/@zxing/library@latest"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
   
 <style>
 
@@ -102,9 +102,7 @@ onkeydown="if(event.key==='Enter') buscar()"
 📷 Probar lector
 </button>
 
-<div id="scanner" style="display:none;">
-  <video id="video" width="320"></video>
-</div>
+<div id="scanner" style="display:none; max-width:400px; margin:20px auto;"></div>
   
 <div id="resultado"></div>
 
@@ -474,38 +472,44 @@ async function probarEscaner(){
 
   scanner.style.display = "block";
 
-  const codeReader =
-    new ZXing.BrowserMultiFormatReader();
+  const html5QrCode =
+    new Html5Qrcode("scanner");
 
   try{
 
-    const resultado =
-      await codeReader.decodeOnceFromVideoDevice(
-        undefined,
-        "video"
-      );
+    await html5QrCode.start(
 
-    scanner.style.display = "none";
+      { facingMode: "environment" },
 
-    alert(
-      "Código leído:\n\n" +
-      resultado.text
+      {
+        fps: 10,
+        qrbox: 250
+      },
+
+      async (decodedText) => {
+
+        await html5QrCode.stop();
+
+        scanner.style.display = "none";
+
+        alert(
+          "Código leído:\n\n" +
+          decodedText
+        );
+
+      }
+
     );
 
   }catch(error){
 
-    scanner.style.display = "none";
-
     console.error(error);
 
-    alert("No se pudo leer el código");
+    alert("Error iniciando cámara");
 
   }
 
 }
-
-    
-
 
 async function cambiarEstado(codigo,accion){
 
