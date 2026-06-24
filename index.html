@@ -540,7 +540,7 @@ async function escanearSerieSonda(codigo){
 
       async (decodedText)=>{
 
-  if(decodedText.length < 7){
+  if(decodedText.length !== 7){
     return;
   }
 
