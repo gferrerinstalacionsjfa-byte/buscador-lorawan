@@ -6,25 +6,28 @@
 <title>Gestión LoRaWAN</title>
   
 <script src="https://unpkg.com/html5-qrcode">
-window.addEventListener(
-  "hashchange",
-  () => {
+window.addEventListener("hashchange", () => {
 
-    const codigo =
-      location.hash
+  const codigo =
+    location.hash
       .replace("#","")
       .toUpperCase();
 
-    if(!codigo) return;
+  if(!codigo) return;
 
-    document.getElementById(
-      "busqueda"
-    ).value = codigo;
+  const equipo =
+    equipos.find(e =>
+      String(e.codigo || "").toUpperCase() === codigo
+    );
 
+  if(equipo){
+    mostrarEquipo(equipo);
+  }else{
+    document.getElementById("busqueda").value = codigo;
     buscar();
-
   }
-);
+
+});
   
 </script>
   
