@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Gestión LoRaWAN</title>
   
-<script src="https://unpkg.com/@zxing/library@latest"></script>
+<script src="https://uhttps://unpkg.com/html5-qrcode"></script>
   
 <style>
 
@@ -476,18 +476,14 @@ async function seleccionarCamara(){
 
   const cameras = await Html5Qrcode.getCameras();
 
-  let texto = "Cámaras disponibles:
-
-";
+  let texto = "Cámaras disponibles:\n\n";
 
   cameras.forEach((c,i)=>{
-    texto += (i+1) + ". " + (c.label || ("Cámara "+(i+1))) + "
-";
+    texto += (i+1) + ". " + (c.label || ("Cámara "+(i+1))) + "\n";
   });
 
   const seleccion =
-    prompt(texto + "
-Número de cámara:");
+    prompt(texto + "\nNúmero de cámara:");
 
   if(!seleccion) return;
 
@@ -537,9 +533,7 @@ async function probarEscaner(){
         scanner.style.display = "none";
 
         alert(
-          "Código leído:
-
-" +
+          "Código leído:\n\n" +
           decodedText
         );
 
