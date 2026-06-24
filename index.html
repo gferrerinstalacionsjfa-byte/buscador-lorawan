@@ -162,6 +162,21 @@ window.onload = async () => {
 
     actualizarStats();
 
+    const codigo =
+      location.hash
+      .replace("#","")
+      .toUpperCase();
+
+    if(codigo){
+
+      document.getElementById(
+        "busqueda"
+      ).value = codigo;
+
+      buscar();
+
+    }
+
 };
 
 function actualizarStats(){
