@@ -284,28 +284,7 @@ if(!isNaN(caja)){
 }
 // Buscar caja en Apps Script
 
-try{
-
-const r =
-await fetch(
-API + "?q=" + encodeURIComponent(valor)
-);
-
-const datos =
-await r.json();
-
-if(datos.tipo === "caja"){
-
-mostrarCaja(
-datos.caja,
-datos.equipos
-);
-
-return;
-
-}
-
-}catch(error){
+catch(error){
 
 console.error(error);
 
