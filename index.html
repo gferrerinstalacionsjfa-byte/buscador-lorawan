@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Gestión LoRaWAN</title>
-
+  
+<script src="https://unpkg.com/@zxing/library@latest"></script>
+  
 <style>
 
 body{
@@ -96,6 +98,14 @@ onkeydown="if(event.key==='Enter') buscar()"
 
 <button onclick="buscar()">Buscar</button>
 
+  <button onclick="probarEscaner()">
+📷 Probar lector
+</button>
+
+<div id="scanner" style="display:none;">
+  <video id="video" width="320"></video>
+</div>
+  
 <div id="resultado"></div>
 
 <script>
@@ -457,7 +467,46 @@ alert("Error de comunicación");
 
 }
 
+async function probarEscaner(){
+
+  const scanner =
+    document.getElementById("scanner");
+
+  scanner.style.display = "block";
+
+  const codeReader =
+    new ZXing.BrowserMultiFormatReader();
+
+  try{
+
+    const resultado =
+      await codeReader.decodeOnceFromVideoDevice(
+        undefined,
+        "video"
+      );
+
+    scanner.style.display = "none";
+
+    alert(
+      "Código leído:\n\n" +
+      resultado.text
+    );
+
+  }catch(error){
+
+    scanner.style.display = "none";
+
+    console.error(error);
+
+    alert("No se pudo leer el código");
+
+  }
+
 }
+
+    
+}
+
 async function cambiarEstado(codigo,accion){
 
 const equipo =
