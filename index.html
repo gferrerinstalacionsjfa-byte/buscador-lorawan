@@ -5,31 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Gestión LoRaWAN</title>
   
-<script src="https://unpkg.com/html5-qrcode">
-window.addEventListener("hashchange", () => {
-
-  const codigo =
-    location.hash
-      .replace("#","")
-      .toUpperCase();
-
-  if(!codigo) return;
-
-  const equipo =
-    equipos.find(e =>
-      String(e.codigo || "").toUpperCase() === codigo
-    );
-
-  if(equipo){
-    mostrarEquipo(equipo);
-  }else{
-    document.getElementById("busqueda").value = codigo;
-    buscar();
-  }
-
-});
-  
-</script>
+<script src="https://unpkg.com/html5-qrcode"></script>
   
 <style>
 
@@ -777,7 +753,37 @@ alert("Error de comunicación");
 }
 
 }
+window.addEventListener("hashchange", () => {
 
+  console.log(
+    "HASH CAMBIADO",
+    location.hash
+  );
+
+  const codigo =
+    location.hash
+      .replace("#","")
+      .toUpperCase();
+
+  if(!codigo) return;
+
+  const equipo =
+    equipos.find(e =>
+      String(e.codigo || "").toUpperCase() === codigo
+    );
+
+  console.log(
+    "EQUIPO",
+    equipo
+  );
+
+  if(equipo){
+
+    mostrarEquipo(equipo);
+
+  }
+
+});
 </script>
 
 </body>
