@@ -540,17 +540,31 @@ async function escanearSerieSonda(codigo){
 
       async (decodedText)=>{
 
-        await html5QrCode.stop();
+  if(decodedText.length < 8){
+    return;
+  }
 
-        document.getElementById(
-          "scannerModal"
-        ).style.display = "none";
+  const confirmar =
+    confirm(
+      "¿Guardar esta serie?\n\n" +
+      decodedText
+    );
 
-        const url =
-          API +
-          "?accion=serieSonda" +
-          "&fila=" + encodeURIComponent(equipo.fila) +
-          "&serie=" + encodeURIComponent(decodedText);
+  if(!confirmar){
+    return;
+  }
+
+  await html5QrCode.stop();
+
+  document.getElementById(
+    "scannerModal"
+  ).style.display = "none";
+
+  const url =
+    API +
+    "?accion=serieSonda" +
+    "&fila=" + encodeURIComponent(equipo.fila) +
+    "&serie=" + encodeURIComponent(decodedText);
 
         const r =
           await fetch(url);
