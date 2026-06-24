@@ -98,9 +98,6 @@ onkeydown="if(event.key==='Enter') buscar()"
 
 <button onclick="buscar()">Buscar</button>
 
-  <button onclick="probarEscaner()">
-📷 Probar lector
-</button>
 
 <button onclick="seleccionarCamara()">
 ⚙️ Seleccionar cámara
@@ -384,7 +381,11 @@ Almacén
 </button>
 
 <button onclick="asignarSerieSonda('${equipo.codigo}')">
-📝 Asignar serie sonda
+✏️ Manual
+</button>
+
+<button onclick="escanearSerieSonda('${equipo.codigo}')">
+📷 Escanear
 </button>
 
 </div>
