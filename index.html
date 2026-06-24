@@ -106,8 +106,12 @@ onkeydown="if(event.key==='Enter') buscar()"
 ⚙️ Seleccionar cámara
 </button>
 
-<div id="scanner" style="display:none;">
-  <video id="video" width="320"></video>
+<div id="scanner"
+     style="
+       display:none;
+       max-width:400px;
+       margin:20px auto;
+     ">
 </div>
   
 <div id="resultado"></div>
