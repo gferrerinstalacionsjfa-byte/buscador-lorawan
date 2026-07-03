@@ -190,8 +190,8 @@ equipos.filter(e=>e.estado==="Retirado").length;
 const instalado =
 equipos.filter(e=>e.estado==="Instalado").length;
 
-const averia =
-equipos.filter(e=>e.estado==="Avería").length;
+const noInstalar =
+equipos.filter(e=>e.estado==="No instalar").length;
 
 document.getElementById("stats").innerHTML =
 
@@ -208,7 +208,7 @@ document.getElementById("stats").innerHTML =
 🔵 Instalado: ${instalado}
 <br>
 
-🔴 Avería: ${averia}
+🚫 No instalar: ${noInstalar}
 `;
 
 }
@@ -218,7 +218,7 @@ function claseEstado(estado){
 if(estado==="Almacén") return "almacen";
 if(estado==="Retirado") return "retirado";
 if(estado==="Instalado") return "instalado";
-if(estado==="Avería") return "averia";
+if(estado==="No instalar") return "averia";
 
 return "";
 
@@ -453,8 +453,8 @@ Retirar
 Instalar
 </button>
 
-<button onclick="cambiarEstado('${equipo.codigo}','averia')">
-Avería
+<button onclick="cambiarEstado('${equipo.codigo}','noinstalar')">
+🚫 No instalar
 </button>
 
 <button onclick="cambiarEstado('${equipo.codigo}','almacen')">
@@ -774,8 +774,8 @@ equipo.estado="Retirado";
 if(accion==="instalado")
 equipo.estado="Instalado";
 
-if(accion==="averia")
-equipo.estado="Avería";
+if(accion==="noinstalar")
+equipo.estado="No instalar";
 
 if(accion==="almacen")
 equipo.estado="Almacén";
