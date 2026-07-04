@@ -199,24 +199,28 @@ document.getElementById("stats").innerHTML =
 <b>Total:</b> ${equipos.length}
 <br><br>
 
-<span onclick="filtrarEstado('Almacén')" style="cursor:pointer;">
+<div onclick="filtrarEstado('Almacén')"
+     style="cursor:pointer;padding:8px;border-radius:6px;">
 🟢 Almacén (${almacen})
-</span>
+</div>
 <br>
 
-<span onclick="filtrarEstado('Retirado')" style="cursor:pointer;">
+<div onclick="filtrarEstado('Retirado')"
+     style="cursor:pointer;padding:8px;border-radius:6px;">
 🟠 Retirado (${retirado})
-</span>
+</div>
 <br>
 
-<span onclick="filtrarEstado('Instalado')" style="cursor:pointer;">
+<div onclick="filtrarEstado('Instalado')"
+     style="cursor:pointer;padding:8px;border-radius:6px;">
 🔵 Instalado (${instalado})
-</span>
+</div>
 <br>
 
-<span onclick="filtrarEstado('No instalar')" style="cursor:pointer;">
+<div onclick="filtrarEstado('No instalar')"
+     style="cursor:pointer;padding:8px;border-radius:6px;">
 🚫 No instalar (${noInstalar})
-</span>
+</div>
 `;
 
 }
