@@ -149,6 +149,8 @@ const API =
 let equipos = [];
 const PASSWORD = "JFA2026";
 
+let html5QrCode = null;
+  
 let admin =
 localStorage.getItem("admin") === "si";
   
@@ -660,8 +662,12 @@ async function escanearSerieSonda(codigo){
     "scannerModal"
   ).style.display = "block";
 
-  const html5QrCode =
-    new Html5Qrcode("scanner");
+ if(!html5QrCode){
+
+    html5QrCode =
+        new Html5Qrcode("scanner");
+
+}
 
   const cameraId =
     localStorage.getItem("cameraId");
@@ -695,12 +701,15 @@ async function escanearSerieSonda(codigo){
     return;
   }
 
-  await html5QrCode.stop();
+ await html5QrCode.stop();
+await html5QrCode.clear();
 
-  document.getElementById(
-    "scannerModal"
-  ).style.display = "none";
+html5QrCode = null;
 
+document.getElementById(
+  "scannerModal"
+).style.display = "none";
+        
   const url =
     API +
     "?accion=serieSonda" +
@@ -792,7 +801,32 @@ async function seleccionarCamara(){
 
 }
 
-function cerrarEscaner(){
+async function cerrarEscaner(){
+
+  try{
+
+    if(
+      html5QrCode &&
+      html5QrCode.isScanning
+    ){
+
+      await html5QrCode.stop();
+
+    }
+
+    if(html5QrCode){
+
+      await html5QrCode.clear();
+
+      html5QrCode = null;
+
+    }
+
+  }catch(error){
+
+    console.log(error);
+
+  }
 
   document.getElementById(
     "scannerModal"
