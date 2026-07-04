@@ -199,16 +199,24 @@ document.getElementById("stats").innerHTML =
 <b>Total:</b> ${equipos.length}
 <br><br>
 
-🟢 Almacén: ${almacen}
+<span onclick="filtrarEstado('Almacén')" style="cursor:pointer;">
+🟢 Almacén (${almacen})
+</span>
 <br>
 
-🟠 Retirado: ${retirado}
+<span onclick="filtrarEstado('Retirado')" style="cursor:pointer;">
+🟠 Retirado (${retirado})
+</span>
 <br>
 
-🔵 Instalado: ${instalado}
+<span onclick="filtrarEstado('Instalado')" style="cursor:pointer;">
+🔵 Instalado (${instalado})
+</span>
 <br>
 
-🚫 No instalar: ${noInstalar}
+<span onclick="filtrarEstado('No instalar')" style="cursor:pointer;">
+🚫 No instalar (${noInstalar})
+</span>
 `;
 
 }
@@ -382,6 +390,54 @@ html;
   document.getElementById(
     "resultado"
   ).innerHTML = html;
+
+}
+
+  function filtrarEstado(estado){
+
+  const lista =
+    equipos.filter(e => e.estado === estado);
+
+  let html =
+    `<h3>${estado}</h3>
+     <p>Total equipos: <b>${lista.length}</b></p>`;
+
+  lista.forEach(e=>{
+
+    html += `
+      <div class="equipo">
+
+        <b>${e.codigo}</b>
+
+        <br>
+
+        ${e.deveui}
+
+        <br>
+
+        🔧 ${e.tipoSonda || "-"}
+
+        <br>
+
+        📏 ${e.metraje || "-"} m
+
+        <br>
+
+        🏷️ ${e.serieSonda || "❌ Sin asignar"}
+
+        <br>
+
+        <span class="${claseEstado(e.estado)}">
+          ${e.estado}
+        </span>
+
+      </div>
+    `;
+
+  });
+
+  document.getElementById("resultado").innerHTML =
+    html;
 
 }
   
