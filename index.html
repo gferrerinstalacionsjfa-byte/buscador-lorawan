@@ -466,6 +466,69 @@ main{
   overflow:hidden;
 }
 
+/* ---------- Modal de instalación ---------- */
+
+#instalarModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(16,36,43,0.72);
+  z-index:9999;
+  padding:20px;
+  overflow-y:auto;
+}
+
+.instalar-box{
+  max-width:440px;
+  margin:30px auto;
+  background:var(--surface);
+  padding:20px;
+  border-radius:var(--radius);
+}
+
+.instalar-box h3{margin-top:0;}
+
+.campo-form{
+  margin-bottom:14px;
+  text-align:left;
+}
+
+.campo-form label{
+  display:block;
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--ink-soft);
+  margin-bottom:5px;
+}
+
+.campo-form input,
+.campo-form textarea{
+  width:100%;
+  padding:10px;
+  font-family:var(--sans);
+  font-size:14px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--bg);
+  color:var(--ink);
+  box-sizing:border-box;
+}
+
+.campo-form textarea{resize:vertical;}
+
+.instalar-estado{
+  font-size:13px;
+  color:var(--ink-soft);
+  min-height:18px;
+  margin-bottom:8px;
+}
+
+.instalar-acciones{
+  display:flex;
+  gap:8px;
+  justify-content:flex-end;
+}
+
 @media (max-width:520px){
   .topbar-inner{padding:10px 14px;}
   main{padding:14px;}
@@ -528,6 +591,39 @@ main{
     <div id="scanner"></div>
     <br>
     <button class="btn btn-outline" onclick="cerrarEscaner()">❌ Tancar</button>
+  </div>
+</div>
+
+<div id="instalarModal">
+  <div class="instalar-box">
+    <h3 id="instalarTitulo">Instal·lar sonda</h3>
+
+    <div class="campo-form">
+      <label for="inpFoto">📷 Foto del muntatge</label>
+      <input type="file" id="inpFoto" accept="image/*" capture="environment">
+    </div>
+
+    <div class="campo-form">
+      <label for="inpCobertura">📶 Fitxer de cobertura (CSV del medidor)</label>
+      <input type="file" id="inpCobertura" accept=".csv,text/csv">
+    </div>
+
+    <div class="campo-form">
+      <label for="inpCableFinsCota">📏 Cable fins cota (metres)</label>
+      <input type="number" id="inpCableFinsCota" step="0.01" inputmode="decimal">
+    </div>
+
+    <div class="campo-form">
+      <label for="inpObservacions">📝 Observacions (opcional)</label>
+      <textarea id="inpObservacions" rows="3"></textarea>
+    </div>
+
+    <div id="instalarEstado" class="instalar-estado"></div>
+
+    <div class="instalar-acciones">
+      <button class="btn btn-outline" onclick="cerrarModalInstalacion()">Cancel·lar</button>
+      <button class="btn btn-primary" onclick="confirmarInstalacion()">Guardar i marcar instal·lat</button>
+    </div>
   </div>
 </div>
 
@@ -773,7 +869,7 @@ function mostrarEquipo(equipo){
       ${admin ? `
         <div class="ficha-acciones">
           <button class="btn btn-outline warn" onclick="cambiarEstado('${equipo.codigo}','retirar')">Retirar</button>
-          <button class="btn btn-outline info" onclick="cambiarEstado('${equipo.codigo}','instalado')">Instal·lar</button>
+          <button class="btn btn-outline info" onclick="abrirModalInstalacion('${equipo.codigo}')">Instal·lar</button>
           <button class="btn btn-outline danger" onclick="cambiarEstado('${equipo.codigo}','noinstalar')">🚫 No instal·lar</button>
           <button class="btn btn-outline ok" onclick="cambiarEstado('${equipo.codigo}','almacen')">Magatzem</button>
           <button class="btn btn-ghost" onclick="asignarSerieSonda('${equipo.codigo}')">✏️ Manual</button>
@@ -996,6 +1092,113 @@ async function cambiarEstado(codigo,accion){
     console.error(error);
     alert("Error de comunicació");
   }
+}
+
+// ============================================================
+// Instalación completa: foto + cobertura + cable fins cota + observacions
+// en un solo envío (sustituye a la llamada directa a cambiarEstado)
+// ============================================================
+
+let codigoEnInstalacion = null;
+
+function abrirModalInstalacion(codigo){
+
+  codigoEnInstalacion = codigo;
+
+  document.getElementById("instalarTitulo").textContent = "Instal·lar " + codigo;
+  document.getElementById("inpFoto").value = "";
+  document.getElementById("inpCobertura").value = "";
+  document.getElementById("inpCableFinsCota").value = "";
+  document.getElementById("inpObservacions").value = "";
+  document.getElementById("instalarEstado").textContent = "";
+
+  document.getElementById("instalarModal").style.display = "block";
+}
+
+function cerrarModalInstalacion(){
+  document.getElementById("instalarModal").style.display = "none";
+  codigoEnInstalacion = null;
+}
+
+// Convierte un File a base64 puro (sin el prefijo data:...;base64,)
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function confirmarInstalacion(){
+
+  const equipo = equipos.find(e => e.codigo === codigoEnInstalacion);
+  if(!equipo) return;
+
+  const usuario = obtenerUsuario();
+  if(!usuario) return;
+
+  const estadoDiv = document.getElementById("instalarEstado");
+  estadoDiv.textContent = "Pujant dades…";
+
+  const ficheroFoto = document.getElementById("inpFoto").files[0];
+  const ficheroCobertura = document.getElementById("inpCobertura").files[0];
+  const cableFinsCota = document.getElementById("inpCableFinsCota").value.trim();
+  const observacions = document.getElementById("inpObservacions").value.trim();
+
+  const payload = {
+    accion: "instalado",
+    clave: PASSWORD,
+    fila: equipo.fila,
+    codigo: equipo.codigo,
+    deveui: equipo.deveui,
+    usuario: usuario,
+    cableFinsCota: cableFinsCota,
+    observacions: observacions
+  };
+
+  try{
+
+    if(ficheroFoto){
+      payload.fotoBase64 = await fileToBase64(ficheroFoto);
+      payload.fotoNombre = equipo.codigo + "_" + Date.now() + "_" + ficheroFoto.name;
+      payload.fotoMime = ficheroFoto.type || "image/jpeg";
+    }
+
+    if(ficheroCobertura){
+      payload.coberturaBase64 = await fileToBase64(ficheroCobertura);
+      payload.coberturaNombre = equipo.codigo + "_" + Date.now() + "_" + ficheroCobertura.name;
+      payload.coberturaMime = ficheroCobertura.type || "text/csv";
+    }
+
+    // Content-Type text/plain evita el preflight OPTIONS, que Apps Script no gestiona bien
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+
+    const respuesta = await r.text();
+
+    if(respuesta === "OK"){
+
+      equipo.estado = "Instalado";
+      equipo.usuario = usuario;
+      equipo.fecha = new Date().toLocaleString();
+
+      actualizarStats();
+      cerrarModalInstalacion();
+      mostrarEquipo(equipo);
+
+    }else{
+      estadoDiv.textContent = "Error: " + respuesta;
+    }
+
+  }catch(error){
+    console.error(error);
+    estadoDiv.textContent = "Error de comunicació. Torna-ho a provar.";
+  }
+
 }
 
 window.addEventListener("hashchange", () => {
