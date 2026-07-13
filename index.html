@@ -1,76 +1,474 @@
 <!DOCTYPE html>
-<html>
+<html lang="ca">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Gestión LoRaWAN</title>
-  
+<title>Inventari LoRaWAN · Instalacions JFA</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 <script src="https://unpkg.com/html5-qrcode"></script>
-  
+
 <style>
 
+:root{
+  --bg:#EEF2F1;
+  --surface:#FFFFFF;
+  --ink:#10242B;
+  --ink-soft:#56686D;
+  --ink-faint:#8B9A9D;
+  --line:#DCE4E2;
+  --accent:#0E7C86;
+  --accent-dark:#0A5F67;
+  --accent-soft:#E1F1F1;
+  --ok:#1F8A4C;
+  --ok-soft:#E5F5EA;
+  --warn:#B7791F;
+  --warn-soft:#FBF0DE;
+  --info:#2563AF;
+  --info-soft:#E4EDF9;
+  --danger:#B3261E;
+  --danger-soft:#FBE7E5;
+  --radius:10px;
+  --radius-sm:7px;
+  --shadow:0 1px 2px rgba(16,36,43,0.06),0 6px 16px rgba(16,36,43,0.06);
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+}
+
+*{box-sizing:border-box;}
+
 body{
-font-family:Arial,sans-serif;
-max-width:1000px;
-margin:auto;
-padding:20px;
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--ink);
+  margin:0;
+  padding-bottom:60px;
+  -webkit-font-smoothing:antialiased;
 }
 
-input{
-width:100%;
-padding:15px;
-font-size:20px;
-box-sizing:border-box;
+a{color:inherit;}
+
+/* ---------- Barra superior ---------- */
+
+.topbar{
+  background:var(--surface);
+  border-bottom:1px solid var(--line);
+  position:sticky;
+  top:0;
+  z-index:50;
 }
 
-button{
-padding:12px;
-font-size:16px;
-cursor:pointer;
-margin:4px;
+.topbar-inner{
+  max-width:960px;
+  margin:auto;
+  padding:12px 20px;
+  display:flex;
+  align-items:center;
+  gap:16px;
+  flex-wrap:wrap;
 }
 
-#resultado{
-margin-top:20px;
-padding:20px;
-border:1px solid #ccc;
-border-radius:8px;
+.brand{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  margin-right:auto;
 }
 
-.equipo{
-padding:10px;
-border-bottom:1px solid #eee;
+.brand-mark{
+  font-family:var(--mono);
+  font-weight:600;
+  font-size:14px;
+  letter-spacing:0.06em;
+  background:var(--ink);
+  color:var(--surface);
+  padding:3px 7px;
+  border-radius:5px;
 }
 
-.stats{
-padding:15px;
-border:1px solid #ddd;
-border-radius:8px;
-margin-bottom:15px;
+.brand-name{
+  font-weight:600;
+  font-size:15px;
+  color:var(--ink-soft);
 }
 
-.almacen{
-color:green;
-font-weight:bold;
+.app-switch{
+  display:flex;
+  background:var(--bg);
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:3px;
+  gap:2px;
 }
 
-.retirado{
-color:orange;
-font-weight:bold;
+.app-tab{
+  text-decoration:none;
+  font-size:13px;
+  font-weight:600;
+  padding:7px 14px;
+  border-radius:999px;
+  color:var(--ink-soft);
+  transition:background .15s ease,color .15s ease;
 }
 
-.instalado{
-color:blue;
-font-weight:bold;
+.app-tab.activa{
+  background:var(--ink);
+  color:var(--surface);
 }
 
-.averia{
-color:red;
-font-weight:bold;
+.app-tab:not(.activa):hover{
+  background:var(--surface);
 }
 
-.acciones{
-margin-top:20px;
+/* ---------- Botones ---------- */
+
+.btn{
+  font-family:var(--sans);
+  font-size:14px;
+  font-weight:600;
+  padding:10px 16px;
+  border-radius:var(--radius-sm);
+  border:1px solid transparent;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  line-height:1;
+}
+
+.btn-ghost{
+  background:transparent;
+  border-color:var(--line);
+  color:var(--ink-soft);
+}
+.btn-ghost:hover{background:var(--bg);}
+
+.btn-primary{
+  background:var(--accent);
+  color:#fff;
+}
+.btn-primary:hover{background:var(--accent-dark);}
+
+.btn-outline{
+  background:var(--surface);
+  border-color:var(--line);
+  color:var(--ink);
+}
+.btn-outline:hover{border-color:var(--ink-faint);}
+
+.btn-outline.ok{color:var(--ok);border-color:#BFE2CC;}
+.btn-outline.warn{color:var(--warn);border-color:#EED6A8;}
+.btn-outline.danger{color:var(--danger);border-color:#EFC3BF;}
+.btn-outline.info{color:var(--info);border-color:#C3D6F0;}
+
+.btn-block{width:100%;justify-content:center;}
+
+/* ---------- Contenido ---------- */
+
+main{
+  max-width:960px;
+  margin:auto;
+  padding:20px;
+}
+
+.toolbar-row{
+  display:flex;
+  gap:8px;
+  margin-bottom:16px;
+  flex-wrap:wrap;
+}
+
+.search-wrap{
+  position:relative;
+  flex:1 1 260px;
+}
+
+.search-wrap input{
+  width:100%;
+  padding:13px 14px;
+  font-size:16px;
+  font-family:var(--sans);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--surface);
+  color:var(--ink);
+}
+
+.search-wrap input:focus{
+  outline:2px solid var(--accent);
+  outline-offset:-1px;
+}
+
+/* ---------- Panel de estadísticas ---------- */
+
+.stats-card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:16px;
+  margin-bottom:18px;
+}
+
+.stats-card.cargando{opacity:.55;pointer-events:none;}
+
+.stats-total{
+  font-size:13px;
+  color:var(--ink-soft);
+  margin-bottom:12px;
+}
+
+.stats-total b{
+  color:var(--ink);
+  font-family:var(--mono);
+  font-size:15px;
+}
+
+.stats-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:10px;
+}
+
+.stat-tile{
+  cursor:pointer;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:12px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  background:var(--bg);
+  transition:transform .1s ease,box-shadow .1s ease;
+}
+
+.stat-tile:hover{
+  transform:translateY(-1px);
+  box-shadow:var(--shadow);
+}
+
+.stat-tile .n{
+  font-family:var(--mono);
+  font-size:22px;
+  font-weight:600;
+}
+
+.stat-tile .lbl{
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--ink-soft);
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  display:inline-block;
+  flex:none;
+}
+
+.tile-almacen .dot,.pill-almacen .dot{background:var(--ok);}
+.tile-retirado .dot,.pill-retirado .dot{background:var(--warn);}
+.tile-instalado .dot,.pill-instalado .dot{background:var(--info);}
+.tile-averia .dot,.pill-averia .dot{background:var(--danger);}
+
+/* ---------- Selector de cámara ---------- */
+
+.controls-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-bottom:20px;
+}
+
+#cameraSelectWrap select{
+  padding:9px 10px;
+  font-size:14px;
+  font-family:var(--sans);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--surface);
+}
+
+/* ---------- Pills de estado ---------- */
+
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:12.5px;
+  font-weight:600;
+  padding:4px 10px;
+  border-radius:999px;
+  background:var(--bg);
+  border:1px solid var(--line);
+}
+
+.pill-almacen{color:var(--ok);background:var(--ok-soft);border-color:transparent;}
+.pill-retirado{color:var(--warn);background:var(--warn-soft);border-color:transparent;}
+.pill-instalado{color:var(--info);background:var(--info-soft);border-color:transparent;}
+.pill-averia{color:var(--danger);background:var(--danger-soft);border-color:transparent;}
+
+/* ---------- Listas de equipos ---------- */
+
+.lista-header{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  margin-bottom:10px;
+}
+
+.lista-header h3{
+  margin:0;
+  font-size:16px;
+}
+
+.lista-header .count{
+  font-size:12.5px;
+  color:var(--ink-soft);
+  font-family:var(--mono);
+}
+
+.equipo-card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:12px 14px;
+  margin-bottom:8px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.equipo-card:hover{border-color:var(--ink-faint);}
+
+.equipo-card .codigo{
+  font-family:var(--mono);
+  font-weight:600;
+  font-size:14px;
+}
+
+.equipo-card .meta{
+  font-size:12.5px;
+  color:var(--ink-soft);
+}
+
+.equipo-card .meta span{margin-right:10px;}
+
+/* ---------- Ficha de equipo ---------- */
+
+.ficha{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+
+.ficha-head{
+  padding:16px 18px;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.ficha-head .codigo-grande{
+  font-family:var(--mono);
+  font-size:20px;
+  font-weight:600;
+}
+
+.ficha-head .deveui{
+  font-family:var(--mono);
+  font-size:12.5px;
+  color:var(--ink-soft);
+  margin-top:2px;
+}
+
+.ficha-body{
+  padding:16px 18px;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:14px;
+}
+
+.campo .k{
+  font-size:11.5px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  color:var(--ink-faint);
+  font-weight:600;
+  margin-bottom:3px;
+}
+
+.campo .v{
+  font-size:14.5px;
+  font-family:var(--mono);
+}
+
+.ficha-caja{
+  font-size:13px;
+  color:var(--ink-soft);
+  padding:0 18px 4px;
+}
+
+.ficha-acciones{
+  padding:14px 18px 18px;
+  border-top:1px solid var(--line);
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.no-encontrado{
+  text-align:center;
+  padding:40px 20px;
+  color:var(--ink-soft);
+}
+
+/* ---------- Modal escáner ---------- */
+
+#scannerModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(16,36,43,0.72);
+  z-index:9999;
+  padding:20px;
+}
+
+.scanner-box{
+  max-width:440px;
+  margin:40px auto;
+  background:var(--surface);
+  padding:20px;
+  border-radius:var(--radius);
+  text-align:center;
+}
+
+.scanner-box h3{margin-top:0;}
+
+#scanner{
+  border-radius:var(--radius-sm);
+  overflow:hidden;
+}
+
+@media (max-width:520px){
+  .topbar-inner{padding:10px 14px;}
+  main{padding:14px;}
 }
 
 </style>
@@ -79,868 +477,537 @@ margin-top:20px;
 
 <body>
 
-<h2>Gestión Emisores LoRaWAN</h2>
-  <div style="margin-bottom:15px;">
-    <button id="btnAdmin" onclick="loginAdmin()">
-        🔓 Modo consulta
-    </button>
-</div>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-mark">JFA</span>
+      <span class="brand-name">Instalacions</span>
+    </div>
 
-<div id="stats" class="stats">
-Cargando inventario...
-</div>
+    <nav class="app-switch">
+      <a class="app-tab activa" href="https://inventari.instalacionsjfa.com">Inventari</a>
+      <a class="app-tab" href="https://nivell.instalacionsjfa.com">Nivell freàtic</a>
+    </nav>
 
-<input
-id="busqueda"
-placeholder="Código, DevEUI o Caja"
-onkeydown="if(event.key==='Enter') buscar()"
->
+    <button id="btnAdmin" class="btn btn-ghost" onclick="loginAdmin()">🔓 Consulta</button>
+  </div>
+</header>
 
-<button onclick="buscar()">Buscar</button>
+<main>
 
-
-<button onclick="seleccionarCamara()">
-⚙️ Seleccionar cámara
-</button>
-
-<div id="scannerModal"
-     style="
-       display:none;
-       position:fixed;
-       top:0;
-       left:0;
-       width:100%;
-       height:100%;
-       background:rgba(0,0,0,0.8);
-       z-index:9999;
-     ">
-
-  <div
-    style="
-      max-width:500px;
-      margin:30px auto;
-      background:white;
-      padding:15px;
-      border-radius:10px;
-      text-align:center;
-    ">
-
-    <h3>Escanear código</h3>
-
-    <div id="scanner"></div>
-
-    <br>
-
-    <button onclick="cerrarEscaner()">
-      ❌ Cerrar
-    </button>
-
+  <div class="toolbar-row">
+    <div class="search-wrap">
+      <input
+        id="busqueda"
+        placeholder="Codi, DevEUI o número de caixa"
+        onkeydown="if(event.key==='Enter') buscar()"
+      >
+    </div>
+    <button class="btn btn-primary" onclick="buscar()">Cercar</button>
+    <button class="btn btn-outline" onclick="actualizarDatos()">🔄 Actualitzar</button>
   </div>
 
+  <div id="statsCard" class="stats-card">
+    <div id="stats">Carregant inventari…</div>
+  </div>
+
+  <div class="controls-row">
+    <button class="btn btn-outline" onclick="seleccionarCamara()">⚙️ Seleccionar càmera</button>
+    <div id="cameraSelectWrap" style="display:none;">
+      <select id="cameraSelect" onchange="guardarCamaraSeleccionada()"></select>
+    </div>
+  </div>
+
+  <div id="resultado"></div>
+
+</main>
+
+<div id="scannerModal">
+  <div class="scanner-box">
+    <h3>Escanejar codi</h3>
+    <div id="scanner"></div>
+    <br>
+    <button class="btn btn-outline" onclick="cerrarEscaner()">❌ Tancar</button>
+  </div>
 </div>
-  
-<div id="resultado"></div>
 
 <script>
 
 const API =
 "https://script.google.com/macros/s/AKfycbzz8jwBBYvxLJBdYlf6OrTzPBKK_ojTu4D5w2LZsxVMksLo3-WBk6EUFIFBEWTEVBKNzA/exec";
 
-let equipos = [];
+// ⚠️ IMPORTANTE SOBRE SEGURIDAD (leer antes de usar en producción):
+// Esta contraseña solo controla qué botones se MUESTRAN en el navegador.
+// Como esta web es un archivo estático (GitHub Pages), cualquiera puede
+// abrir "ver código fuente" y ver tanto esta contraseña como la URL de
+// tu Apps Script. Por eso cada acción que modifica datos envía ahora
+// también un parámetro "clave". PERO la protección real solo existe si
+// tu Apps Script COMPRUEBA ese valor y rechaza la petición si no coincide.
+// Añade algo así al principio de la función que gestiona "accion" en tu
+// Apps Script (function doGet(e){ ... }):
+//
+//   const CLAVE_VALIDA = "JFA2026"; // debe coincidir con la de aquí abajo
+//   const accionesQueEscriben = ["retirar","instalado","noinstalar","almacen","serieSonda"];
+//   if (accionesQueEscriben.includes(e.parameter.accion) && e.parameter.clave !== CLAVE_VALIDA) {
+//     return ContentService.createTextOutput("ERROR: no autorizado");
+//   }
+//
+// Sin ese cambio en el backend, cualquiera que conozca la URL de la API
+// puede modificar el inventario directamente, sin pasar por esta web.
 const PASSWORD = "JFA2026";
 
+// Longitud que debe tener una serie de sonda válida al escanearla por QR
+const LONGITUD_SERIE_VALIDA = 7;
+
+let equipos = [];
 let html5QrCode = null;
-  
-let admin =
-localStorage.getItem("admin") === "si";
-  
+let admin = localStorage.getItem("admin") === "si";
+let usuarioActual = localStorage.getItem("usuarioActual") || "";
+let camarasDisponibles = [];
+
+function escapeHtml(valor){
+  return String(valor ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#39;");
+}
+
 window.onload = async () => {
+  actualizarModoAdmin();
+  await cargarDatos();
 
-    actualizarModoAdmin();
-
-    const r = await fetch(API);
-
-    equipos = await r.json();
-
-    actualizarStats();
-
-    const codigo =
-      location.hash
-      .replace("#","")
-      .toUpperCase();
-
-    if(codigo){
-
-      document.getElementById(
-        "busqueda"
-      ).value = codigo;
-
-      buscar();
-
-    }
-
+  const codigo = location.hash.replace("#","").toUpperCase();
+  if(codigo){
+    document.getElementById("busqueda").value = codigo;
+    buscar();
+  }
 };
+
+async function cargarDatos(){
+  const card = document.getElementById("statsCard");
+  const stats = document.getElementById("stats");
+
+  card.classList.add("cargando");
+
+  try{
+    const r = await fetch(API);
+    equipos = await r.json();
+    actualizarStats();
+  }catch(error){
+    console.error(error);
+    stats.innerHTML =
+      "⚠️ No s'ha pogut carregar l'inventari. " +
+      "<button class=\"btn btn-outline\" onclick=\"cargarDatos()\">Reintentar</button>";
+  }finally{
+    card.classList.remove("cargando");
+  }
+}
+
+async function actualizarDatos(){
+  await cargarDatos();
+
+  const codigo = location.hash.replace("#","").toUpperCase();
+  if(codigo){
+    const equipo = equipos.find(e => String(e.codigo||"").toUpperCase() === codigo);
+    if(equipo){ mostrarEquipo(equipo); }
+  }
+}
 
 function actualizarStats(){
 
-const almacen =
-equipos.filter(e=>e.estado==="Almacén").length;
+  const almacen = equipos.filter(e=>e.estado==="Almacén").length;
+  const retirado = equipos.filter(e=>e.estado==="Retirado").length;
+  const instalado = equipos.filter(e=>e.estado==="Instalado").length;
+  const noInstalar = equipos.filter(e=>e.estado==="No instalar").length;
 
-const retirado =
-equipos.filter(e=>e.estado==="Retirado").length;
+  document.getElementById("stats").innerHTML = `
+    <div class="stats-total">Total inventariat: <b>${equipos.length}</b></div>
+    <div class="stats-grid">
 
-const instalado =
-equipos.filter(e=>e.estado==="Instalado").length;
+      <div class="stat-tile tile-almacen" onclick="filtrarEstado('Almacén')">
+        <span class="n">${almacen}</span>
+        <span class="lbl"><span class="dot"></span>Magatzem</span>
+      </div>
 
-const noInstalar =
-equipos.filter(e=>e.estado==="No instalar").length;
+      <div class="stat-tile tile-retirado" onclick="filtrarEstado('Retirado')">
+        <span class="n">${retirado}</span>
+        <span class="lbl"><span class="dot"></span>Retirat</span>
+      </div>
 
-document.getElementById("stats").innerHTML =
+      <div class="stat-tile tile-instalado" onclick="filtrarEstado('Instalado')">
+        <span class="n">${instalado}</span>
+        <span class="lbl"><span class="dot"></span>Instal·lat</span>
+      </div>
 
-`
-<b>Total:</b> ${equipos.length}
-<br><br>
+      <div class="stat-tile tile-averia" onclick="filtrarEstado('No instalar')">
+        <span class="n">${noInstalar}</span>
+        <span class="lbl"><span class="dot"></span>No instal·lar</span>
+      </div>
 
-<div onclick="filtrarEstado('Almacén')"
-     style="cursor:pointer;padding:8px;border-radius:6px;">
-🟢 Almacén (${almacen})
-</div>
-<br>
-
-<div onclick="filtrarEstado('Retirado')"
-     style="cursor:pointer;padding:8px;border-radius:6px;">
-🟠 Retirado (${retirado})
-</div>
-<br>
-
-<div onclick="filtrarEstado('Instalado')"
-     style="cursor:pointer;padding:8px;border-radius:6px;">
-🔵 Instalado (${instalado})
-</div>
-<br>
-
-<div onclick="filtrarEstado('No instalar')"
-     style="cursor:pointer;padding:8px;border-radius:6px;">
-🚫 No instalar (${noInstalar})
-</div>
-`;
-
+    </div>
+  `;
 }
 
 function claseEstado(estado){
-
-if(estado==="Almacén") return "almacen";
-if(estado==="Retirado") return "retirado";
-if(estado==="Instalado") return "instalado";
-if(estado==="No instalar") return "averia";
-
-return "";
-
+  if(estado==="Almacén") return "almacen";
+  if(estado==="Retirado") return "retirado";
+  if(estado==="Instalado") return "instalado";
+  if(estado==="No instalar") return "averia";
+  return "";
 }
 
-async function buscar(){
+function buscar(){
+  const valor = document.getElementById("busqueda").value.trim().toUpperCase();
+  if(!valor) return;
 
-const valor =
-document.getElementById("busqueda")
-.value
-.trim()
-.toUpperCase();
-
-if(!valor) return;
-
-// Buscar código o DevEUI localmente
-
-if(valor === "TODOS"){
-
-  mostrarTodos();
-
-  return;
-
-}
-  
-const equipo = equipos.find(e =>
-
-String(e.codigo || "").toUpperCase() === valor ||
-
-String(e.deveui || "").toUpperCase() === valor ||
-
-String(e.serieSonda || "").toUpperCase() === valor
-
-);
-
-if(equipo){
-
-mostrarEquipo(equipo);
-
-return;
-
-}
-const caja = Number(valor);
-
-if(!isNaN(caja)){
-
-  const listaCaja =
-    equipos.filter(
-      e => Number(e.caja) === caja
-    );
-
-  if(listaCaja.length){
-
-    mostrarCaja(
-      caja,
-      listaCaja
-    );
-
+  if(valor === "TODOS"){
+    renderLista(equipos, "Inventari complet");
     return;
-
   }
 
-}
-// Buscar caja en Apps Script
+  const equipo = equipos.find(e =>
+    String(e.codigo || "").toUpperCase() === valor ||
+    String(e.deveui || "").toUpperCase() === valor ||
+    String(e.serieSonda || "").toUpperCase() === valor
+  );
 
-document.getElementById("resultado").innerHTML =
-"<h3>No encontrado</h3>";
+  if(equipo){
+    mostrarEquipo(equipo);
+    return;
+  }
 
-}
-
-function mostrarCaja(caja,lista){
-
-let html =
-
-`
-<h3>📦 Caja ${caja}</h3>
-
-<p>Total equipos: <b>${lista.length}</b></p>
-`;
-
-lista.forEach(e=>{
-
-html +=
-
-`
-<div class="equipo">
-
-<b>${e.codigo}</b>
-
-<br>
-
-${e.deveui}
-
-<br>
-
-🔧 ${e.tipoSonda || "-"}
-
-<br>
-
-📏 ${e.metraje || "-"} m
-
-<br>
-
-🏷️ ${e.serieSonda || "❌ Sin asignar"}
-
-<br>
-
-<span class="${claseEstado(e.estado)}">
-${e.estado || "-"}
-</span>
-
-</div>
-`;
-
-});
-
-document.getElementById("resultado").innerHTML =
-html;
-
-}
-
-  function mostrarTodos(){
-
-  let html =
-    "<h3>Inventario completo</h3>";
-
-  equipos.forEach(e => {
-
-    html += `
-    <div class="equipo">
-
-      <b>${e.codigo}</b>
-
-      <br>
-
-      ${e.deveui}
-
-      <br>
-
-      🔧 ${e.tipoSonda || "-"}
-
-      <br>
-
-      📏 ${e.metraje || "-"} m
-
-      <br>
-
-      🏷️ ${e.serieSonda || "Sin asignar"}
-
-      <br>
-
-      <span class="${claseEstado(e.estado)}">
-        ${e.estado || "-"}
-      </span>
-
-    </div>
-    `;
-
-  });
-
-  document.getElementById(
-    "resultado"
-  ).innerHTML = html;
-
-}
-
-  function filtrarEstado(estado){
-
-  const lista =
-    equipos.filter(e => e.estado === estado);
-
-  let html =
-    `<h3>${estado}</h3>
-     <p>Total equipos: <b>${lista.length}</b></p>`;
-
-  lista.forEach(e=>{
-
-    html += `
-      <div class="equipo">
-
-        <b>${e.codigo}</b>
-
-        <br>
-
-        ${e.deveui}
-
-        <br>
-
-        🔧 ${e.tipoSonda || "-"}
-
-        <br>
-
-        📏 ${e.metraje || "-"} m
-
-        <br>
-
-        🏷️ ${e.serieSonda || "❌ Sin asignar"}
-
-        <br>
-
-        <span class="${claseEstado(e.estado)}">
-          ${e.estado}
-        </span>
-
-      </div>
-    `;
-
-  });
+  const caja = Number(valor);
+  if(!isNaN(caja)){
+    const listaCaja = equipos.filter(e => Number(e.caja) === caja);
+    if(listaCaja.length){
+      renderLista(listaCaja, `📦 Caixa ${caja}`);
+      return;
+    }
+  }
 
   document.getElementById("resultado").innerHTML =
-    html;
-
+    `<div class="no-encontrado">No s'ha trobat cap resultat per «${escapeHtml(valor)}»</div>`;
 }
-  
+
+function filtrarEstado(estado){
+  const lista = equipos.filter(e => e.estado === estado);
+  renderLista(lista, estado);
+}
+
+function abrirEquipo(codigo){
+  const equipo = equipos.find(e => e.codigo === codigo);
+  if(equipo) mostrarEquipo(equipo);
+}
+
+// Función única de listado (sustituye a las antiguas mostrarCaja / mostrarTodos / filtrarEstado)
+function renderLista(lista, titulo){
+
+  let html = `
+    <div class="lista-header">
+      <h3>${escapeHtml(titulo)}</h3>
+      <span class="count">${lista.length} equips</span>
+    </div>
+  `;
+
+  lista.forEach(e=>{
+    html += `
+      <div class="equipo-card" onclick="abrirEquipo('${escapeHtml(e.codigo)}')">
+        <div>
+          <div class="codigo">${escapeHtml(e.codigo)}</div>
+          <div class="meta">
+            <span>${escapeHtml(e.deveui)}</span>
+            <span>🔧 ${escapeHtml(e.tipoSonda || "-")}</span>
+            <span>📏 ${escapeHtml(e.metraje || "-")} m</span>
+          </div>
+        </div>
+        <span class="pill pill-${claseEstado(e.estado)}"><span class="dot"></span>${escapeHtml(e.estado || "-")}</span>
+      </div>
+    `;
+  });
+
+  document.getElementById("resultado").innerHTML = html;
+}
+
 function mostrarEquipo(equipo){
 
-    history.replaceState(
-  null,
-  null,
-  "#" + equipo.codigo.toUpperCase()
-);
-  
-document.getElementById("resultado").innerHTML =
+  history.replaceState(null, null, "#" + equipo.codigo.toUpperCase());
 
-`
-<h3>Equipo</h3>
+  document.getElementById("resultado").innerHTML = `
+    <div class="ficha">
 
-<p><b>Código:</b> ${equipo.codigo}</p>
+      <div class="ficha-head">
+        <div>
+          <div class="codigo-grande">${escapeHtml(equipo.codigo)}</div>
+          <div class="deveui">${escapeHtml(equipo.deveui)}</div>
+        </div>
+        <span class="pill pill-${claseEstado(equipo.estado)}"><span class="dot"></span>${escapeHtml(equipo.estado || "-")}</span>
+      </div>
 
-<p><b>DevEUI:</b> ${equipo.deveui}</p>
+      <div class="ficha-caja">📦 Caixa ${escapeHtml(equipo.caja)}</div>
 
-<p style="font-size:28px">
-📦 Caja ${equipo.caja}
-</p>
+      <div class="ficha-body">
+        <div class="campo">
+          <div class="k">Tipus de sonda</div>
+          <div class="v">${escapeHtml(equipo.tipoSonda || "-")}</div>
+        </div>
+        <div class="campo">
+          <div class="k">Metratge</div>
+          <div class="v">${escapeHtml(equipo.metraje || "-")} m</div>
+        </div>
+        <div class="campo">
+          <div class="k">Sèrie sonda</div>
+          <div class="v">${escapeHtml(equipo.serieSonda || "No assignada")}</div>
+        </div>
+        <div class="campo">
+          <div class="k">Data</div>
+          <div class="v">${escapeHtml(equipo.fecha || "-")}</div>
+        </div>
+        <div class="campo">
+          <div class="k">Usuari</div>
+          <div class="v">${escapeHtml(equipo.usuario || "-")}</div>
+        </div>
+      </div>
 
-<p>
-<b>Tipo sonda:</b>
-${equipo.tipoSonda || "-"}
-</p>
+      ${admin ? `
+        <div class="ficha-acciones">
+          <button class="btn btn-outline warn" onclick="cambiarEstado('${equipo.codigo}','retirar')">Retirar</button>
+          <button class="btn btn-outline info" onclick="cambiarEstado('${equipo.codigo}','instalado')">Instal·lar</button>
+          <button class="btn btn-outline danger" onclick="cambiarEstado('${equipo.codigo}','noinstalar')">🚫 No instal·lar</button>
+          <button class="btn btn-outline ok" onclick="cambiarEstado('${equipo.codigo}','almacen')">Magatzem</button>
+          <button class="btn btn-ghost" onclick="asignarSerieSonda('${equipo.codigo}')">✏️ Manual</button>
+          <button class="btn btn-primary" onclick="escanearSerieSonda('${equipo.codigo}')">📷 Escanejar</button>
+        </div>
+      ` : ""}
 
-<p>
-<b>Metraje:</b>
-${equipo.metraje || "-"} m
-</p>
-
-<p>
-
-<b>Estado:</b>
-
-<span class="${claseEstado(equipo.estado)}">
-${equipo.estado || "-"}
-</span>
-
-</p>
-
-<p>
-<b>Fecha:</b>
-${equipo.fecha || "-"}
-</p>
-
-<p>
-<b>Usuario:</b>
-${equipo.usuario || "-"}
-</p>
-
-<p>
-<b>Serie sonda:</b>
-${equipo.serieSonda || "No asignada"}
-</p>
-
-${admin ? `
-
-<div class="acciones">
-
-<button onclick="cambiarEstado('${equipo.codigo}','retirar')">
-Retirar
-</button>
-
-<button onclick="cambiarEstado('${equipo.codigo}','instalado')">
-Instalar
-</button>
-
-<button onclick="cambiarEstado('${equipo.codigo}','noinstalar')">
-🚫 No instalar
-</button>
-
-<button onclick="cambiarEstado('${equipo.codigo}','almacen')">
-Almacén
-</button>
-
-<button onclick="asignarSerieSonda('${equipo.codigo}')">
-✏️ Manual
-</button>
-
-<button onclick="escanearSerieSonda('${equipo.codigo}')">
-📷 Escanear
-</button>
-
-</div>
-
-` : ""}
-
-`;
-
+    </div>
+  `;
 }
 
-  function loginAdmin(){
+function loginAdmin(){
 
-if(admin){
+  if(admin){
+    admin = false;
+    localStorage.removeItem("admin");
+    actualizarModoAdmin();
+    return;
+  }
 
-admin = false;
+  const pass = prompt("Contrasenya d'administrador:");
+  if(pass !== PASSWORD){
+    alert("Contrasenya incorrecta");
+    return;
+  }
 
-localStorage.removeItem("admin");
+  admin = true;
+  localStorage.setItem("admin","si");
 
-actualizarModoAdmin();
+  if(!usuarioActual){
+    const nombre = prompt("El teu nom d'usuari (s'utilitzarà als registres):");
+    if(nombre && nombre.trim()){
+      usuarioActual = nombre.trim();
+      localStorage.setItem("usuarioActual", usuarioActual);
+    }
+  }
 
-return;
-
-}
-
-const pass =
-prompt("Contraseña administrador:");
-
-if(pass === PASSWORD){
-
-admin = true;
-
-localStorage.setItem("admin","si");
-
-actualizarModoAdmin();
-
-alert("Modo administrador activado");
-
-}else{
-
-alert("Contraseña incorrecta");
-
-}
-
+  actualizarModoAdmin();
 }
 
 function actualizarModoAdmin(){
-
-const btn =
-document.getElementById("btnAdmin");
-
-if(admin){
-
-btn.innerHTML =
-"🔒 Modo administrador";
-
-}else{
-
-btn.innerHTML =
-"🔓 Modo consulta";
-
+  const btn = document.getElementById("btnAdmin");
+  btn.innerHTML = admin ? "🔒 Administrador" : "🔓 Consulta";
 }
 
+function obtenerUsuario(){
+  if(usuarioActual) return usuarioActual;
+  const nombre = prompt("Usuari:");
+  if(nombre && nombre.trim()){
+    usuarioActual = nombre.trim();
+    localStorage.setItem("usuarioActual", usuarioActual);
+  }
+  return usuarioActual;
 }
 
-  async function asignarSerieSonda(codigo){
-
-  const equipo =
-    equipos.find(e => e.codigo === codigo);
-
+async function asignarSerieSonda(codigo){
+  const equipo = equipos.find(e => e.codigo === codigo);
   if(!equipo) return;
 
-  const serie =
-    prompt(
-      "Número de serie de la sonda:",
-      equipo.serieSonda || ""
-    );
+  const serie = prompt("Número de sèrie de la sonda:", equipo.serieSonda || "");
+  if(serie === null || serie.trim() === "") return;
 
-  if(
-    serie === null ||
-    serie.trim() === ""
-  ) return;
-
-  const url =
-    API +
+  const url = API +
     "?accion=serieSonda" +
+    "&clave=" + encodeURIComponent(PASSWORD) +
     "&fila=" + encodeURIComponent(equipo.fila) +
     "&serie=" + encodeURIComponent(serie);
 
   try{
-
-    const r =
-      await fetch(url);
-
-    const respuesta =
-      await r.text();
+    const r = await fetch(url);
+    const respuesta = await r.text();
 
     if(respuesta === "OK"){
-
       equipo.serieSonda = serie;
-
       mostrarEquipo(equipo);
-
-      alert("Serie guardada");
-
     }else{
-
       alert("Error: " + respuesta);
-
     }
-
   }catch(error){
-
     console.error(error);
-
-    alert("Error de comunicación");
-
+    alert("Error de comunicació");
   }
-
 }
 
 async function escanearSerieSonda(codigo){
-
-  const equipo =
-    equipos.find(
-      e => e.codigo === codigo
-    );
-
+  const equipo = equipos.find(e => e.codigo === codigo);
   if(!equipo) return;
 
-  document.getElementById(
-    "scannerModal"
-  ).style.display = "block";
+  document.getElementById("scannerModal").style.display = "block";
 
- if(!html5QrCode){
+  if(!html5QrCode){
+    html5QrCode = new Html5Qrcode("scanner");
+  }
 
-    html5QrCode =
-        new Html5Qrcode("scanner");
-
-}
-
-  const cameraId =
-    localStorage.getItem("cameraId");
+  const cameraId = localStorage.getItem("cameraId");
 
   try{
-
     await html5QrCode.start(
-
-      cameraId || {
-        facingMode:"environment"
-      },
-
-      {
-        fps:10,
-        qrbox:250
-      },
-
+      cameraId || { facingMode:"environment" },
+      { fps:10, qrbox:250 },
       async (decodedText)=>{
+        if(decodedText.length !== LONGITUD_SERIE_VALIDA) return;
 
-  if(decodedText.length !== 7){
-    return;
-  }
+        const confirmar = confirm("Vols desar aquesta sèrie?\n\n" + decodedText);
+        if(!confirmar) return;
 
-  const confirmar =
-    confirm(
-      "¿Guardar esta serie?\n\n" +
-      decodedText
-    );
+        await html5QrCode.stop();
+        await html5QrCode.clear();
+        html5QrCode = null;
+        document.getElementById("scannerModal").style.display = "none";
 
-  if(!confirmar){
-    return;
-  }
+        const url = API +
+          "?accion=serieSonda" +
+          "&clave=" + encodeURIComponent(PASSWORD) +
+          "&fila=" + encodeURIComponent(equipo.fila) +
+          "&serie=" + encodeURIComponent(decodedText);
 
- await html5QrCode.stop();
-await html5QrCode.clear();
-
-html5QrCode = null;
-
-document.getElementById(
-  "scannerModal"
-).style.display = "none";
-        
-  const url =
-    API +
-    "?accion=serieSonda" +
-    "&fila=" + encodeURIComponent(equipo.fila) +
-    "&serie=" + encodeURIComponent(decodedText);
-
-        const r =
-          await fetch(url);
-
-        const respuesta =
-          await r.text();
+        const r = await fetch(url);
+        const respuesta = await r.text();
 
         if(respuesta === "OK"){
-
-          equipo.serieSonda =
-            decodedText;
-
+          equipo.serieSonda = decodedText;
           mostrarEquipo(equipo);
-
-          alert(
-            "Serie guardada:\n\n" +
-            decodedText
-          );
-
         }else{
-
-          alert(
-            "Error: " +
-            respuesta
-          );
-
+          alert("Error: " + respuesta);
         }
-
       }
-
     );
-
   }catch(error){
-
     console.error(error);
-
-    alert(
-      "Error iniciando cámara"
-    );
-
+    alert("Error iniciant la càmera");
   }
-
 }
 
 async function seleccionarCamara(){
-
-  const cameras =
-    await Html5Qrcode.getCameras();
-
-  let texto =
-    "Cámaras disponibles:\n\n";
-
-  cameras.forEach((c,i)=>{
-    texto +=
-      (i+1) +
-      ". " +
-      (c.label || ("Cámara " + (i+1))) +
-      "\n";
-  });
-
-  const seleccion =
-    prompt(
-      texto +
-      "\nNúmero de cámara:"
-    );
-
-  if(!seleccion) return;
-
-  const idx =
-    Number(seleccion) - 1;
-
-  if(cameras[idx]){
-
-    localStorage.setItem(
-      "cameraId",
-      cameras[idx].id
-    );
-
-    alert(
-      "Cámara guardada"
-    );
-
+  try{
+    camarasDisponibles = await Html5Qrcode.getCameras();
+  }catch(error){
+    console.error(error);
+    alert("No s'ha pogut accedir a la llista de càmeres");
+    return;
   }
 
+  const select = document.getElementById("cameraSelect");
+  select.innerHTML = "";
+  camarasDisponibles.forEach((c,i)=>{
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = c.label || ("Càmera " + (i+1));
+    select.appendChild(opt);
+  });
+
+  const guardada = localStorage.getItem("cameraId");
+  if(guardada) select.value = guardada;
+
+  document.getElementById("cameraSelectWrap").style.display = "inline-block";
+}
+
+function guardarCamaraSeleccionada(){
+  const select = document.getElementById("cameraSelect");
+  if(select.value){
+    localStorage.setItem("cameraId", select.value);
+  }
 }
 
 async function cerrarEscaner(){
+  try{
+    if(html5QrCode && html5QrCode.isScanning){
+      await html5QrCode.stop();
+    }
+    if(html5QrCode){
+      await html5QrCode.clear();
+      html5QrCode = null;
+    }
+  }catch(error){
+    console.log(error);
+  }
+  document.getElementById("scannerModal").style.display = "none";
+}
+
+async function cambiarEstado(codigo,accion){
+  const equipo = equipos.find(e=>e.codigo===codigo);
+  if(!equipo) return;
+
+  const usuario = obtenerUsuario();
+  if(!usuario) return;
+
+  const url = API +
+    "?accion=" + encodeURIComponent(accion) +
+    "&clave=" + encodeURIComponent(PASSWORD) +
+    "&fila=" + encodeURIComponent(equipo.fila) +
+    "&codigo=" + encodeURIComponent(equipo.codigo) +
+    "&deveui=" + encodeURIComponent(equipo.deveui) +
+    "&usuario=" + encodeURIComponent(usuario);
 
   try{
+    const r = await fetch(url);
+    const respuesta = await r.text();
 
-    if(
-      html5QrCode &&
-      html5QrCode.isScanning
-    ){
+    if(respuesta==="OK"){
+      if(accion==="retirar") equipo.estado="Retirado";
+      if(accion==="instalado") equipo.estado="Instalado";
+      if(accion==="noinstalar") equipo.estado="No instalar";
+      if(accion==="almacen") equipo.estado="Almacén";
 
-      await html5QrCode.stop();
+      if(accion==="almacen"){
+        equipo.fecha="";
+        equipo.usuario="";
+      }else{
+        equipo.usuario=usuario;
+        equipo.fecha=new Date().toLocaleString();
+      }
 
+      actualizarStats();
+      mostrarEquipo(equipo);
+    }else{
+      alert("Error: " + respuesta);
     }
-
-    if(html5QrCode){
-
-      await html5QrCode.clear();
-
-      html5QrCode = null;
-
-    }
-
   }catch(error){
-
-    console.log(error);
-
+    console.error(error);
+    alert("Error de comunicació");
   }
-
-  document.getElementById(
-    "scannerModal"
-  ).style.display = "none";
-
-}
-async function cambiarEstado(codigo,accion){
-
-const equipo =
-equipos.find(e=>e.codigo===codigo);
-
-if(!equipo) return;
-
-const usuario =
-prompt("Usuario:");
-
-if(usuario===null) return;
-
-const url =
-API +
-"?accion=" + encodeURIComponent(accion) +
-"&fila=" + encodeURIComponent(equipo.fila) +
-"&codigo=" + encodeURIComponent(equipo.codigo) +
-"&deveui=" + encodeURIComponent(equipo.deveui) +
-"&usuario=" + encodeURIComponent(usuario);
-
-try{
-
-const r = await fetch(url);
-
-const respuesta =
-await r.text();
-
-if(respuesta==="OK"){
-
-if(accion==="retirar")
-equipo.estado="Retirado";
-
-if(accion==="instalado")
-equipo.estado="Instalado";
-
-if(accion==="noinstalar")
-equipo.estado="No instalar";
-
-if(accion==="almacen")
-equipo.estado="Almacén";
-
-if(accion==="almacen"){
-
-equipo.fecha="";
-equipo.usuario="";
-
-}else{
-
-equipo.usuario=usuario;
-equipo.fecha=new Date().toLocaleString();
-
 }
 
-actualizarStats();
-
-mostrarEquipo(equipo);
-
-alert("Actualizado correctamente");
-
-}else{
-
-alert("Error: " + respuesta);
-
-}
-
-}catch(error){
-
-console.error(error);
-
-alert("Error de comunicación");
-
-}
-
-}
 window.addEventListener("hashchange", () => {
-
-  console.log(
-    "HASH CAMBIADO",
-    location.hash
-  );
-
-  const codigo =
-    location.hash
-      .replace("#","")
-      .toUpperCase();
-
+  const codigo = location.hash.replace("#","").toUpperCase();
   if(!codigo) return;
 
-  const equipo =
-    equipos.find(e =>
-      String(e.codigo || "").toUpperCase() === codigo
-    );
-
-  console.log(
-    "EQUIPO",
-    equipo
-  );
-
+  const equipo = equipos.find(e => String(e.codigo || "").toUpperCase() === codigo);
   if(equipo){
-
     mostrarEquipo(equipo);
-
   }
-
 });
 </script>
 
 </body>
 </html>
-
-
