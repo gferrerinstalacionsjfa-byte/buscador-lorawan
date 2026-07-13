@@ -599,8 +599,8 @@ main{
     <h3 id="instalarTitulo">Instal·lar sonda</h3>
 
     <div class="campo-form">
-      <label for="inpFoto">📷 Foto del muntatge</label>
-      <input type="file" id="inpFoto" accept="image/*" capture="environment">
+      <label for="inpFoto">📷 Fotos del muntatge (pots seleccionar-ne diverses)</label>
+      <input type="file" id="inpFoto" accept="image/*" multiple>
     </div>
 
     <div class="campo-form">
@@ -1141,7 +1141,7 @@ async function confirmarInstalacion(){
   const estadoDiv = document.getElementById("instalarEstado");
   estadoDiv.textContent = "Pujant dades…";
 
-  const ficheroFoto = document.getElementById("inpFoto").files[0];
+  const ficherosFoto = Array.from(document.getElementById("inpFoto").files);
   const ficheroCobertura = document.getElementById("inpCobertura").files[0];
   const cableFinsCota = document.getElementById("inpCableFinsCota").value.trim();
   const observacions = document.getElementById("inpObservacions").value.trim();
@@ -1159,10 +1159,20 @@ async function confirmarInstalacion(){
 
   try{
 
-    if(ficheroFoto){
-      payload.fotoBase64 = await fileToBase64(ficheroFoto);
-      payload.fotoNombre = equipo.codigo + "_" + Date.now() + "_" + ficheroFoto.name;
-      payload.fotoMime = ficheroFoto.type || "image/jpeg";
+    if(ficherosFoto.length){
+
+      estadoDiv.textContent = `Pujant ${ficherosFoto.length} foto(s)…`;
+
+      payload.fotos = [];
+
+      for(const fichero of ficherosFoto){
+        payload.fotos.push({
+          base64: await fileToBase64(fichero),
+          nombre: equipo.codigo + "_" + Date.now() + "_" + fichero.name,
+          mime: fichero.type || "image/jpeg"
+        });
+      }
+
     }
 
     if(ficheroCobertura){
