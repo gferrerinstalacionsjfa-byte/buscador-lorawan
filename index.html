@@ -568,6 +568,7 @@ main{
     </div>
     <button class="btn btn-primary" onclick="buscar()">Cercar</button>
     <button class="btn btn-outline" onclick="actualizarDatos()">🔄 Actualitzar</button>
+    <button class="btn btn-outline" onclick="abrirModalCobertura()">📶 Pujar cobertura</button>
   </div>
 
   <div id="statsCard" class="stats-card">
@@ -604,11 +605,6 @@ main{
     </div>
 
     <div class="campo-form">
-      <label for="inpCobertura">📶 Fitxer de cobertura (CSV del medidor)</label>
-      <input type="file" id="inpCobertura" accept=".csv,text/csv">
-    </div>
-
-    <div class="campo-form">
       <label for="inpCableFinsCota">📏 Cable fins cota (metres)</label>
       <input type="number" id="inpCableFinsCota" step="0.01" inputmode="decimal">
     </div>
@@ -623,6 +619,24 @@ main{
     <div class="instalar-acciones">
       <button class="btn btn-outline" onclick="cerrarModalInstalacion()">Cancel·lar</button>
       <button class="btn btn-primary" onclick="confirmarInstalacion()">Guardar i marcar instal·lat</button>
+    </div>
+  </div>
+</div>
+
+<div id="coberturaModal">
+  <div class="instalar-box">
+    <h3>Pujar fitxers de cobertura</h3>
+
+    <div class="campo-form">
+      <label for="inpCoberturaLote">📶 Selecciona un o més CSV del medidor</label>
+      <input type="file" id="inpCoberturaLote" accept=".csv,text/csv" multiple>
+    </div>
+
+    <div id="coberturaEstado" class="instalar-estado"></div>
+
+    <div class="instalar-acciones">
+      <button class="btn btn-outline" onclick="cerrarModalCobertura()">Cancel·lar</button>
+      <button class="btn btn-primary" onclick="confirmarCobertura()">Pujar</button>
     </div>
   </div>
 </div>
@@ -1107,7 +1121,6 @@ function abrirModalInstalacion(codigo){
 
   document.getElementById("instalarTitulo").textContent = "Instal·lar " + codigo;
   document.getElementById("inpFoto").value = "";
-  document.getElementById("inpCobertura").value = "";
   document.getElementById("inpCableFinsCota").value = "";
   document.getElementById("inpObservacions").value = "";
   document.getElementById("instalarEstado").textContent = "";
@@ -1142,7 +1155,6 @@ async function confirmarInstalacion(){
   estadoDiv.textContent = "Pujant dades…";
 
   const ficherosFoto = Array.from(document.getElementById("inpFoto").files);
-  const ficheroCobertura = document.getElementById("inpCobertura").files[0];
   const cableFinsCota = document.getElementById("inpCableFinsCota").value.trim();
   const observacions = document.getElementById("inpObservacions").value.trim();
 
@@ -1175,12 +1187,6 @@ async function confirmarInstalacion(){
 
     }
 
-    if(ficheroCobertura){
-      payload.coberturaBase64 = await fileToBase64(ficheroCobertura);
-      payload.coberturaNombre = equipo.codigo + "_" + Date.now() + "_" + ficheroCobertura.name;
-      payload.coberturaMime = ficheroCobertura.type || "text/csv";
-    }
-
     // Content-Type text/plain evita el preflight OPTIONS, que Apps Script no gestiona bien
     const r = await fetch(API, {
       method: "POST",
@@ -1188,9 +1194,16 @@ async function confirmarInstalacion(){
       body: JSON.stringify(payload)
     });
 
-    const respuesta = await r.text();
+    const respuestaTexto = await r.text();
 
-    if(respuesta === "OK"){
+    let respuesta;
+    try{
+      respuesta = JSON.parse(respuestaTexto);
+    }catch(err){
+      respuesta = { ok:false, mensaje: respuestaTexto };
+    }
+
+    if(respuesta.ok){
 
       equipo.estado = "Instalado";
       equipo.usuario = usuario;
@@ -1200,8 +1213,84 @@ async function confirmarInstalacion(){
       cerrarModalInstalacion();
       mostrarEquipo(equipo);
 
+      if(respuesta.avisos && respuesta.avisos.length){
+        alert("Instal·lat, però amb avisos:\n\n" + respuesta.avisos.join("\n"));
+      }
+
     }else{
-      estadoDiv.textContent = "Error: " + respuesta;
+      estadoDiv.textContent = "Error: " + (respuesta.mensaje || respuestaTexto);
+    }
+
+  }catch(error){
+    console.error(error);
+    estadoDiv.textContent = "Error de comunicació. Torna-ho a provar.";
+  }
+
+}
+
+// ============================================================
+// Subida en lote de fitxers de cobertura (des d'un altre dispositiu,
+// sense vincular-los a cap sonda concreta)
+// ============================================================
+
+function abrirModalCobertura(){
+  document.getElementById("inpCoberturaLote").value = "";
+  document.getElementById("coberturaEstado").textContent = "";
+  document.getElementById("coberturaModal").style.display = "block";
+}
+
+function cerrarModalCobertura(){
+  document.getElementById("coberturaModal").style.display = "none";
+}
+
+async function confirmarCobertura(){
+
+  const ficheros = Array.from(document.getElementById("inpCoberturaLote").files);
+  const estadoDiv = document.getElementById("coberturaEstado");
+
+  if(!ficheros.length){
+    estadoDiv.textContent = "Selecciona almenys un fitxer.";
+    return;
+  }
+
+  estadoDiv.textContent = `Pujant ${ficheros.length} fitxer(s)…`;
+
+  try{
+
+    const archivos = [];
+
+    for(const fichero of ficheros){
+      archivos.push({
+        base64: await fileToBase64(fichero),
+        nombre: fichero.name,
+        mime: fichero.type || "text/csv"
+      });
+    }
+
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        accion: "cobertura",
+        clave: PASSWORD,
+        archivos: archivos
+      })
+    });
+
+    const respuestaTexto = await r.text();
+
+    let respuesta;
+    try{
+      respuesta = JSON.parse(respuestaTexto);
+    }catch(err){
+      respuesta = { ok:false, mensaje: respuestaTexto };
+    }
+
+    if(respuesta.ok){
+      estadoDiv.textContent = "";
+      cerrarModalCobertura();
+    }else{
+      estadoDiv.textContent = "Error: " + (respuesta.mensaje || respuestaTexto);
     }
 
   }catch(error){
