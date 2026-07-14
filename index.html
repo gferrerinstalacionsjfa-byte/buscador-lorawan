@@ -1335,8 +1335,8 @@ async function actualizarMapa(event){
     if(respuesta.ok){
       const obrir = confirm(
         "Mapa actualitzat: " + respuesta.nombre +
-        "\n\nEl trobaràs a la carpeta 'Google Earth' del Drive." +
-        "\n\nVols obrir-lo ara per descarregar-lo/importar-lo a Earth?"
+        "\n\n(Ara també es regenera sol cada hora, no cal tornar a prémer aquest botó cada dia.)" +
+        "\n\nVols descarregar-lo ara? (enllaç directe, no cal cap compte de Google)"
       );
       if(obrir){
         window.open(respuesta.url, "_blank");
