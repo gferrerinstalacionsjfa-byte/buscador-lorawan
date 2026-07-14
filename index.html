@@ -478,6 +478,16 @@ main{
   overflow-y:auto;
 }
 
+#coberturaModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(16,36,43,0.72);
+  z-index:9999;
+  padding:20px;
+  overflow-y:auto;
+}
+
 .instalar-box{
   max-width:440px;
   margin:30px auto;
@@ -542,10 +552,10 @@ main{
 
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="brand">
+    <a class="brand" href="./" style="text-decoration:none;">
       <span class="brand-mark">JFA</span>
       <span class="brand-name">Instalacions</span>
-    </div>
+    </a>
 
     <nav class="app-switch">
       <a class="app-tab activa" href="https://inventari.instalacionsjfa.com">Inventari</a>
