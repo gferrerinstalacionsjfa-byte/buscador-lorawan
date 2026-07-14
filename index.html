@@ -569,6 +569,7 @@ main{
     <button class="btn btn-primary" onclick="buscar()">Cercar</button>
     <button class="btn btn-outline" onclick="actualizarDatos()">🔄 Actualitzar</button>
     <button class="btn btn-outline" onclick="abrirModalCobertura()">📶 Pujar cobertura</button>
+    <button class="btn btn-outline" onclick="actualizarMapa(event)">🗺️ Actualitzar mapa</button>
   </div>
 
   <div id="statsCard" class="stats-card">
@@ -855,7 +856,14 @@ function mostrarEquipo(equipo){
         <span class="pill pill-${claseEstado(equipo.estado)}"><span class="dot"></span>${escapeHtml(equipo.estado || "-")}</span>
       </div>
 
-      <div class="ficha-caja">📦 Caixa ${escapeHtml(equipo.caja)}</div>
+      <div class="ficha-caja">
+        📦 Caixa ${escapeHtml(equipo.caja)}
+        ${(equipo.lat && equipo.lon) ? `
+          <a class="btn btn-outline info" style="margin-left:8px;text-decoration:none;"
+             href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(equipo.lat)},${encodeURIComponent(equipo.lon)}"
+             target="_blank" rel="noopener">📍 Com arribar-hi</a>
+        ` : ""}
+      </div>
 
       <div class="ficha-body">
         <div class="campo">
@@ -1296,6 +1304,53 @@ async function confirmarCobertura(){
   }catch(error){
     console.error(error);
     estadoDiv.textContent = "Error de comunicació. Torna-ho a provar.";
+  }
+
+}
+
+// ============================================================
+// Generar/actualizar el mapa KML (pozos ya clasificados en
+// Problematics/Acabats según el estado del inventario)
+// ============================================================
+
+async function actualizarMapa(event){
+
+  const boton = event.target;
+  const textoOriginal = boton.textContent;
+  boton.textContent = "Generant…";
+  boton.disabled = true;
+
+  try{
+
+    const r = await fetch(API + "?accion=mapa");
+    const respuestaTexto = await r.text();
+
+    let respuesta;
+    try{
+      respuesta = JSON.parse(respuestaTexto);
+    }catch(err){
+      respuesta = { ok:false, mensaje: respuestaTexto };
+    }
+
+    if(respuesta.ok){
+      const obrir = confirm(
+        "Mapa actualitzat: " + respuesta.nombre +
+        "\n\nEl trobaràs a la carpeta 'Google Earth' del Drive." +
+        "\n\nVols obrir-lo ara per descarregar-lo/importar-lo a Earth?"
+      );
+      if(obrir){
+        window.open(respuesta.url, "_blank");
+      }
+    }else{
+      alert("Error generant el mapa: " + (respuesta.mensaje || respuestaTexto));
+    }
+
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació generant el mapa.");
+  }finally{
+    boton.textContent = textoOriginal;
+    boton.disabled = false;
   }
 
 }
