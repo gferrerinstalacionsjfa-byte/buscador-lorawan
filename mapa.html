@@ -122,6 +122,28 @@ body{
 
 .btn:hover{border-color:#9fb0ad;}
 
+.cerca-wrap{
+  flex:1 1 180px;
+  max-width:220px;
+}
+
+.cerca-wrap input{
+  width:100%;
+  padding:8px 10px;
+  font-family:var(--sans);
+  font-size:13px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--bg);
+  color:var(--ink);
+  box-sizing:border-box;
+}
+
+.cerca-wrap input:focus{
+  outline:2px solid var(--accent);
+  outline-offset:-1px;
+}
+
 .llegenda{
   display:flex;
   gap:14px;
@@ -199,6 +221,18 @@ body{
       <a class="app-tab" href="./">Inventari</a>
       <a class="app-tab activa" href="./mapa.html">Mapa</a>
     </nav>
+
+    <div class="cerca-wrap">
+      <input
+        id="cercaPou"
+        list="llistaCodis"
+        placeholder="Cercar codi de pou…"
+        onkeydown="if(event.key==='Enter') cercarPou()"
+      >
+      <datalist id="llistaCodis"></datalist>
+    </div>
+    <button class="btn" onclick="cercarPou()">🔍 Cercar</button>
+
     <button class="btn" onclick="carregarPunts()">🔄 Actualitzar</button>
   </div>
 </header>
@@ -224,6 +258,7 @@ const API =
 
 let mapa;
 let capesPerCategoria = {}; // categoria -> L.layerGroup()
+let marcadorsPerCodi = {};  // codigo -> { marcador, lat, lon, categoria }
 
 const CATEGORIES = ["nivell", "lila", "blaus", "nitrats", "acabat", "problematic", "altres"];
 
@@ -278,8 +313,10 @@ async function carregarPunts(){
     }
 
     CATEGORIES.forEach(cat => capesPerCategoria[cat].clearLayers());
+    marcadorsPerCodi = {};
 
     const bounds = [];
+    const opcionsDatalist = [];
 
     dades.puntos.forEach(p => {
 
@@ -315,6 +352,17 @@ async function carregarPunts(){
       const capa = capesPerCategoria[p.categoria] || capesPerCategoria.altres;
       marcador.addTo(capa);
       bounds.push([lat, lon]);
+
+      marcadorsPerCodi[p.codigo.toUpperCase()] = { marcador: marcador, lat: lat, lon: lon, categoria: p.categoria };
+      opcionsDatalist.push(p.codigo);
+    });
+
+    const datalist = document.getElementById("llistaCodis");
+    datalist.innerHTML = "";
+    opcionsDatalist.sort().forEach(codi => {
+      const opt = document.createElement("option");
+      opt.value = codi;
+      datalist.appendChild(opt);
     });
 
     document.getElementById("contador").textContent = dades.puntos.length + " pous";
@@ -339,6 +387,30 @@ function escapeHtml(valor){
     .replaceAll(">","&gt;")
     .replaceAll('"',"&quot;")
     .replaceAll("'","&#39;");
+}
+
+function cercarPou(){
+
+  const valor = document.getElementById("cercaPou").value.trim().toUpperCase();
+  if(!valor) return;
+
+  const trobat = marcadorsPerCodi[valor];
+
+  if(!trobat){
+    mostrarEstat("No s'ha trobat el pou \"" + valor + "\"");
+    setTimeout(() => mostrarEstat(""), 2500);
+    return;
+  }
+
+  // Si su capa está oculta (checkbox desmarcado), la volvemos a mostrar
+  const checkbox = document.querySelector(`.llegenda-item input[data-categoria="${trobat.categoria}"]`);
+  if(checkbox && !checkbox.checked){
+    checkbox.checked = true;
+    mapa.addLayer(capesPerCategoria[trobat.categoria]);
+  }
+
+  mapa.setView([trobat.lat, trobat.lon], 17);
+  trobat.marcador.openPopup();
 }
 
 inicialitzarMapa();
