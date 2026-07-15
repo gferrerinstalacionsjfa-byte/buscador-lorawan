@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Instal·ladors · Instalacions JFA</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+
+:root{
+  --bg:#EEF2F1;
+  --surface:#FFFFFF;
+  --ink:#10242B;
+  --ink-soft:#56686D;
+  --ink-faint:#8B9A9D;
+  --line:#DCE4E2;
+  --accent:#0E7C86;
+  --accent-dark:#0A5F67;
+  --ok:#1F8A4C;
+  --danger:#B3261E;
+  --danger-soft:#FBE7E5;
+  --radius:10px;
+  --radius-sm:7px;
+  --shadow:0 1px 2px rgba(16,36,43,0.06),0 6px 16px rgba(16,36,43,0.06);
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+}
+
+*{box-sizing:border-box;}
+
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--ink);
+  margin:0;
+  padding-bottom:60px;
+}
+
+.topbar{
+  background:var(--surface);
+  border-bottom:1px solid var(--line);
+  position:sticky;
+  top:0;
+  z-index:50;
+}
+
+.topbar-inner{
+  max-width:900px;
+  margin:auto;
+  padding:12px 20px;
+  display:flex;
+  align-items:center;
+  gap:16px;
+  flex-wrap:wrap;
+}
+
+.brand{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  margin-right:auto;
+  text-decoration:none;
+}
+
+.brand-mark{
+  font-family:var(--mono);
+  font-weight:600;
+  font-size:14px;
+  letter-spacing:0.06em;
+  background:var(--ink);
+  color:var(--surface);
+  padding:3px 7px;
+  border-radius:5px;
+}
+
+.brand-name{
+  font-weight:600;
+  font-size:15px;
+  color:var(--ink-soft);
+}
+
+.btn{
+  font-family:var(--sans);
+  font-size:14px;
+  font-weight:600;
+  padding:10px 16px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--line);
+  cursor:pointer;
+  background:var(--surface);
+  color:var(--ink);
+}
+.btn:hover{border-color:var(--ink-faint);}
+
+.btn-primary{background:var(--accent);color:#fff;border-color:transparent;}
+.btn-primary:hover{background:var(--accent-dark);}
+
+.btn-danger{color:var(--danger);}
+
+main{
+  max-width:900px;
+  margin:auto;
+  padding:20px;
+}
+
+.login-box{
+  max-width:360px;
+  margin:60px auto;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:24px;
+  text-align:center;
+}
+
+.login-box input{
+  width:100%;
+  padding:11px;
+  font-size:15px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  margin-bottom:10px;
+  box-sizing:border-box;
+}
+
+.card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:16px;
+  margin-bottom:14px;
+}
+
+.perfil-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.perfil-nom{
+  font-family:var(--mono);
+  font-weight:600;
+  font-size:15px;
+}
+
+.perfil-count{
+  font-size:12.5px;
+  color:var(--ink-soft);
+}
+
+.perfil-acciones{
+  display:flex;
+  gap:6px;
+}
+
+.modal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(16,36,43,0.72);
+  z-index:999;
+  padding:20px;
+  overflow-y:auto;
+}
+
+.modal-box{
+  max-width:480px;
+  margin:30px auto;
+  background:var(--surface);
+  border-radius:var(--radius);
+  padding:20px;
+}
+
+.campo{margin-bottom:14px;text-align:left;}
+.campo label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;}
+.campo input{
+  width:100%;
+  padding:10px;
+  font-size:14px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--bg);
+  box-sizing:border-box;
+}
+
+.pous-buscador input{
+  width:100%;
+  padding:9px;
+  font-size:13px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  margin-bottom:8px;
+  box-sizing:border-box;
+}
+
+.pous-llista{
+  max-height:220px;
+  overflow-y:auto;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:6px;
+}
+
+.pou-item{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:4px 6px;
+  font-family:var(--mono);
+  font-size:13px;
+}
+
+.pou-item:hover{background:var(--bg);}
+
+.seleccio-contador{
+  font-size:12.5px;
+  color:var(--ink-soft);
+  margin:6px 0;
+}
+
+.modal-acciones{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:16px;
+}
+
+.buit{
+  text-align:center;
+  color:var(--ink-soft);
+  padding:30px;
+}
+
+</style>
+</head>
+
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="./">
+      <span class="brand-mark">JFA</span>
+      <span class="brand-name">Instalacions · Instal·ladors</span>
+    </a>
+    <button class="btn" onclick="location.href='./'">← Inventari</button>
+  </div>
+</header>
+
+<main>
+
+  <div id="loginBox" class="login-box">
+    <p style="color:var(--ink-soft);margin-top:0;">Introdueix la contrasenya d'administrador per gestionar els perfils d'instal·lador.</p>
+    <input id="inpClaveAdmin" type="password" placeholder="Contrasenya d'administrador" onkeydown="if(event.key==='Enter') entrar()">
+    <button class="btn btn-primary" style="width:100%;" onclick="entrar()">Entrar</button>
+  </div>
+
+  <div id="panell" style="display:none;">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h2 style="margin:0;">Perfils d'instal·lador</h2>
+      <button class="btn btn-primary" onclick="obrirModalNou()">+ Nou perfil</button>
+    </div>
+
+    <div id="llistaPerfils"></div>
+
+  </div>
+
+</main>
+
+<div id="modalPerfil" class="modal">
+  <div class="modal-box">
+    <h3 id="modalTitol">Nou perfil</h3>
+
+    <div class="campo">
+      <label for="inpPerfil">Nom del perfil</label>
+      <input id="inpPerfil" placeholder="p. ex. Toni">
+    </div>
+
+    <div class="campo">
+      <label for="inpContrasenya">Contrasenya <span id="lblContrasenyaOpcional"></span></label>
+      <input id="inpContrasenya" type="text" placeholder="Contrasenya">
+    </div>
+
+    <div class="campo">
+      <label>Pous assignats</label>
+      <div class="pous-buscador">
+        <input id="buscadorPous" placeholder="Cercar codi de pou…" oninput="filtrarPous()">
+      </div>
+      <div id="llistaPous" class="pous-llista"></div>
+      <div class="seleccio-contador"><span id="contadorSeleccio">0</span> pous seleccionats</div>
+    </div>
+
+    <div id="modalEstat" style="font-size:13px;color:var(--danger);"></div>
+
+    <div class="modal-acciones">
+      <button class="btn" onclick="tancarModal()">Cancel·lar</button>
+      <button class="btn btn-primary" onclick="guardarPerfil()">Desar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+const API =
+"https://script.google.com/macros/s/AKfycbzz8jwBBYvxLJBdYlf6OrTzPBKK_ojTu4D5w2LZsxVMksLo3-WBk6EUFIFBEWTEVBKNzA/exec";
+
+let claveAdmin = "";
+let perfils = [];
+let totsElsEquips = [];
+let perfilEditant = null; // null = nou; string = nom original del perfil que s'edita
+let pousSeleccionats = new Set();
+
+async function entrar(){
+
+  const pass = document.getElementById("inpClaveAdmin").value;
+  if(!pass) return;
+
+  claveAdmin = pass;
+
+  const ok = await carregarPerfils();
+
+  if(ok){
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("panell").style.display = "block";
+    await carregarEquips();
+  }else{
+    alert("Contrasenya incorrecta");
+    claveAdmin = "";
+  }
+}
+
+async function carregarPerfils(){
+  try{
+    const r = await fetch(API + "?accion=instaladors&clave=" + encodeURIComponent(claveAdmin));
+    const dades = await r.json();
+    if(!dades.ok) return false;
+    perfils = dades.perfils;
+    renderPerfils();
+    return true;
+  }catch(error){
+    console.error(error);
+    return false;
+  }
+}
+
+async function carregarEquips(){
+  try{
+    const r = await fetch(API);
+    totsElsEquips = await r.json();
+  }catch(error){
+    console.error(error);
+  }
+}
+
+function renderPerfils(){
+
+  const cont = document.getElementById("llistaPerfils");
+
+  if(!perfils.length){
+    cont.innerHTML = '<div class="buit">Encara no hi ha cap perfil. Crea\'n un amb "+ Nou perfil".</div>';
+    return;
+  }
+
+  cont.innerHTML = perfils.map(p => `
+    <div class="card perfil-row">
+      <div>
+        <div class="perfil-nom">${escapeHtml(p.perfil)}</div>
+        <div class="perfil-count">${p.pozos.length} pous assignats</div>
+      </div>
+      <div class="perfil-acciones">
+        <button class="btn" onclick="obrirModalEdicio('${escapeHtml(p.perfil)}')">✏️ Editar</button>
+        <button class="btn btn-danger" onclick="eliminarPerfil('${escapeHtml(p.perfil)}')">🗑️ Eliminar</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function obrirModalNou(){
+  perfilEditant = null;
+  pousSeleccionats = new Set();
+
+  document.getElementById("modalTitol").textContent = "Nou perfil";
+  document.getElementById("inpPerfil").value = "";
+  document.getElementById("inpPerfil").disabled = false;
+  document.getElementById("inpContrasenya").value = "";
+  document.getElementById("lblContrasenyaOpcional").textContent = "";
+  document.getElementById("buscadorPous").value = "";
+  document.getElementById("modalEstat").textContent = "";
+
+  renderPousDisponibles();
+  document.getElementById("modalPerfil").style.display = "block";
+}
+
+function obrirModalEdicio(perfilNom){
+
+  const perfil = perfils.find(p => p.perfil === perfilNom);
+  if(!perfil) return;
+
+  perfilEditant = perfilNom;
+  pousSeleccionats = new Set(perfil.pozos);
+
+  document.getElementById("modalTitol").textContent = "Editar " + perfilNom;
+  document.getElementById("inpPerfil").value = perfil.perfil;
+  document.getElementById("inpContrasenya").value = "";
+  document.getElementById("lblContrasenyaOpcional").textContent = "(deixa-ho en blanc per no canviar-la)";
+  document.getElementById("buscadorPous").value = "";
+  document.getElementById("modalEstat").textContent = "";
+
+  renderPousDisponibles();
+  document.getElementById("modalPerfil").style.display = "block";
+}
+
+function tancarModal(){
+  document.getElementById("modalPerfil").style.display = "none";
+}
+
+function renderPousDisponibles(filtro){
+
+  const cont = document.getElementById("llistaPous");
+  const f = (filtro || "").trim().toUpperCase();
+
+  const llista = totsElsEquips.filter(e => !f || String(e.codigo || "").toUpperCase().includes(f));
+
+  cont.innerHTML = llista.map(e => {
+    const marcado = pousSeleccionats.has(String(e.codigo).toUpperCase()) ? "checked" : "";
+    return `
+      <label class="pou-item">
+        <input type="checkbox" value="${escapeHtml(e.codigo)}" ${marcado} onchange="toggleSeleccio(this)">
+        ${escapeHtml(e.codigo)}
+      </label>
+    `;
+  }).join("");
+
+  actualizarContadorSeleccio();
+}
+
+function filtrarPous(){
+  renderPousDisponibles(document.getElementById("buscadorPous").value);
+}
+
+function toggleSeleccio(input){
+  const codi = input.value.toUpperCase();
+  if(input.checked){
+    pousSeleccionats.add(codi);
+  }else{
+    pousSeleccionats.delete(codi);
+  }
+  actualizarContadorSeleccio();
+}
+
+function actualizarContadorSeleccio(){
+  document.getElementById("contadorSeleccio").textContent = pousSeleccionats.size;
+}
+
+async function guardarPerfil(){
+
+  const nom = document.getElementById("inpPerfil").value.trim();
+  const contrasenya = document.getElementById("inpContrasenya").value;
+  const estatDiv = document.getElementById("modalEstat");
+
+  if(!nom){
+    estatDiv.textContent = "Falta el nom del perfil";
+    return;
+  }
+
+  if(!perfilEditant && !contrasenya){
+    estatDiv.textContent = "Falta la contrasenya";
+    return;
+  }
+
+  estatDiv.textContent = "Desant…";
+  estatDiv.style.color = "var(--ink-soft)";
+
+  try{
+
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        accion: "guardarInstalador",
+        clave: claveAdmin,
+        perfilOriginal: perfilEditant || "",
+        perfil: nom,
+        contrasenya: contrasenya,
+        pozos: Array.from(pousSeleccionats)
+      })
+    });
+
+    const dades = await r.json();
+
+    if(dades.ok){
+      tancarModal();
+      await carregarPerfils();
+    }else{
+      estatDiv.style.color = "var(--danger)";
+      estatDiv.textContent = dades.mensaje || "Error desant el perfil";
+    }
+
+  }catch(error){
+    console.error(error);
+    estatDiv.style.color = "var(--danger)";
+    estatDiv.textContent = "Error de comunicació";
+  }
+}
+
+async function eliminarPerfil(perfilNom){
+
+  if(!confirm(`Eliminar el perfil "${perfilNom}"? Aquesta acció no es pot desfer.`)) return;
+
+  try{
+
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        accion: "eliminarInstalador",
+        clave: claveAdmin,
+        perfil: perfilNom
+      })
+    });
+
+    const dades = await r.json();
+
+    if(dades.ok){
+      await carregarPerfils();
+    }else{
+      alert("Error: " + (dades.mensaje || "no s'ha pogut eliminar"));
+    }
+
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació");
+  }
+}
+
+function escapeHtml(valor){
+  return String(valor ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#39;");
+}
+
+</script>
+
+</body>
+</html>

@@ -563,6 +563,8 @@ main{
       <a class="app-tab" href="https://nivell.instalacionsjfa.com">Nivell freàtic</a>
     </nav>
 
+    <a id="linkAdminPanel" class="btn btn-ghost" href="./admin.html" style="display:none;text-decoration:none;">⚙️ Instal·ladors</a>
+    <button id="btnInstalador" class="btn btn-ghost" onclick="loginInstalador()">👷 Instal·lador</button>
     <button id="btnAdmin" class="btn btn-ghost" onclick="loginAdmin()">🔓 Consulta</button>
   </div>
 </header>
@@ -687,6 +689,10 @@ let admin = localStorage.getItem("admin") === "si";
 let usuarioActual = localStorage.getItem("usuarioActual") || "";
 let camarasDisponibles = [];
 
+let instaladorActiu = localStorage.getItem("instaladorActiu") === "si";
+let instaladorPerfil = localStorage.getItem("instaladorPerfil") || "";
+let instaladorContrasenya = localStorage.getItem("instaladorContrasenya") || "";
+
 function escapeHtml(valor){
   return String(valor ?? "")
     .replaceAll("&","&amp;")
@@ -698,7 +704,13 @@ function escapeHtml(valor){
 
 window.onload = async () => {
   actualizarModoAdmin();
-  await cargarDatos();
+  actualizarModoInstalador();
+
+  if(instaladorActiu){
+    await refrescarDadesInstalador();
+  }else{
+    await cargarDatos();
+  }
 
   const codigo = location.hash.replace("#","").toUpperCase();
   if(codigo){
@@ -728,7 +740,12 @@ async function cargarDatos(){
 }
 
 async function actualizarDatos(){
-  await cargarDatos();
+
+  if(instaladorActiu){
+    await refrescarDadesInstalador();
+  }else{
+    await cargarDatos();
+  }
 
   const codigo = location.hash.replace("#","").toUpperCase();
   if(codigo){
@@ -899,7 +916,7 @@ function mostrarEquipo(equipo){
         </div>
       </div>
 
-      ${admin ? `
+      ${(admin || instaladorActiu) ? `
         <div class="ficha-acciones">
           <button class="btn btn-outline warn" onclick="cambiarEstado('${equipo.codigo}','retirar')">Retirar</button>
           <button class="btn btn-outline info" onclick="abrirModalInstalacion('${equipo.codigo}')">Instal·lar</button>
@@ -929,6 +946,11 @@ function loginAdmin(){
     return;
   }
 
+  // El modo admin y el de instalador son excluyentes
+  if(instaladorActiu){
+    tancarSessioInstalador();
+  }
+
   admin = true;
   localStorage.setItem("admin","si");
 
@@ -941,14 +963,133 @@ function loginAdmin(){
   }
 
   actualizarModoAdmin();
+  cargarDatos();
+}
+
+async function loginInstalador(){
+
+  if(instaladorActiu){
+    tancarSessioInstalador();
+    actualizarModoInstalador();
+    await cargarDatos();
+    return;
+  }
+
+  const perfil = prompt("El teu perfil d'instal·lador:");
+  if(!perfil) return;
+
+  const contrasenya = prompt("Contrasenya:");
+  if(contrasenya === null) return;
+
+  try{
+
+    const r = await fetch(API + "?accion=loginInstalador" +
+      "&perfil=" + encodeURIComponent(perfil) +
+      "&contrasenya=" + encodeURIComponent(contrasenya));
+
+    const dades = await r.json();
+
+    if(!dades.ok){
+      alert("Error: " + (dades.mensaje || "no s'ha pogut iniciar sessió"));
+      return;
+    }
+
+    // El modo instalador y el de admin son excluyentes
+    if(admin){
+      admin = false;
+      localStorage.removeItem("admin");
+      actualizarModoAdmin();
+    }
+
+    instaladorActiu = true;
+    instaladorPerfil = dades.perfil;
+    instaladorContrasenya = contrasenya;
+
+    localStorage.setItem("instaladorActiu", "si");
+    localStorage.setItem("instaladorPerfil", instaladorPerfil);
+    localStorage.setItem("instaladorContrasenya", instaladorContrasenya);
+
+    equipos = dades.equipos;
+    actualizarStats();
+    actualizarModoInstalador();
+
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació iniciant sessió");
+  }
+}
+
+function tancarSessioInstalador(){
+  instaladorActiu = false;
+  instaladorPerfil = "";
+  instaladorContrasenya = "";
+  localStorage.removeItem("instaladorActiu");
+  localStorage.removeItem("instaladorPerfil");
+  localStorage.removeItem("instaladorContrasenya");
+}
+
+async function refrescarDadesInstalador(){
+
+  try{
+
+    const r = await fetch(API + "?accion=loginInstalador" +
+      "&perfil=" + encodeURIComponent(instaladorPerfil) +
+      "&contrasenya=" + encodeURIComponent(instaladorContrasenya));
+
+    const dades = await r.json();
+
+    if(!dades.ok){
+      // Credencials ja no vàlides (perfil eliminat/canviat) -> tancar sessió
+      tancarSessioInstalador();
+      actualizarModoInstalador();
+      await cargarDatos();
+      return;
+    }
+
+    equipos = dades.equipos;
+    actualizarStats();
+
+  }catch(error){
+    console.error(error);
+  }
+}
+
+function actualizarModoInstalador(){
+  const btn = document.getElementById("btnInstalador");
+  btn.innerHTML = instaladorActiu ? ("👷 " + instaladorPerfil) : "👷 Instal·lador";
+}
+
+// Devuelve el fragmento de query string de autenticación (admin o instalador)
+function construirAuthQuery(){
+  if(admin){
+    return "&clave=" + encodeURIComponent(PASSWORD);
+  }
+  if(instaladorActiu){
+    return "&perfil=" + encodeURIComponent(instaladorPerfil) +
+           "&contrasenya=" + encodeURIComponent(instaladorContrasenya);
+  }
+  return "";
+}
+
+// Igual que construirAuthQuery pero como objeto, para incluir en un body JSON
+function construirAuthPayload(){
+  if(admin){
+    return { clave: PASSWORD };
+  }
+  if(instaladorActiu){
+    return { perfil: instaladorPerfil, contrasenya: instaladorContrasenya };
+  }
+  return {};
 }
 
 function actualizarModoAdmin(){
   const btn = document.getElementById("btnAdmin");
   btn.innerHTML = admin ? "🔒 Administrador" : "🔓 Consulta";
+  document.getElementById("linkAdminPanel").style.display = admin ? "inline-flex" : "none";
 }
 
 function obtenerUsuario(){
+  if(instaladorActiu) return instaladorPerfil;
   if(usuarioActual) return usuarioActual;
   const nombre = prompt("Usuari:");
   if(nombre && nombre.trim()){
@@ -967,7 +1108,7 @@ async function asignarSerieSonda(codigo){
 
   const url = API +
     "?accion=serieSonda" +
-    "&clave=" + encodeURIComponent(PASSWORD) +
+    construirAuthQuery() +
     "&fila=" + encodeURIComponent(equipo.fila) +
     "&serie=" + encodeURIComponent(serie);
 
@@ -1016,7 +1157,7 @@ async function escanearSerieSonda(codigo){
 
         const url = API +
           "?accion=serieSonda" +
-          "&clave=" + encodeURIComponent(PASSWORD) +
+          construirAuthQuery() +
           "&fila=" + encodeURIComponent(equipo.fila) +
           "&serie=" + encodeURIComponent(decodedText);
 
@@ -1092,7 +1233,7 @@ async function cambiarEstado(codigo,accion){
 
   const url = API +
     "?accion=" + encodeURIComponent(accion) +
-    "&clave=" + encodeURIComponent(PASSWORD) +
+    construirAuthQuery() +
     "&fila=" + encodeURIComponent(equipo.fila) +
     "&codigo=" + encodeURIComponent(equipo.codigo) +
     "&deveui=" + encodeURIComponent(equipo.deveui) +
@@ -1177,16 +1318,15 @@ async function confirmarInstalacion(){
   const cableFinsCota = document.getElementById("inpCableFinsCota").value.trim();
   const observacions = document.getElementById("inpObservacions").value.trim();
 
-  const payload = {
+  const payload = Object.assign({
     accion: "instalado",
-    clave: PASSWORD,
     fila: equipo.fila,
     codigo: equipo.codigo,
     deveui: equipo.deveui,
     usuario: usuario,
     cableFinsCota: cableFinsCota,
     observacions: observacions
-  };
+  }, construirAuthPayload());
 
   try{
 
