@@ -955,11 +955,8 @@ function loginAdmin(){
   localStorage.setItem("admin","si");
 
   if(!usuarioActual){
-    const nombre = prompt("El teu nom d'usuari (s'utilitzarà als registres):");
-    if(nombre && nombre.trim()){
-      usuarioActual = nombre.trim();
-      localStorage.setItem("usuarioActual", usuarioActual);
-    }
+    usuarioActual = "Admin";
+    localStorage.setItem("usuarioActual", usuarioActual);
   }
 
   actualizarModoAdmin();
@@ -1303,6 +1300,49 @@ function fileToBase64(file){
   });
 }
 
+// Redimensiona y comprime una foto en el propio navegador antes de subirla,
+// para que la subida por móvil sea mucho más rápida. Devuelve un Blob JPEG.
+function comprimirImagen(file, maxAncho = 1600, calidad = 0.72){
+  return new Promise((resolve, reject) => {
+
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+
+      URL.revokeObjectURL(url);
+
+      let ancho = img.width;
+      let alto = img.height;
+
+      if(ancho > maxAncho){
+        alto = Math.round(alto * (maxAncho / ancho));
+        ancho = maxAncho;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = ancho;
+      canvas.height = alto;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, ancho, alto);
+
+      canvas.toBlob(
+        blob => blob ? resolve(blob) : reject(new Error("No s'ha pogut comprimir la imatge")),
+        "image/jpeg",
+        calidad
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("No s'ha pogut llegir la imatge"));
+    };
+
+    img.src = url;
+  });
+}
+
 async function confirmarInstalacion(){
 
   const equipo = equipos.find(e => e.codigo === codigoEnInstalacion);
@@ -1332,19 +1372,31 @@ async function confirmarInstalacion(){
 
     if(ficherosFoto.length){
 
-      estadoDiv.textContent = `Pujant ${ficherosFoto.length} foto(s)…`;
-
       payload.fotos = [];
 
-      for(const fichero of ficherosFoto){
+      for(let i = 0; i < ficherosFoto.length; i++){
+
+        estadoDiv.textContent = `Comprimint i pujant foto ${i+1} de ${ficherosFoto.length}…`;
+
+        const fichero = ficherosFoto[i];
+
+        let blobFinal = fichero;
+        try{
+          blobFinal = await comprimirImagen(fichero);
+        }catch(err){
+          console.error("No s'ha pogut comprimir, es puja l'original:", err);
+        }
+
         payload.fotos.push({
-          base64: await fileToBase64(fichero),
-          nombre: equipo.codigo + "_" + Date.now() + "_" + fichero.name,
-          mime: fichero.type || "image/jpeg"
+          base64: await fileToBase64(blobFinal),
+          nombre: equipo.codigo + "_" + Date.now() + "_" + fichero.name.replace(/\.[^.]+$/, "") + ".jpg",
+          mime: "image/jpeg"
         });
       }
 
     }
+
+    estadoDiv.textContent = "Enviant al servidor…";
 
     // Content-Type text/plain evita el preflight OPTIONS, que Apps Script no gestiona bien
     const r = await fetch(API, {
