@@ -920,7 +920,7 @@ function mostrarEquipo(equipo){
         <div class="ficha-acciones">
           <button class="btn btn-outline warn" onclick="cambiarEstado('${equipo.codigo}','retirar')">Retirar</button>
           <button class="btn btn-outline info" onclick="abrirModalInstalacion('${equipo.codigo}')">Instal·lar</button>
-          <button class="btn btn-outline danger" onclick="cambiarEstado('${equipo.codigo}','noinstalar')">🚫 No instal·lar</button>
+          <button class="btn btn-outline danger" onclick="marcarNoInstalar('${equipo.codigo}')">🚫 No instal·lar</button>
           <button class="btn btn-outline ok" onclick="cambiarEstado('${equipo.codigo}','almacen')">Magatzem</button>
           <button class="btn btn-ghost" onclick="asignarSerieSonda('${equipo.codigo}')">✏️ Manual</button>
           <button class="btn btn-primary" onclick="escanearSerieSonda('${equipo.codigo}')">📷 Escanejar</button>
@@ -1253,6 +1253,46 @@ async function cambiarEstado(codigo,accion){
         equipo.usuario=usuario;
         equipo.fecha=new Date().toLocaleString();
       }
+
+      actualizarStats();
+      mostrarEquipo(equipo);
+    }else{
+      alert("Error: " + respuesta);
+    }
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació");
+  }
+}
+
+async function marcarNoInstalar(codigo){
+
+  const equipo = equipos.find(e=>e.codigo===codigo);
+  if(!equipo) return;
+
+  const observacions = prompt("Motiu pel qual no es pot instal·lar (queda anotat a Progrés sondes):");
+  if(observacions === null) return; // ha cancel·lat
+
+  const usuario = obtenerUsuario();
+  if(!usuario) return;
+
+  const url = API +
+    "?accion=noinstalar" +
+    construirAuthQuery() +
+    "&fila=" + encodeURIComponent(equipo.fila) +
+    "&codigo=" + encodeURIComponent(equipo.codigo) +
+    "&deveui=" + encodeURIComponent(equipo.deveui) +
+    "&usuario=" + encodeURIComponent(usuario) +
+    "&observacions=" + encodeURIComponent(observacions);
+
+  try{
+    const r = await fetch(url);
+    const respuesta = await r.text();
+
+    if(respuesta==="OK"){
+      equipo.estado = "No instalar";
+      equipo.usuario = usuario;
+      equipo.fecha = new Date().toLocaleString();
 
       actualizarStats();
       mostrarEquipo(equipo);
