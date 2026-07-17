@@ -564,6 +564,7 @@ main{
     </nav>
 
     <a id="linkAdminPanel" class="btn btn-ghost" href="./admin.html" style="display:none;text-decoration:none;">⚙️ Instal·ladors</a>
+    <button id="btnVistaInstalador" class="btn btn-ghost" onclick="alternarVistaInstalador()" style="display:none;">🔍 Veure tots</button>
     <button id="btnInstalador" class="btn btn-ghost" onclick="loginInstalador()">👷 Instal·lador</button>
     <button id="btnAdmin" class="btn btn-ghost" onclick="loginAdmin()">🔓 Consulta</button>
   </div>
@@ -581,8 +582,8 @@ main{
     </div>
     <button class="btn btn-primary" onclick="buscar()">Cercar</button>
     <button class="btn btn-outline" onclick="actualizarDatos()">🔄 Actualitzar</button>
-    <button class="btn btn-outline" onclick="abrirModalCobertura()">📶 Pujar cobertura</button>
-    <button class="btn btn-outline" onclick="actualizarMapa(event)">🗺️ Actualitzar mapa</button>
+    <button id="btnCobertura" class="btn btn-outline" onclick="abrirModalCobertura()" style="display:none;">📶 Pujar cobertura</button>
+    <button id="btnMapa" class="btn btn-outline" onclick="actualizarMapa(event)" style="display:none;">🗺️ Actualitzar mapa</button>
   </div>
 
   <div id="statsCard" class="stats-card">
@@ -692,6 +693,8 @@ let camarasDisponibles = [];
 let instaladorActiu = localStorage.getItem("instaladorActiu") === "si";
 let instaladorPerfil = localStorage.getItem("instaladorPerfil") || "";
 let instaladorContrasenya = localStorage.getItem("instaladorContrasenya") || "";
+let instaladorPozosAsignados = JSON.parse(localStorage.getItem("instaladorPozosAsignados") || "[]");
+let instaladorVeureTots = false;
 
 function escapeHtml(valor){
   return String(valor ?? "")
@@ -797,6 +800,16 @@ function claseEstado(estado){
   return "";
 }
 
+// Admin puede editar cualquier equipo. Un instalador solo puede editar
+// los que tiene asignados, aunque esté viendo el inventario completo.
+function puedeEditarEquipo(equipo){
+  if(admin) return true;
+  if(instaladorActiu){
+    return instaladorPozosAsignados.includes(String(equipo.codigo).toUpperCase());
+  }
+  return false;
+}
+
 function buscar(){
   const valor = document.getElementById("busqueda").value.trim().toUpperCase();
   if(!valor) return;
@@ -873,6 +886,8 @@ function mostrarEquipo(equipo){
 
   history.replaceState(null, null, "#" + equipo.codigo.toUpperCase());
 
+  const puedeEditar = puedeEditarEquipo(equipo);
+
   document.getElementById("resultado").innerHTML = `
     <div class="ficha">
 
@@ -916,7 +931,13 @@ function mostrarEquipo(equipo){
         </div>
       </div>
 
-      ${(admin || instaladorActiu) ? `
+      ${!puedeEditar && instaladorActiu ? `
+        <div style="padding:0 18px 14px;font-size:12.5px;color:var(--ink-soft);">
+          Aquest pou no és teu — només pots consultar-lo.
+        </div>
+      ` : ""}
+
+      ${puedeEditar ? `
         <div class="ficha-acciones">
           <button class="btn btn-outline warn" onclick="cambiarEstado('${equipo.codigo}','retirar')">Retirar</button>
           <button class="btn btn-outline info" onclick="abrirModalInstalacion('${equipo.codigo}')">Instal·lar</button>
@@ -934,9 +955,11 @@ function mostrarEquipo(equipo){
 function loginAdmin(){
 
   if(admin){
+    if(!confirm("Tancar la sessió d'administrador?")) return;
     admin = false;
     localStorage.removeItem("admin");
     actualizarModoAdmin();
+    cargarDatos();
     return;
   }
 
@@ -966,6 +989,7 @@ function loginAdmin(){
 async function loginInstalador(){
 
   if(instaladorActiu){
+    if(!confirm("Tancar la sessió de " + instaladorPerfil + "?")) return;
     tancarSessioInstalador();
     actualizarModoInstalador();
     await cargarDatos();
@@ -1001,10 +1025,13 @@ async function loginInstalador(){
     instaladorActiu = true;
     instaladorPerfil = dades.perfil;
     instaladorContrasenya = contrasenya;
+    instaladorPozosAsignados = dades.equipos.map(e => String(e.codigo).toUpperCase());
+    instaladorVeureTots = false;
 
     localStorage.setItem("instaladorActiu", "si");
     localStorage.setItem("instaladorPerfil", instaladorPerfil);
     localStorage.setItem("instaladorContrasenya", instaladorContrasenya);
+    localStorage.setItem("instaladorPozosAsignados", JSON.stringify(instaladorPozosAsignados));
 
     equipos = dades.equipos;
     actualizarStats();
@@ -1020,9 +1047,12 @@ function tancarSessioInstalador(){
   instaladorActiu = false;
   instaladorPerfil = "";
   instaladorContrasenya = "";
+  instaladorPozosAsignados = [];
+  instaladorVeureTots = false;
   localStorage.removeItem("instaladorActiu");
   localStorage.removeItem("instaladorPerfil");
   localStorage.removeItem("instaladorContrasenya");
+  localStorage.removeItem("instaladorPozosAsignados");
 }
 
 async function refrescarDadesInstalador(){
@@ -1043,17 +1073,47 @@ async function refrescarDadesInstalador(){
       return;
     }
 
-    equipos = dades.equipos;
-    actualizarStats();
+    instaladorPozosAsignados = dades.equipos.map(e => String(e.codigo).toUpperCase());
+    localStorage.setItem("instaladorPozosAsignados", JSON.stringify(instaladorPozosAsignados));
+
+    // Si estava veient "tots", torna a demanar la llista completa amb
+    // l'estat actualitzat; si no, es queda amb la llista restringida
+    if(instaladorVeureTots){
+      await cargarDatos();
+    }else{
+      equipos = dades.equipos;
+      actualizarStats();
+    }
 
   }catch(error){
     console.error(error);
   }
 }
 
+// Alterna entre ver solo los pozos asignados o el inventario completo
+// (en el segundo caso solo podrá modificar los que tenga asignados)
+async function alternarVistaInstalador(){
+
+  instaladorVeureTots = !instaladorVeureTots;
+
+  if(instaladorVeureTots){
+    await cargarDatos();
+  }else{
+    await refrescarDadesInstalador();
+  }
+
+  actualizarModoInstalador();
+}
+
 function actualizarModoInstalador(){
   const btn = document.getElementById("btnInstalador");
   btn.innerHTML = instaladorActiu ? ("👷 " + instaladorPerfil) : "👷 Instal·lador";
+
+  const btnVista = document.getElementById("btnVistaInstalador");
+  btnVista.style.display = instaladorActiu ? "inline-flex" : "none";
+  btnVista.innerHTML = instaladorVeureTots ? "👷 Només els meus" : "🔍 Veure tots";
+
+  actualizarVisibilidadCobertura();
 }
 
 // Devuelve el fragmento de query string de autenticación (admin o instalador)
@@ -1079,10 +1139,18 @@ function construirAuthPayload(){
   return {};
 }
 
+// El botón de cobertura lo puede usar cualquier sesión iniciada (admin o
+// instalador); el del mapa sigue siendo solo de admin.
+function actualizarVisibilidadCobertura(){
+  document.getElementById("btnCobertura").style.display = (admin || instaladorActiu) ? "inline-flex" : "none";
+}
+
 function actualizarModoAdmin(){
   const btn = document.getElementById("btnAdmin");
   btn.innerHTML = admin ? "🔒 Administrador" : "🔓 Consulta";
   document.getElementById("linkAdminPanel").style.display = admin ? "inline-flex" : "none";
+  document.getElementById("btnMapa").style.display = admin ? "inline-flex" : "none";
+  actualizarVisibilidadCobertura();
 }
 
 function obtenerUsuario(){
@@ -1521,11 +1589,10 @@ async function confirmarCobertura(){
     const r = await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({
+      body: JSON.stringify(Object.assign({
         accion: "cobertura",
-        clave: PASSWORD,
         archivos: archivos
-      })
+      }, construirAuthPayload()))
     });
 
     const respuestaTexto = await r.text();
@@ -1565,7 +1632,7 @@ async function actualizarMapa(event){
 
   try{
 
-    const r = await fetch(API + "?accion=mapa");
+    const r = await fetch(API + "?accion=mapa" + construirAuthQuery());
     const respuestaTexto = await r.text();
 
     let respuesta;
