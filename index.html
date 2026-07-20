@@ -227,6 +227,53 @@ main{
   font-size:15px;
 }
 
+.instalador-grup{
+  margin-bottom:14px;
+}
+
+.instalador-grup:last-child{
+  margin-bottom:0;
+}
+
+.instalador-nom{
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--ink);
+  margin-bottom:6px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.instalador-nom .count{
+  font-family:var(--mono);
+  font-weight:400;
+  color:var(--ink-soft);
+  font-size:11.5px;
+}
+
+.instalador-pous{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+
+.pou-chip{
+  font-family:var(--mono);
+  font-size:12px;
+  font-weight:600;
+  padding:4px 9px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:var(--bg);
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+}
+
+.pou-chip:hover{border-color:var(--ink-faint);}
+
 .stats-grid{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
@@ -590,6 +637,11 @@ main{
     <div id="stats">Carregant inventari…</div>
   </div>
 
+  <div id="instaladorsCard" class="stats-card" style="display:none;">
+    <div class="stats-total" style="margin-bottom:10px;">👷 Pous per instal·lador</div>
+    <div id="instaladorsCont">Carregant…</div>
+  </div>
+
   <div class="controls-row">
     <button class="btn btn-outline" onclick="seleccionarCamara()">⚙️ Seleccionar càmera</button>
     <div id="cameraSelectWrap" style="display:none;">
@@ -715,6 +767,10 @@ window.onload = async () => {
     await cargarDatos();
   }
 
+  if(admin){
+    cargarPanellInstaladors();
+  }
+
   const codigo = location.hash.replace("#","").toUpperCase();
   if(codigo){
     document.getElementById("busqueda").value = codigo;
@@ -748,6 +804,10 @@ async function actualizarDatos(){
     await refrescarDadesInstalador();
   }else{
     await cargarDatos();
+  }
+
+  if(admin){
+    cargarPanellInstaladors();
   }
 
   const codigo = location.hash.replace("#","").toUpperCase();
@@ -798,6 +858,14 @@ function claseEstado(estado){
   if(estado==="Instalado") return "instalado";
   if(estado==="No instalar") return "averia";
   return "";
+}
+
+function colorEstado(estado){
+  if(estado==="Almacén") return "#1F8A4C";
+  if(estado==="Retirado") return "#B7791F";
+  if(estado==="Instalado") return "#2563AF";
+  if(estado==="No instalar") return "#B3261E";
+  return null;
 }
 
 // Admin puede editar cualquier equipo. Un instalador solo puede editar
@@ -851,6 +919,54 @@ function filtrarEstado(estado){
 function abrirEquipo(codigo){
   const equipo = equipos.find(e => e.codigo === codigo);
   if(equipo) mostrarEquipo(equipo);
+}
+
+async function cargarPanellInstaladors(){
+
+  const card = document.getElementById("instaladorsCard");
+  const cont = document.getElementById("instaladorsCont");
+
+  card.style.display = "block";
+  cont.textContent = "Carregant…";
+
+  try{
+
+    const r = await fetch(API + "?accion=instaladors&clave=" + encodeURIComponent(PASSWORD));
+    const dades = await r.json();
+
+    if(!dades.ok || !dades.perfils || !dades.perfils.length){
+      cont.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Encara no hi ha cap instal·lador creat.</div>';
+      return;
+    }
+
+    cont.innerHTML = dades.perfils.map(p => {
+
+      const chips = p.pozos.map(codi => {
+        const equipo = equipos.find(e => String(e.codigo).toUpperCase() === codi);
+        const estado = equipo ? equipo.estado : null;
+        const color = colorEstado(estado);
+        return `
+          <span class="pou-chip" onclick="abrirEquipo('${escapeHtml(codi)}')">
+            ${color ? `<span class="dot" style="background:${color}"></span>` : ""}
+            ${escapeHtml(codi)}
+          </span>
+        `;
+      }).join("");
+
+      return `
+        <div class="instalador-grup">
+          <div class="instalador-nom">👷 ${escapeHtml(p.perfil)} <span class="count">(${p.pozos.length})</span></div>
+          <div class="instalador-pous">
+            ${chips || '<span style="font-size:12.5px;color:var(--ink-soft);">Sense pous assignats</span>'}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+  }catch(error){
+    console.error(error);
+    cont.innerHTML = '<div style="font-size:12.5px;color:var(--danger);">Error carregant els instal·ladors</div>';
+  }
 }
 
 // Función única de listado (sustituye a las antiguas mostrarCaja / mostrarTodos / filtrarEstado)
@@ -959,6 +1075,7 @@ function loginAdmin(){
     admin = false;
     localStorage.removeItem("admin");
     actualizarModoAdmin();
+    document.getElementById("instaladorsCard").style.display = "none";
     cargarDatos();
     return;
   }
@@ -984,6 +1101,7 @@ function loginAdmin(){
 
   actualizarModoAdmin();
   cargarDatos();
+  cargarPanellInstaladors();
 }
 
 async function loginInstalador(){
