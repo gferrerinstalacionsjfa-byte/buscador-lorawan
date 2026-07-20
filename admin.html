@@ -220,6 +220,27 @@ main{
 
 .pou-item:hover{background:var(--bg);}
 
+.pou-grup-titol{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  font-weight:600;
+  color:var(--ink-faint);
+  padding:8px 6px 4px;
+}
+
+.pou-item.assignat-altri{
+  color:var(--ink-soft);
+}
+
+.pou-item.assignat-altri .etiqueta-altri{
+  margin-left:auto;
+  font-family:var(--sans);
+  font-size:11px;
+  color:var(--danger);
+  font-weight:600;
+}
+
 .seleccio-contador{
   font-size:12.5px;
   color:var(--ink-soft);
@@ -422,22 +443,75 @@ function tancarModal(){
   document.getElementById("modalPerfil").style.display = "none";
 }
 
+// Devuelve un mapa CODI -> nombre del perfil que lo tiene asignado,
+// excluyendo el perfil que se está editando ahora mismo (si lo hay)
+function mapaAsignacionesAjenas(){
+
+  const mapa = {};
+
+  perfils.forEach(p => {
+    if (p.perfil === perfilEditant) return; // los suyos no cuentan como "de otro"
+    p.pozos.forEach(codi => {
+      mapa[codi] = p.perfil;
+    });
+  });
+
+  return mapa;
+}
+
 function renderPousDisponibles(filtro){
 
   const cont = document.getElementById("llistaPous");
   const f = (filtro || "").trim().toUpperCase();
 
   const llista = totsElsEquips.filter(e => !f || String(e.codigo || "").toUpperCase().includes(f));
+  const asignacionesAjenas = mapaAsignacionesAjenas();
 
-  cont.innerHTML = llista.map(e => {
+  const disponibles = [];
+  const porInstalador = {}; // perfil -> [equipos]
+
+  llista.forEach(e => {
+    const codi = String(e.codigo).toUpperCase();
+    const perfilAjeno = asignacionesAjenas[codi];
+
+    if (perfilAjeno) {
+      if (!porInstalador[perfilAjeno]) porInstalador[perfilAjeno] = [];
+      porInstalador[perfilAjeno].push(e);
+    } else {
+      disponibles.push(e);
+    }
+  });
+
+  function renderItem(e, asignadoA){
     const marcado = pousSeleccionats.has(String(e.codigo).toUpperCase()) ? "checked" : "";
+    const claseExtra = asignadoA ? "assignat-altri" : "";
+    const etiqueta = asignadoA ? `<span class="etiqueta-altri">${escapeHtml(asignadoA)}</span>` : "";
     return `
-      <label class="pou-item">
+      <label class="pou-item ${claseExtra}">
         <input type="checkbox" value="${escapeHtml(e.codigo)}" ${marcado} onchange="toggleSeleccio(this)">
         ${escapeHtml(e.codigo)}
+        ${etiqueta}
       </label>
     `;
-  }).join("");
+  }
+
+  let html = "";
+
+  if (disponibles.length) {
+    html += `<div class="pou-grup-titol">Disponibles</div>`;
+    html += disponibles.map(e => renderItem(e, null)).join("");
+  }
+
+  Object.keys(porInstalador).sort().forEach(perfilNom => {
+    html += `<div class="pou-grup-titol">Assignats a ${escapeHtml(perfilNom)}</div>`;
+    html += porInstalador[perfilNom].map(e => renderItem(e, perfilNom)).join("");
+  });
+
+  if (!llista.length) {
+    html = `<div class="buit" style="padding:14px;">Cap pou coincideix amb la cerca</div>`;
+  }
+
+  cont.innerHTML = html;
 
   actualizarContadorSeleccio();
 }
