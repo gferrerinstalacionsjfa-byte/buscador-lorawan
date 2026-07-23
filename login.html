@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Iniciar sessió · Instalacions JFA</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+
+:root{
+  --bg:#EEF2F1;
+  --surface:#FFFFFF;
+  --ink:#10242B;
+  --ink-soft:#56686D;
+  --ink-faint:#8B9A9D;
+  --line:#DCE4E2;
+  --accent:#0E7C86;
+  --accent-dark:#0A5F67;
+  --danger:#B3261E;
+  --radius:10px;
+  --radius-sm:7px;
+  --shadow:0 1px 2px rgba(16,36,43,0.06),0 6px 16px rgba(16,36,43,0.06);
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+}
+
+*{box-sizing:border-box;}
+
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--ink);
+  margin:0;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+
+.caixa{
+  width:100%;
+  max-width:380px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:28px;
+}
+
+.brand{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  justify-content:center;
+  margin-bottom:22px;
+}
+
+.brand-mark{
+  font-family:var(--mono);
+  font-weight:600;
+  font-size:14px;
+  letter-spacing:0.06em;
+  background:var(--ink);
+  color:var(--surface);
+  padding:3px 7px;
+  border-radius:5px;
+}
+
+.brand-name{
+  font-weight:600;
+  font-size:15px;
+  color:var(--ink-soft);
+}
+
+.tabs{
+  display:flex;
+  background:var(--bg);
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:3px;
+  gap:2px;
+  margin-bottom:22px;
+}
+
+.tab{
+  flex:1;
+  text-align:center;
+  font-size:13.5px;
+  font-weight:600;
+  padding:9px 10px;
+  border-radius:999px;
+  color:var(--ink-soft);
+  cursor:pointer;
+  border:none;
+  background:transparent;
+  font-family:var(--sans);
+}
+
+.tab.activa{
+  background:var(--ink);
+  color:var(--surface);
+}
+
+.formulari{display:none;}
+.formulari.actiu{display:block;}
+
+.campo{margin-bottom:14px;}
+.campo label{
+  display:block;
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--ink-soft);
+  margin-bottom:5px;
+}
+.campo input{
+  width:100%;
+  padding:12px;
+  font-size:15px;
+  font-family:var(--sans);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--bg);
+  color:var(--ink);
+  box-sizing:border-box;
+}
+.campo input:focus{
+  outline:2px solid var(--accent);
+  outline-offset:-1px;
+}
+.campo .ajuda{
+  font-size:11.5px;
+  color:var(--ink-faint);
+  margin-top:4px;
+}
+
+.btn{
+  width:100%;
+  padding:12px;
+  font-family:var(--sans);
+  font-size:15px;
+  font-weight:600;
+  border-radius:var(--radius-sm);
+  border:none;
+  cursor:pointer;
+  background:var(--accent);
+  color:#fff;
+}
+.btn:hover{background:var(--accent-dark);}
+
+.estat{
+  min-height:18px;
+  font-size:13px;
+  color:var(--danger);
+  text-align:center;
+  margin-top:12px;
+}
+
+.tornar{
+  display:block;
+  text-align:center;
+  margin-top:18px;
+  font-size:13px;
+  color:var(--ink-soft);
+  text-decoration:none;
+}
+.tornar:hover{color:var(--ink);}
+
+</style>
+</head>
+
+<body>
+
+<div class="caixa">
+
+  <div class="brand">
+    <span class="brand-mark">JFA</span>
+    <span class="brand-name">Instalacions</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab" id="tabAdmin" onclick="canviarTab('admin')">🔒 Administrador</button>
+    <button class="tab" id="tabInstalador" onclick="canviarTab('instalador')">👷 Instal·lador</button>
+  </div>
+
+  <div id="formAdmin" class="formulari">
+    <div class="campo">
+      <label for="inpPassAdmin">Contrasenya d'administrador</label>
+      <input id="inpPassAdmin" type="password" placeholder="Contrasenya" onkeydown="if(event.key==='Enter') entrarAdmin()">
+    </div>
+    <div class="campo">
+      <label for="inpNomAdmin">El teu nom (opcional)</label>
+      <input id="inpNomAdmin" type="text" placeholder="p. ex. Guillem" onkeydown="if(event.key==='Enter') entrarAdmin()">
+      <div class="ajuda">Es farà servir com a "usuari" als registres. Si el deixes en blanc, es farà servir "Admin".</div>
+    </div>
+    <button class="btn" onclick="entrarAdmin()">Entrar</button>
+  </div>
+
+  <div id="formInstalador" class="formulari">
+    <div class="campo">
+      <label for="inpPerfil">El teu perfil d'instal·lador</label>
+      <input id="inpPerfil" type="text" placeholder="Perfil" onkeydown="if(event.key==='Enter') entrarInstalador()">
+    </div>
+    <div class="campo">
+      <label for="inpPassInstalador">Contrasenya</label>
+      <input id="inpPassInstalador" type="password" placeholder="Contrasenya" onkeydown="if(event.key==='Enter') entrarInstalador()">
+    </div>
+    <button class="btn" onclick="entrarInstalador()">Entrar</button>
+  </div>
+
+  <div id="estat" class="estat"></div>
+
+  <a class="tornar" href="./">← Tornar sense iniciar sessió</a>
+
+</div>
+
+<script>
+
+const API =
+"https://script.google.com/macros/s/AKfycbzz8jwBBYvxLJBdYlf6OrTzPBKK_ojTu4D5w2LZsxVMksLo3-WBk6EUFIFBEWTEVBKNzA/exec";
+
+const PASSWORD = "JFA2026";
+
+function canviarTab(tipo){
+  document.getElementById("tabAdmin").classList.toggle("activa", tipo === "admin");
+  document.getElementById("tabInstalador").classList.toggle("activa", tipo === "instalador");
+  document.getElementById("formAdmin").classList.toggle("actiu", tipo === "admin");
+  document.getElementById("formInstalador").classList.toggle("actiu", tipo === "instalador");
+  document.getElementById("estat").textContent = "";
+
+  const url = new URL(location.href);
+  url.searchParams.set("tipus", tipo);
+  history.replaceState(null, null, url);
+}
+
+function entrarAdmin(){
+
+  const pass = document.getElementById("inpPassAdmin").value;
+  const estatDiv = document.getElementById("estat");
+
+  if(pass !== PASSWORD){
+    estatDiv.textContent = "Contrasenya incorrecta";
+    return;
+  }
+
+  const nom = document.getElementById("inpNomAdmin").value.trim() || "Admin";
+
+  // El modo admin y el de instalador son excluyentes
+  localStorage.removeItem("instaladorActiu");
+  localStorage.removeItem("instaladorPerfil");
+  localStorage.removeItem("instaladorContrasenya");
+  localStorage.removeItem("instaladorPozosAsignados");
+
+  localStorage.setItem("admin", "si");
+  localStorage.setItem("usuarioActual", nom);
+
+  location.href = "./";
+}
+
+async function entrarInstalador(){
+
+  const perfil = document.getElementById("inpPerfil").value.trim();
+  const contrasenya = document.getElementById("inpPassInstalador").value;
+  const estatDiv = document.getElementById("estat");
+
+  if(!perfil || !contrasenya){
+    estatDiv.textContent = "Omple perfil i contrasenya";
+    return;
+  }
+
+  estatDiv.style.color = "var(--ink-soft)";
+  estatDiv.textContent = "Comprovant…";
+
+  try{
+
+    const r = await fetch(API + "?accion=loginInstalador" +
+      "&perfil=" + encodeURIComponent(perfil) +
+      "&contrasenya=" + encodeURIComponent(contrasenya));
+
+    const dades = await r.json();
+
+    if(!dades.ok){
+      estatDiv.style.color = "var(--danger)";
+      estatDiv.textContent = dades.mensaje || "No s'ha pogut iniciar sessió";
+      return;
+    }
+
+    // El modo instalador y el de admin son excluyentes
+    localStorage.removeItem("admin");
+
+    const pozosAsignados = dades.equipos.map(e => String(e.codigo).toUpperCase());
+
+    localStorage.setItem("instaladorActiu", "si");
+    localStorage.setItem("instaladorPerfil", dades.perfil);
+    localStorage.setItem("instaladorContrasenya", contrasenya);
+    localStorage.setItem("instaladorPozosAsignados", JSON.stringify(pozosAsignados));
+
+    location.href = "./";
+
+  }catch(error){
+    console.error(error);
+    estatDiv.style.color = "var(--danger)";
+    estatDiv.textContent = "Error de comunicació";
+  }
+}
+
+// Preseleccionar pestaña según ?tipus=admin|instalador en la URL
+const tipoInicial = new URL(location.href).searchParams.get("tipus");
+canviarTab(tipoInicial === "instalador" ? "instalador" : "admin");
+
+</script>
+
+</body>
+</html>
