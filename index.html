@@ -987,6 +987,8 @@ function renderLista(lista, titulo){
             <span>${escapeHtml(e.deveui)}</span>
             <span>🔧 ${escapeHtml(e.tipoSonda || "-")}</span>
             <span>📏 ${escapeHtml(e.metraje || "-")} m</span>
+            ${e.usuario ? `<span>👤 ${escapeHtml(e.usuario)}</span>` : ""}
+            ${e.fecha ? `<span>📅 ${escapeHtml(e.fecha)}</span>` : ""}
           </div>
         </div>
         <span class="pill pill-${claseEstado(e.estado)}"><span class="dot"></span>${escapeHtml(e.estado || "-")}</span>
