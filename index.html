@@ -1081,28 +1081,7 @@ function loginAdmin(){
     return;
   }
 
-  const pass = prompt("Contrasenya d'administrador:");
-  if(pass !== PASSWORD){
-    alert("Contrasenya incorrecta");
-    return;
-  }
-
-  // El modo admin y el de instalador son excluyentes
-  if(instaladorActiu){
-    tancarSessioInstalador();
-  }
-
-  admin = true;
-  localStorage.setItem("admin","si");
-
-  if(!usuarioActual){
-    usuarioActual = "Admin";
-    localStorage.setItem("usuarioActual", usuarioActual);
-  }
-
-  actualizarModoAdmin();
-  cargarDatos();
-  cargarPanellInstaladors();
+  location.href = "./login.html?tipus=admin";
 }
 
 async function loginInstalador(){
@@ -1115,51 +1094,7 @@ async function loginInstalador(){
     return;
   }
 
-  const perfil = prompt("El teu perfil d'instal·lador:");
-  if(!perfil) return;
-
-  const contrasenya = prompt("Contrasenya:");
-  if(contrasenya === null) return;
-
-  try{
-
-    const r = await fetch(API + "?accion=loginInstalador" +
-      "&perfil=" + encodeURIComponent(perfil) +
-      "&contrasenya=" + encodeURIComponent(contrasenya));
-
-    const dades = await r.json();
-
-    if(!dades.ok){
-      alert("Error: " + (dades.mensaje || "no s'ha pogut iniciar sessió"));
-      return;
-    }
-
-    // El modo instalador y el de admin son excluyentes
-    if(admin){
-      admin = false;
-      localStorage.removeItem("admin");
-      actualizarModoAdmin();
-    }
-
-    instaladorActiu = true;
-    instaladorPerfil = dades.perfil;
-    instaladorContrasenya = contrasenya;
-    instaladorPozosAsignados = dades.equipos.map(e => String(e.codigo).toUpperCase());
-    instaladorVeureTots = false;
-
-    localStorage.setItem("instaladorActiu", "si");
-    localStorage.setItem("instaladorPerfil", instaladorPerfil);
-    localStorage.setItem("instaladorContrasenya", instaladorContrasenya);
-    localStorage.setItem("instaladorPozosAsignados", JSON.stringify(instaladorPozosAsignados));
-
-    equipos = dades.equipos;
-    actualizarStats();
-    actualizarModoInstalador();
-
-  }catch(error){
-    console.error(error);
-    alert("Error de comunicació iniciant sessió");
-  }
+  location.href = "./login.html?tipus=instalador";
 }
 
 function tancarSessioInstalador(){
