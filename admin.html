@@ -391,9 +391,15 @@ async function entrar(){
 
 async function carregarPerfils(){
   try{
-    const r = await fetch(API + "?accion=instaladors" +
-      "&perfil=" + encodeURIComponent(authPerfil) +
-      "&contrasenya=" + encodeURIComponent(authContrasenya));
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        accion: "instaladors",
+        perfil: authPerfil,
+        contrasenya: authContrasenya
+      })
+    });
     const dades = await r.json();
     if(!dades.ok) return false;
     perfils = dades.perfils;

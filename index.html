@@ -711,26 +711,6 @@ main{
 const API =
 "https://script.google.com/macros/s/AKfycbzz8jwBBYvxLJBdYlf6OrTzPBKK_ojTu4D5w2LZsxVMksLo3-WBk6EUFIFBEWTEVBKNzA/exec";
 
-// ⚠️ IMPORTANTE SOBRE SEGURIDAD (leer antes de usar en producción):
-// Esta contraseña solo controla qué botones se MUESTRAN en el navegador.
-// Como esta web es un archivo estático (GitHub Pages), cualquiera puede
-// abrir "ver código fuente" y ver tanto esta contraseña como la URL de
-// tu Apps Script. Por eso cada acción que modifica datos envía ahora
-// también un parámetro "clave". PERO la protección real solo existe si
-// tu Apps Script COMPRUEBA ese valor y rechaza la petición si no coincide.
-// Añade algo así al principio de la función que gestiona "accion" en tu
-// Apps Script (function doGet(e){ ... }):
-//
-//   const CLAVE_VALIDA = "JFA2026"; // debe coincidir con la de aquí abajo
-//   const accionesQueEscriben = ["retirar","instalado","noinstalar","almacen","serieSonda"];
-//   if (accionesQueEscriben.includes(e.parameter.accion) && e.parameter.clave !== CLAVE_VALIDA) {
-//     return ContentService.createTextOutput("ERROR: no autorizado");
-//   }
-//
-// Sin ese cambio en el backend, cualquiera que conozca la URL de la API
-// puede modificar el inventario directamente, sin pasar por esta web.
-const PASSWORD = "JFA2026";
-
 // Longitud que debe tener una serie de sonda válida al escanearla por QR
 const LONGITUD_SERIE_VALIDA = 7;
 
@@ -929,7 +909,11 @@ async function cargarPanellInstaladors(){
 
   try{
 
-    const r = await fetch(API + "?accion=instaladors&clave=" + encodeURIComponent(PASSWORD));
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(Object.assign({ accion: "instaladors" }, construirAuthPayload()))
+    });
     const dades = await r.json();
 
     if(!dades.ok || !dades.perfils || !dades.perfils.length){
@@ -1107,9 +1091,15 @@ async function refrescarDadesInstalador(){
 
   try{
 
-    const r = await fetch(API + "?accion=loginInstalador" +
-      "&perfil=" + encodeURIComponent(instaladorPerfil) +
-      "&contrasenya=" + encodeURIComponent(instaladorContrasenya));
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        accion: "loginInstalador",
+        perfil: instaladorPerfil,
+        contrasenya: instaladorContrasenya
+      })
+    });
 
     const dades = await r.json();
 
@@ -1223,14 +1213,18 @@ async function asignarSerieSonda(codigo){
   const serie = prompt("Número de sèrie de la sonda:", equipo.serieSonda || "");
   if(serie === null || serie.trim() === "") return;
 
-  const url = API +
-    "?accion=serieSonda" +
-    construirAuthQuery() +
-    "&fila=" + encodeURIComponent(equipo.fila) +
-    "&serie=" + encodeURIComponent(serie);
+  const payload = Object.assign({
+    accion: "serieSonda",
+    fila: equipo.fila,
+    serie: serie
+  }, construirAuthPayload());
 
   try{
-    const r = await fetch(url);
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
     const respuesta = await r.text();
 
     if(respuesta === "OK"){
@@ -1272,13 +1266,17 @@ async function escanearSerieSonda(codigo){
         html5QrCode = null;
         document.getElementById("scannerModal").style.display = "none";
 
-        const url = API +
-          "?accion=serieSonda" +
-          construirAuthQuery() +
-          "&fila=" + encodeURIComponent(equipo.fila) +
-          "&serie=" + encodeURIComponent(decodedText);
+        const payload = Object.assign({
+          accion: "serieSonda",
+          fila: equipo.fila,
+          serie: decodedText
+        }, construirAuthPayload());
 
-        const r = await fetch(url);
+        const r = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
         const respuesta = await r.text();
 
         if(respuesta === "OK"){
@@ -1348,16 +1346,20 @@ async function cambiarEstado(codigo,accion){
   const usuario = obtenerUsuario();
   if(!usuario) return;
 
-  const url = API +
-    "?accion=" + encodeURIComponent(accion) +
-    construirAuthQuery() +
-    "&fila=" + encodeURIComponent(equipo.fila) +
-    "&codigo=" + encodeURIComponent(equipo.codigo) +
-    "&deveui=" + encodeURIComponent(equipo.deveui) +
-    "&usuario=" + encodeURIComponent(usuario);
+  const payload = Object.assign({
+    accion: accion,
+    fila: equipo.fila,
+    codigo: equipo.codigo,
+    deveui: equipo.deveui,
+    usuario: usuario
+  }, construirAuthPayload());
 
   try{
-    const r = await fetch(url);
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
     const respuesta = await r.text();
 
     if(respuesta==="OK"){
@@ -1396,17 +1398,21 @@ async function marcarNoInstalar(codigo){
   const usuario = obtenerUsuario();
   if(!usuario) return;
 
-  const url = API +
-    "?accion=noinstalar" +
-    construirAuthQuery() +
-    "&fila=" + encodeURIComponent(equipo.fila) +
-    "&codigo=" + encodeURIComponent(equipo.codigo) +
-    "&deveui=" + encodeURIComponent(equipo.deveui) +
-    "&usuario=" + encodeURIComponent(usuario) +
-    "&observacions=" + encodeURIComponent(observacions);
+  const payload = Object.assign({
+    accion: "noinstalar",
+    fila: equipo.fila,
+    codigo: equipo.codigo,
+    deveui: equipo.deveui,
+    usuario: usuario,
+    observacions: observacions
+  }, construirAuthPayload());
 
   try{
-    const r = await fetch(url);
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
     const respuesta = await r.text();
 
     if(respuesta==="OK"){
@@ -1684,7 +1690,11 @@ async function actualizarMapa(event){
 
   try{
 
-    const r = await fetch(API + "?accion=mapa" + construirAuthQuery());
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(Object.assign({ accion: "mapa" }, construirAuthPayload()))
+    });
     const respuestaTexto = await r.text();
 
     let respuesta;
