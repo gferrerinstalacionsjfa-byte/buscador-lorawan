@@ -57,7 +57,7 @@ body{
   align-items:baseline;
   gap:8px;
   justify-content:center;
-  margin-bottom:22px;
+  margin-bottom:6px;
 }
 
 .brand-mark{
@@ -77,37 +77,12 @@ body{
   color:var(--ink-soft);
 }
 
-.tabs{
-  display:flex;
-  background:var(--bg);
-  border:1px solid var(--line);
-  border-radius:999px;
-  padding:3px;
-  gap:2px;
+.subtitol{
+  text-align:center;
+  font-size:12.5px;
+  color:var(--ink-faint);
   margin-bottom:22px;
 }
-
-.tab{
-  flex:1;
-  text-align:center;
-  font-size:13.5px;
-  font-weight:600;
-  padding:9px 10px;
-  border-radius:999px;
-  color:var(--ink-soft);
-  cursor:pointer;
-  border:none;
-  background:transparent;
-  font-family:var(--sans);
-}
-
-.tab.activa{
-  background:var(--ink);
-  color:var(--surface);
-}
-
-.formulari{display:none;}
-.formulari.actiu{display:block;}
 
 .campo{margin-bottom:14px;}
 .campo label{
@@ -132,11 +107,6 @@ body{
   outline:2px solid var(--accent);
   outline-offset:-1px;
 }
-.campo .ajuda{
-  font-size:11.5px;
-  color:var(--ink-faint);
-  margin-top:4px;
-}
 
 .btn{
   width:100%;
@@ -149,6 +119,7 @@ body{
   cursor:pointer;
   background:var(--accent);
   color:#fff;
+  margin-top:4px;
 }
 .btn:hover{background:var(--accent-dark);}
 
@@ -181,36 +152,18 @@ body{
     <span class="brand-mark">JFA</span>
     <span class="brand-name">Instalacions</span>
   </div>
+  <div class="subtitol">Inicia sessió amb el teu perfil</div>
 
-  <div class="tabs">
-    <button class="tab" id="tabAdmin" onclick="canviarTab('admin')">🔒 Administrador</button>
-    <button class="tab" id="tabInstalador" onclick="canviarTab('instalador')">👷 Instal·lador</button>
+  <div class="campo">
+    <label for="inpPerfil">Perfil</label>
+    <input id="inpPerfil" type="text" placeholder="El teu nom" onkeydown="if(event.key==='Enter') document.getElementById('inpPass').focus()">
+  </div>
+  <div class="campo">
+    <label for="inpPass">Contrasenya</label>
+    <input id="inpPass" type="password" placeholder="Contrasenya" onkeydown="if(event.key==='Enter') entrar()">
   </div>
 
-  <div id="formAdmin" class="formulari">
-    <div class="campo">
-      <label for="inpPassAdmin">Contrasenya d'administrador</label>
-      <input id="inpPassAdmin" type="password" placeholder="Contrasenya" onkeydown="if(event.key==='Enter') entrarAdmin()">
-    </div>
-    <div class="campo">
-      <label for="inpNomAdmin">El teu nom (opcional)</label>
-      <input id="inpNomAdmin" type="text" placeholder="p. ex. Guillem" onkeydown="if(event.key==='Enter') entrarAdmin()">
-      <div class="ajuda">Es farà servir com a "usuari" als registres. Si el deixes en blanc, es farà servir "Admin".</div>
-    </div>
-    <button class="btn" onclick="entrarAdmin()">Entrar</button>
-  </div>
-
-  <div id="formInstalador" class="formulari">
-    <div class="campo">
-      <label for="inpPerfil">El teu perfil d'instal·lador</label>
-      <input id="inpPerfil" type="text" placeholder="Perfil" onkeydown="if(event.key==='Enter') entrarInstalador()">
-    </div>
-    <div class="campo">
-      <label for="inpPassInstalador">Contrasenya</label>
-      <input id="inpPassInstalador" type="password" placeholder="Contrasenya" onkeydown="if(event.key==='Enter') entrarInstalador()">
-    </div>
-    <button class="btn" onclick="entrarInstalador()">Entrar</button>
-  </div>
+  <button class="btn" onclick="entrar()">Entrar</button>
 
   <div id="estat" class="estat"></div>
 
@@ -223,52 +176,15 @@ body{
 const API =
 "https://script.google.com/macros/s/AKfycbzz8jwBBYvxLJBdYlf6OrTzPBKK_ojTu4D5w2LZsxVMksLo3-WBk6EUFIFBEWTEVBKNzA/exec";
 
-const PASSWORD = "JFA2026";
-
-function canviarTab(tipo){
-  document.getElementById("tabAdmin").classList.toggle("activa", tipo === "admin");
-  document.getElementById("tabInstalador").classList.toggle("activa", tipo === "instalador");
-  document.getElementById("formAdmin").classList.toggle("actiu", tipo === "admin");
-  document.getElementById("formInstalador").classList.toggle("actiu", tipo === "instalador");
-  document.getElementById("estat").textContent = "";
-
-  const url = new URL(location.href);
-  url.searchParams.set("tipus", tipo);
-  history.replaceState(null, null, url);
-}
-
-function entrarAdmin(){
-
-  const pass = document.getElementById("inpPassAdmin").value;
-  const estatDiv = document.getElementById("estat");
-
-  if(pass !== PASSWORD){
-    estatDiv.textContent = "Contrasenya incorrecta";
-    return;
-  }
-
-  const nom = document.getElementById("inpNomAdmin").value.trim() || "Admin";
-
-  // El modo admin y el de instalador son excluyentes
-  localStorage.removeItem("instaladorActiu");
-  localStorage.removeItem("instaladorPerfil");
-  localStorage.removeItem("instaladorContrasenya");
-  localStorage.removeItem("instaladorPozosAsignados");
-
-  localStorage.setItem("admin", "si");
-  localStorage.setItem("usuarioActual", nom);
-
-  location.href = "./";
-}
-
-async function entrarInstalador(){
+async function entrar(){
 
   const perfil = document.getElementById("inpPerfil").value.trim();
-  const contrasenya = document.getElementById("inpPassInstalador").value;
+  const contrasenya = document.getElementById("inpPass").value;
   const estatDiv = document.getElementById("estat");
 
   if(!perfil || !contrasenya){
-    estatDiv.textContent = "Omple perfil i contrasenya";
+    estatDiv.style.color = "var(--danger)";
+    estatDiv.textContent = "Omple el perfil i la contrasenya";
     return;
   }
 
@@ -289,15 +205,27 @@ async function entrarInstalador(){
       return;
     }
 
-    // El modo instalador y el de admin son excluyentes
+    // Limpiar cualquier sesión anterior (admin o instalador)
     localStorage.removeItem("admin");
+    localStorage.removeItem("instaladorActiu");
+    localStorage.removeItem("instaladorPerfil");
+    localStorage.removeItem("instaladorContrasenya");
+    localStorage.removeItem("instaladorPozosAsignados");
 
-    const pozosAsignados = dades.equipos.map(e => String(e.codigo).toUpperCase());
+    if(dades.esAdmin){
 
-    localStorage.setItem("instaladorActiu", "si");
-    localStorage.setItem("instaladorPerfil", dades.perfil);
-    localStorage.setItem("instaladorContrasenya", contrasenya);
-    localStorage.setItem("instaladorPozosAsignados", JSON.stringify(pozosAsignados));
+      localStorage.setItem("admin", "si");
+      localStorage.setItem("usuarioActual", dades.perfil);
+
+    }else{
+
+      const pozosAsignados = dades.equipos.map(e => String(e.codigo).toUpperCase());
+
+      localStorage.setItem("instaladorActiu", "si");
+      localStorage.setItem("instaladorPerfil", dades.perfil);
+      localStorage.setItem("instaladorContrasenya", contrasenya);
+      localStorage.setItem("instaladorPozosAsignados", JSON.stringify(pozosAsignados));
+    }
 
     location.href = "./";
 
@@ -307,10 +235,6 @@ async function entrarInstalador(){
     estatDiv.textContent = "Error de comunicació";
   }
 }
-
-// Preseleccionar pestaña según ?tipus=admin|instalador en la URL
-const tipoInicial = new URL(location.href).searchParams.get("tipus");
-canviarTab(tipoInicial === "instalador" ? "instalador" : "admin");
 
 </script>
 
