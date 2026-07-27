@@ -223,6 +223,11 @@ async function entrar(){
       localStorage.setItem("admin", "si");
       localStorage.setItem("usuarioActual", dades.perfil);
 
+      // El resto de la web (paneles, acciones) autentica siempre con
+      // perfil+contrasenya reales, también en sesión de administrador
+      localStorage.setItem("instaladorPerfil", dades.perfil);
+      localStorage.setItem("instaladorContrasenya", contrasenya);
+
     }else{
 
       const pozosAsignados = dades.equipos.map(e => String(e.codigo).toUpperCase());
