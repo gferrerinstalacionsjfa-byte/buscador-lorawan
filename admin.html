@@ -277,10 +277,13 @@ main{
 
 <main>
 
-  <div id="loginBox" class="login-box">
-    <p style="color:var(--ink-soft);margin-top:0;">Introdueix la contrasenya d'administrador per gestionar els perfils d'instal·lador.</p>
-    <input id="inpClaveAdmin" type="password" placeholder="Contrasenya d'administrador" onkeydown="if(event.key==='Enter') entrar()">
-    <button class="btn btn-primary" style="width:100%;" onclick="entrar()">Entrar</button>
+  <div id="carregant" class="login-box">
+    <p style="color:var(--ink-soft);margin:0;text-align:center;">Comprovant accés…</p>
+  </div>
+
+  <div id="denegat" class="login-box" style="display:none;">
+    <p style="color:var(--ink-soft);margin-top:0;">Aquesta pàgina és exclusiva del compte mestre — cap perfil d'administrador creat des d'aquí hi té accés, encara que tingui marcat "És administrador".</p>
+    <a class="btn btn-primary" style="width:100%;text-decoration:none;display:block;box-sizing:border-box;text-align:center;" href="./login.html">Iniciar sessió com a compte mestre</a>
   </div>
 
   <div id="panell" style="display:none;">
@@ -347,47 +350,20 @@ let pousSeleccionats = new Set();
 
 window.onload = async () => {
 
-  // Si ja has iniciat sessió com a admin des de login.html, no cal tornar
-  // a demanar la contrasenya
-  if(localStorage.getItem("admin") === "si"){
-
-    authPerfil = localStorage.getItem("instaladorPerfil") || "";
-    authContrasenya = localStorage.getItem("instaladorContrasenya") || "";
-
-    const ok = await carregarPerfils();
-
-    if(ok){
-      document.getElementById("loginBox").style.display = "none";
-      document.getElementById("panell").style.display = "block";
-      await carregarEquips();
-      return;
-    }
-  }
-
-  document.getElementById("loginBox").style.display = "block";
-};
-
-async function entrar(){
-
-  const pass = document.getElementById("inpClaveAdmin").value;
-  if(!pass) return;
-
-  // Contrasenya sola = accés amb la clau mestra del sistema (perfil "Admin")
-  authPerfil = "Admin";
-  authContrasenya = pass;
+  authPerfil = localStorage.getItem("instaladorPerfil") || "";
+  authContrasenya = localStorage.getItem("instaladorContrasenya") || "";
 
   const ok = await carregarPerfils();
 
+  document.getElementById("carregant").style.display = "none";
+
   if(ok){
-    document.getElementById("loginBox").style.display = "none";
     document.getElementById("panell").style.display = "block";
     await carregarEquips();
   }else{
-    alert("Contrasenya incorrecta");
-    authPerfil = "";
-    authContrasenya = "";
+    document.getElementById("denegat").style.display = "block";
   }
-}
+};
 
 async function carregarPerfils(){
   try{
