@@ -899,6 +899,32 @@ function abrirEquipo(codigo){
   if(equipo) mostrarEquipo(equipo);
 }
 
+async function obrirCarpetaFotos(codigo, boton){
+
+  const textoOriginal = boton.textContent;
+  boton.textContent = "Cercant…";
+  boton.disabled = true;
+
+  try{
+
+    const r = await fetch(API + "?accion=carpetaFotos&codigo=" + encodeURIComponent(codigo));
+    const dades = await r.json();
+
+    if(dades.ok){
+      window.open(dades.url, "_blank");
+    }else{
+      alert(dades.mensaje || "No s'ha pogut obrir la carpeta");
+    }
+
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació");
+  }finally{
+    boton.textContent = textoOriginal;
+    boton.disabled = false;
+  }
+}
+
 async function cargarPanellInstaladors(){
 
   const card = document.getElementById("instaladorsCard");
@@ -916,7 +942,12 @@ async function cargarPanellInstaladors(){
     });
     const dades = await r.json();
 
-    if(!dades.ok || !dades.perfils || !dades.perfils.length){
+    if(!dades.ok){
+      cont.innerHTML = '<div style="font-size:12.5px;color:var(--danger);">Error: ' + escapeHtml(dades.mensaje || "no autoritzat") + '</div>';
+      return;
+    }
+
+    if(!dades.perfils || !dades.perfils.length){
       cont.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Encara no hi ha cap instal·lador creat.</div>';
       return;
     }
@@ -1006,6 +1037,7 @@ function mostrarEquipo(equipo){
              href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(equipo.lat)},${encodeURIComponent(equipo.lon)}"
              target="_blank" rel="noopener">📍 Com arribar-hi</a>
         ` : ""}
+        <button class="btn btn-outline" style="margin-left:8px;" onclick="obrirCarpetaFotos('${escapeHtml(equipo.codigo)}', this)">📁 Fotos</button>
       </div>
 
       <div class="ficha-body">
