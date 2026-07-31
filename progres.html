@@ -156,16 +156,76 @@ main{
   align-items:center;
 }
 
-.filtre-columna select{
+.filtre-multi{
+  position:relative;
+}
+
+.filtre-boto{
   font-family:var(--sans);
   font-size:12.5px;
-  padding:7px 8px;
+  font-weight:600;
+  padding:7px 10px;
   border:1px solid var(--line);
   border-radius:var(--radius-sm);
   background:var(--surface);
-  color:var(--ink);
-  max-width:180px;
+  color:var(--ink-soft);
+  cursor:pointer;
+  white-space:nowrap;
 }
+
+.filtre-boto.actiu{
+  border-color:var(--accent);
+  color:var(--accent-dark);
+  background:#E1F1F1;
+}
+
+.filtre-boto:hover{border-color:var(--ink-faint);}
+
+.filtre-panell{
+  display:none;
+  position:absolute;
+  top:calc(100% + 4px);
+  left:0;
+  z-index:20;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  box-shadow:var(--shadow);
+  padding:8px;
+  min-width:180px;
+  max-height:260px;
+  overflow-y:auto;
+}
+
+.filtre-panell.obert{display:block;}
+
+.filtre-panell-accions{
+  display:flex;
+  gap:10px;
+  padding-bottom:6px;
+  margin-bottom:6px;
+  border-bottom:1px solid var(--line);
+}
+
+.filtre-panell-accions a{
+  font-size:11.5px;
+  font-weight:600;
+  color:var(--accent);
+  text-decoration:none;
+  cursor:pointer;
+}
+
+.filtre-opcio{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:4px 2px;
+  font-size:12.5px;
+  cursor:pointer;
+  white-space:nowrap;
+}
+
+.filtre-opcio input{margin:0;cursor:pointer;}
 
 .contador{
   margin-left:auto;
@@ -293,7 +353,7 @@ let headers = [];
 let columnesVisibles = []; // índices de columnas con cabecera no vacía
 let filasCompletas = [];   // [{ valores:[...], colorFondo }]
 let filasFiltradas = [];
-let filtresColumna = {};   // índice columna -> valor seleccionado ("" = todos)
+let filtresColumna = {};   // índice columna -> Set de valores marcados (vacío = sin filtrar)
 let ordreColumna = null;
 let ordreAscendent = true;
 
@@ -321,9 +381,18 @@ async function carregarDades(intent){
     }
 
     headers = dades.headers;
+
+    const columnesOcultes = ["lloc", "completats:"];
+
     columnesVisibles = headers
       .map((h, i) => i)
-      .filter(i => String(headers[i] || "").trim() !== "");
+      .filter(i => {
+        const nom = String(headers[i] || "").trim();
+        if(nom === "") return false;                          // sin cabecera
+        if(columnesOcultes.includes(nom.toLowerCase())) return false; // Lloc / Completats:
+        if(/^\d+$/.test(nom)) return false;                    // cabecera residual tipo "50"
+        return true;
+      });
 
     filasCompletas = dades.filas;
 
@@ -376,27 +445,92 @@ function construirFiltresColumna(){
     // Solo columnas "categóricas": entre 2 y 20 valores distintos
     if(valoresUnicos.size < 2 || valoresUnicos.size > 20) return;
 
+    if(!filtresColumna[i]) filtresColumna[i] = new Set();
+
     const wrap = document.createElement("div");
-    wrap.className = "filtre-columna";
+    wrap.className = "filtre-multi";
 
-    const select = document.createElement("select");
-    select.id = "filtre-" + i;
-    select.innerHTML = `<option value="">${escapeHtml(headers[i])}: tots</option>` +
-      Array.from(valoresUnicos).sort().map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
-
-    select.onchange = () => {
-      filtresColumna[i] = select.value;
-      aplicarFiltres();
+    const boto = document.createElement("button");
+    boto.type = "button";
+    boto.className = "filtre-boto";
+    boto.textContent = headers[i];
+    boto.onclick = (ev) => {
+      ev.stopPropagation();
+      const obert = panell.classList.contains("obert");
+      document.querySelectorAll(".filtre-panell.obert").forEach(p => p.classList.remove("obert"));
+      if(!obert) panell.classList.add("obert");
     };
 
-    wrap.appendChild(select);
+    const panell = document.createElement("div");
+    panell.className = "filtre-panell";
+    panell.onclick = (ev) => ev.stopPropagation();
+
+    const accions = document.createElement("div");
+    accions.className = "filtre-panell-accions";
+    accions.innerHTML = `<a href="#" data-accio="tots">Tots</a><a href="#" data-accio="cap">Cap</a>`;
+    accions.querySelector('[data-accio="tots"]').onclick = (ev) => {
+      ev.preventDefault();
+      panell.querySelectorAll("input[type=checkbox]").forEach(c => c.checked = true);
+      actualizarFiltreColumna(i, panell, boto);
+    };
+    accions.querySelector('[data-accio="cap"]').onclick = (ev) => {
+      ev.preventDefault();
+      panell.querySelectorAll("input[type=checkbox]").forEach(c => c.checked = false);
+      actualizarFiltreColumna(i, panell, boto);
+    };
+    panell.appendChild(accions);
+
+    Array.from(valoresUnicos).sort().forEach(v => {
+      const opcio = document.createElement("label");
+      opcio.className = "filtre-opcio";
+      const check = document.createElement("input");
+      check.type = "checkbox";
+      check.value = v;
+      check.checked = filtresColumna[i].has(v);
+      check.onchange = () => actualizarFiltreColumna(i, panell, boto);
+      opcio.appendChild(check);
+      opcio.appendChild(document.createTextNode(v));
+      panell.appendChild(opcio);
+    });
+
+    wrap.appendChild(boto);
+    wrap.appendChild(panell);
     cont.appendChild(wrap);
+
+    actualizarEtiquetaBoto(i, boto);
   });
 
   const contador = document.createElement("span");
   contador.className = "contador";
   contador.id = "contador";
   cont.appendChild(contador);
+}
+
+// Se registra una sola vez: cierra cualquier panel de filtro abierto al
+// tocar fuera de él
+if(!window._listenerFiltresRegistrat){
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".filtre-panell.obert").forEach(p => p.classList.remove("obert"));
+  });
+  window._listenerFiltresRegistrat = true;
+}
+
+function actualizarFiltreColumna(indice, panell, boto){
+
+  const seleccionats = new Set(
+    Array.from(panell.querySelectorAll("input[type=checkbox]:checked")).map(c => c.value)
+  );
+
+  filtresColumna[indice] = seleccionats;
+  actualizarEtiquetaBoto(indice, boto);
+  aplicarFiltres();
+}
+
+function actualizarEtiquetaBoto(indice, boto){
+  const n = filtresColumna[indice] ? filtresColumna[indice].size : 0;
+  // Sin nada marcado, el filtro queda "colapsado": solo el nombre de la columna
+  boto.textContent = n > 0 ? `${headers[indice]} (${n})` : headers[indice];
+  boto.classList.toggle("actiu", n > 0);
 }
 
 function aplicarFiltres(){
@@ -406,8 +540,11 @@ function aplicarFiltres(){
   filasFiltradas = filasCompletas.filter(f => {
 
     for(const idx in filtresColumna){
-      const valorFiltre = filtresColumna[idx];
-      if(valorFiltre && String(f.valores[idx] ?? "").trim() !== valorFiltre) return false;
+      const seleccionats = filtresColumna[idx];
+      if(seleccionats && seleccionats.size > 0){
+        const valor = String(f.valores[idx] ?? "").trim();
+        if(!seleccionats.has(valor)) return false;
+      }
     }
 
     if(cercaGlobal){
