@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Progrés sondes · Instalacions JFA</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+
+:root{
+  --bg:#EEF2F1;
+  --surface:#FFFFFF;
+  --ink:#10242B;
+  --ink-soft:#56686D;
+  --ink-faint:#8B9A9D;
+  --line:#DCE4E2;
+  --accent:#0E7C86;
+  --accent-dark:#0A5F67;
+  --danger:#B3261E;
+  --danger-soft:#FBE7E5;
+  --ok:#1F8A4C;
+  --radius:10px;
+  --radius-sm:7px;
+  --shadow:0 1px 2px rgba(16,36,43,0.06),0 6px 16px rgba(16,36,43,0.06);
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+}
+
+*{box-sizing:border-box;}
+
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--ink);
+  margin:0;
+  padding-bottom:60px;
+}
+
+.topbar{
+  background:var(--surface);
+  border-bottom:1px solid var(--line);
+  position:sticky;
+  top:0;
+  z-index:60;
+}
+
+.topbar-inner{
+  max-width:1400px;
+  margin:auto;
+  padding:12px 20px;
+  display:flex;
+  align-items:center;
+  gap:16px;
+  flex-wrap:wrap;
+}
+
+.brand{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  margin-right:auto;
+  text-decoration:none;
+}
+
+.brand-mark{
+  font-family:var(--mono);
+  font-weight:600;
+  font-size:14px;
+  letter-spacing:0.06em;
+  background:var(--ink);
+  color:var(--surface);
+  padding:3px 7px;
+  border-radius:5px;
+}
+
+.brand-name{
+  font-weight:600;
+  font-size:15px;
+  color:var(--ink-soft);
+}
+
+.app-switch{
+  display:flex;
+  background:var(--bg);
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:3px;
+  gap:2px;
+}
+
+.app-tab{
+  text-decoration:none;
+  font-size:13px;
+  font-weight:600;
+  padding:7px 14px;
+  border-radius:999px;
+  color:var(--ink-soft);
+}
+
+.app-tab.activa{
+  background:var(--ink);
+  color:var(--surface);
+}
+
+.btn{
+  font-family:var(--sans);
+  font-size:13px;
+  font-weight:600;
+  padding:9px 14px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--line);
+  background:var(--surface);
+  color:var(--ink);
+  cursor:pointer;
+}
+.btn:hover{border-color:var(--ink-faint);}
+.btn-primary{background:var(--accent);color:#fff;border-color:transparent;}
+.btn-primary:hover{background:var(--accent-dark);}
+
+main{
+  max-width:1400px;
+  margin:auto;
+  padding:16px 20px;
+}
+
+.panell-filtres{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:14px 16px;
+  margin-bottom:14px;
+}
+
+.cerca-global{
+  width:100%;
+  padding:11px 12px;
+  font-size:14px;
+  font-family:var(--sans);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--bg);
+  box-sizing:border-box;
+  margin-bottom:10px;
+}
+.cerca-global:focus{outline:2px solid var(--accent);outline-offset:-1px;}
+
+.fila-filtres{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+
+.filtre-columna select{
+  font-family:var(--sans);
+  font-size:12.5px;
+  padding:7px 8px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--surface);
+  color:var(--ink);
+  max-width:180px;
+}
+
+.contador{
+  margin-left:auto;
+  font-family:var(--mono);
+  font-size:12.5px;
+  color:var(--ink-soft);
+  white-space:nowrap;
+}
+
+.taula-wrap{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  overflow:auto;
+  max-height:72vh;
+}
+
+table{
+  border-collapse:collapse;
+  width:100%;
+  font-size:13px;
+}
+
+thead th{
+  position:sticky;
+  top:0;
+  background:var(--ink);
+  color:var(--surface);
+  text-align:left;
+  padding:9px 10px;
+  font-size:11.5px;
+  text-transform:uppercase;
+  letter-spacing:.03em;
+  cursor:pointer;
+  white-space:nowrap;
+  z-index:1;
+}
+thead th:hover{background:var(--accent-dark);}
+thead th .fletxa{opacity:.6;font-size:10px;margin-left:3px;}
+
+tbody td{
+  padding:7px 10px;
+  border-bottom:1px solid var(--line);
+  white-space:nowrap;
+  max-width:280px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+tbody tr:hover td{background:var(--bg);}
+
+tbody tr.fila-alerta td{background:var(--danger-soft);}
+tbody tr.fila-alerta:hover td{background:#f7d3d0;}
+
+.badge-si{
+  display:inline-block;
+  font-size:11px;
+  font-weight:600;
+  padding:2px 8px;
+  border-radius:999px;
+  background:#E5F5EA;
+  color:var(--ok);
+}
+
+.buit{
+  text-align:center;
+  padding:40px;
+  color:var(--ink-soft);
+}
+
+.estat{
+  text-align:center;
+  padding:12px;
+  color:var(--ink-soft);
+  font-size:13px;
+}
+
+</style>
+</head>
+
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="./">
+      <span class="brand-mark">JFA</span>
+      <span class="brand-name">Instalacions</span>
+    </a>
+    <nav class="app-switch">
+      <a class="app-tab" href="./">Inventari</a>
+      <a class="app-tab" href="./mapa.html">Mapa</a>
+      <a class="app-tab activa" href="./progres.html">Progrés sondes</a>
+    </nav>
+    <button class="btn" onclick="carregarDades()">🔄 Actualitzar</button>
+    <button class="btn btn-primary" onclick="exportarCSV()">⬇️ Exportar CSV</button>
+  </div>
+</header>
+
+<main>
+
+  <div class="panell-filtres">
+    <input id="cercaGlobal" class="cerca-global" placeholder="Cercar en qualsevol columna… (codi, observacions, tipus…)" oninput="aplicarFiltres()">
+    <div id="filaFiltres" class="fila-filtres">
+      <span class="contador" id="contador"></span>
+    </div>
+  </div>
+
+  <div class="taula-wrap">
+    <table>
+      <thead id="capcalera"></thead>
+      <tbody id="cosTaula"></tbody>
+    </table>
+    <div id="estatCarrega" class="estat">Carregant…</div>
+  </div>
+
+</main>
+
+<script>
+
+const API =
+"https://script.google.com/macros/s/AKfycbzz8jwBBYvxLJBdYlf6OrTzPBKK_ojTu4D5w2LZsxVMksLo3-WBk6EUFIFBEWTEVBKNzA/exec";
+
+let headers = [];
+let columnesVisibles = []; // índices de columnas con cabecera no vacía
+let filasCompletas = [];   // [{ valores:[...], colorFondo }]
+let filasFiltradas = [];
+let filtresColumna = {};   // índice columna -> valor seleccionado ("" = todos)
+let ordreColumna = null;
+let ordreAscendent = true;
+
+async function carregarDades(){
+
+  document.getElementById("estatCarrega").style.display = "block";
+  document.getElementById("estatCarrega").textContent = "Carregant…";
+
+  try{
+
+    const r = await fetch(API + "?accion=progresSondes");
+    const dades = await r.json();
+
+    if(!dades.ok){
+      document.getElementById("estatCarrega").textContent = "Error carregant les dades";
+      return;
+    }
+
+    headers = dades.headers;
+    columnesVisibles = headers
+      .map((h, i) => i)
+      .filter(i => String(headers[i] || "").trim() !== "");
+
+    filasCompletas = dades.filas;
+
+    construirCapcalera();
+    construirFiltresColumna();
+    aplicarFiltres();
+
+    document.getElementById("estatCarrega").style.display = "none";
+
+  }catch(error){
+    console.error(error);
+    document.getElementById("estatCarrega").textContent = "Error de comunicació";
+  }
+}
+
+function construirCapcalera(){
+
+  const thead = document.getElementById("capcalera");
+  thead.innerHTML = "<tr>" + columnesVisibles.map(i =>
+    `<th onclick="ordenarPer(${i})">${escapeHtml(headers[i])}<span class="fletxa" id="fletxa-${i}"></span></th>`
+  ).join("") + "</tr>";
+}
+
+// Detecta qué columnas conviene mostrar como desplegable (pocos valores
+// distintos) y genera los filtros automáticamente
+function construirFiltresColumna(){
+
+  const cont = document.getElementById("filaFiltres");
+  cont.innerHTML = "";
+
+  columnesVisibles.forEach(i => {
+
+    const valoresUnicos = new Set();
+
+    filasCompletas.forEach(f => {
+      const v = String(f.valores[i] ?? "").trim();
+      if(v) valoresUnicos.add(v);
+    });
+
+    // Solo columnas "categóricas": entre 2 y 20 valores distintos
+    if(valoresUnicos.size < 2 || valoresUnicos.size > 20) return;
+
+    const wrap = document.createElement("div");
+    wrap.className = "filtre-columna";
+
+    const select = document.createElement("select");
+    select.id = "filtre-" + i;
+    select.innerHTML = `<option value="">${escapeHtml(headers[i])}: tots</option>` +
+      Array.from(valoresUnicos).sort().map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+
+    select.onchange = () => {
+      filtresColumna[i] = select.value;
+      aplicarFiltres();
+    };
+
+    wrap.appendChild(select);
+    cont.appendChild(wrap);
+  });
+
+  const contador = document.getElementById("contador");
+  cont.appendChild(contador);
+}
+
+function aplicarFiltres(){
+
+  const cercaGlobal = document.getElementById("cercaGlobal").value.trim().toLowerCase();
+
+  filasFiltradas = filasCompletas.filter(f => {
+
+    for(const idx in filtresColumna){
+      const valorFiltre = filtresColumna[idx];
+      if(valorFiltre && String(f.valores[idx] ?? "").trim() !== valorFiltre) return false;
+    }
+
+    if(cercaGlobal){
+      const coincide = f.valores.some(v => String(v ?? "").toLowerCase().includes(cercaGlobal));
+      if(!coincide) return false;
+    }
+
+    return true;
+  });
+
+  if(ordreColumna !== null){
+    filasFiltradas.sort((a, b) => {
+      const va = a.valores[ordreColumna] ?? "";
+      const vb = b.valores[ordreColumna] ?? "";
+      const cmp = String(va).localeCompare(String(vb), undefined, { numeric: true });
+      return ordreAscendent ? cmp : -cmp;
+    });
+  }
+
+  renderTaula();
+}
+
+function ordenarPer(indice){
+
+  if(ordreColumna === indice){
+    ordreAscendent = !ordreAscendent;
+  }else{
+    ordreColumna = indice;
+    ordreAscendent = true;
+  }
+
+  columnesVisibles.forEach(i => {
+    document.getElementById("fletxa-" + i).textContent = "";
+  });
+  document.getElementById("fletxa-" + indice).textContent = ordreAscendent ? "▲" : "▼";
+
+  aplicarFiltres();
+}
+
+function esColorAlerta(color){
+  if(!color) return false;
+  const c = color.toLowerCase();
+  return c === "#ff0000" || c === "#e06666" || c === "#b30000" || c === "#f4cccc";
+}
+
+function renderTaula(){
+
+  const tbody = document.getElementById("cosTaula");
+
+  if(!filasFiltradas.length){
+    tbody.innerHTML = `<tr><td colspan="${columnesVisibles.length}"><div class="buit">Cap fila coincideix amb el filtre</div></td></tr>`;
+    document.getElementById("contador").textContent = "0 de " + filasCompletas.length + " files";
+    return;
+  }
+
+  tbody.innerHTML = filasFiltradas.map(f => {
+
+    const claseAlerta = esColorAlerta(f.colorFondo) ? "fila-alerta" : "";
+
+    const celdas = columnesVisibles.map(i => {
+
+      let valor = f.valores[i];
+
+      if(typeof valor === "boolean"){
+        return `<td>${valor ? '<span class="badge-si">Sí</span>' : ""}</td>`;
+      }
+
+      return `<td title="${escapeHtml(valor)}">${escapeHtml(valor === "" || valor === null ? "-" : valor)}</td>`;
+    }).join("");
+
+    return `<tr class="${claseAlerta}">${celdas}</tr>`;
+
+  }).join("");
+
+  document.getElementById("contador").textContent = filasFiltradas.length + " de " + filasCompletas.length + " files";
+}
+
+function exportarCSV(){
+
+  if(!filasFiltradas.length){
+    alert("No hi ha files per exportar amb aquest filtre");
+    return;
+  }
+
+  const capcaleres = columnesVisibles.map(i => headers[i]);
+  const linies = [capcaleres];
+
+  filasFiltradas.forEach(f => {
+    linies.push(columnesVisibles.map(i => {
+      const v = f.valores[i];
+      if(typeof v === "boolean") return v ? "Sí" : "No";
+      return v === null || v === undefined ? "" : v;
+    }));
+  });
+
+  const csv = linies.map(fila =>
+    fila.map(celda => {
+      const texto = String(celda).replaceAll('"', '""');
+      return /[",\n;]/.test(texto) ? `"${texto}"` : texto;
+    }).join(";")
+  ).join("\n");
+
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "progres-sondes-" + new Date().toISOString().slice(0,10) + ".csv";
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+
+function escapeHtml(valor){
+  return String(valor ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#39;");
+}
+
+carregarDades();
+
+</script>
+
+</body>
+</html>
