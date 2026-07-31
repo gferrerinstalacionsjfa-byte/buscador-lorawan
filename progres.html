@@ -321,6 +321,10 @@ tbody tr.fila-alerta:hover td{background:#f7d3d0;}
       <a class="app-tab activa" href="./progres.html">Progrés sondes</a>
     </nav>
     <button class="btn" onclick="carregarDades()">🔄 Actualitzar</button>
+    <div class="filtre-multi" id="wrapColumnes">
+      <button type="button" class="filtre-boto" id="botoColumnes" onclick="obrirPanellColumnes(event)">👁️ Columnes</button>
+      <div class="filtre-panell" id="panellColumnes"></div>
+    </div>
     <button class="btn btn-primary" onclick="exportarCSV()">⬇️ Exportar CSV</button>
   </div>
 </header>
@@ -356,6 +360,14 @@ let filasFiltradas = [];
 let filtresColumna = {};   // índice columna -> Set de valores marcados (vacío = sin filtrar)
 let ordreColumna = null;
 let ordreAscendent = true;
+
+// Columnas que el usuario ha decidido ocultar a mano (por nombre, para que
+// se recuerde entre sesiones aunque cambie el orden de las columnas)
+let columnesOcultesManual = new Set(JSON.parse(localStorage.getItem("progresColumnesOcultes") || "[]"));
+
+function columnesMostrades(){
+  return columnesVisibles.filter(i => !columnesOcultesManual.has(headers[i]));
+}
 
 async function carregarDades(intent){
 
@@ -399,6 +411,7 @@ async function carregarDades(intent){
     construirCapcalera();
     construirFiltresColumna();
     aplicarFiltres();
+    document.getElementById("botoColumnes").classList.toggle("actiu", columnesOcultesManual.size > 0);
 
     document.getElementById("estatCarrega").style.display = "none";
 
@@ -421,7 +434,7 @@ async function carregarDades(intent){
 function construirCapcalera(){
 
   const thead = document.getElementById("capcalera");
-  thead.innerHTML = "<tr>" + columnesVisibles.map(i =>
+  thead.innerHTML = "<tr>" + columnesMostrades().map(i =>
     `<th onclick="ordenarPer(${i})">${escapeHtml(headers[i])}<span class="fletxa" id="fletxa-${i}"></span></th>`
   ).join("") + "</tr>";
 }
@@ -567,6 +580,67 @@ function aplicarFiltres(){
   renderTaula();
 }
 
+function obrirPanellColumnes(ev){
+
+  ev.stopPropagation();
+
+  const panell = document.getElementById("panellColumnes");
+  const obert = panell.classList.contains("obert");
+
+  document.querySelectorAll(".filtre-panell.obert").forEach(p => p.classList.remove("obert"));
+
+  if(obert) return; // ya estaba abierto, con cerrarlo basta (hecho arriba)
+
+  panell.innerHTML = "";
+  panell.onclick = (e) => e.stopPropagation();
+
+  const accions = document.createElement("div");
+  accions.className = "filtre-panell-accions";
+  accions.innerHTML = `<a href="#" data-accio="totes">Mostrar totes</a>`;
+  accions.querySelector('[data-accio="totes"]').onclick = (e) => {
+    e.preventDefault();
+    columnesOcultesManual.clear();
+    desarColumnesOcultes();
+    refrescarVistaColumnes();
+  };
+  panell.appendChild(accions);
+
+  columnesVisibles.forEach(i => {
+
+    const opcio = document.createElement("label");
+    opcio.className = "filtre-opcio";
+
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = !columnesOcultesManual.has(headers[i]);
+    check.onchange = () => {
+      if(check.checked){
+        columnesOcultesManual.delete(headers[i]);
+      }else{
+        columnesOcultesManual.add(headers[i]);
+      }
+      desarColumnesOcultes();
+      refrescarVistaColumnes();
+    };
+
+    opcio.appendChild(check);
+    opcio.appendChild(document.createTextNode(headers[i]));
+    panell.appendChild(opcio);
+  });
+
+  panell.classList.add("obert");
+}
+
+function desarColumnesOcultes(){
+  localStorage.setItem("progresColumnesOcultes", JSON.stringify(Array.from(columnesOcultesManual)));
+}
+
+function refrescarVistaColumnes(){
+  construirCapcalera();
+  renderTaula();
+  document.getElementById("botoColumnes").classList.toggle("actiu", columnesOcultesManual.size > 0);
+}
+
 function ordenarPer(indice){
 
   if(ordreColumna === indice){
@@ -593,9 +667,10 @@ function esColorAlerta(color){
 function renderTaula(){
 
   const tbody = document.getElementById("cosTaula");
+  const cols = columnesMostrades();
 
   if(!filasFiltradas.length){
-    tbody.innerHTML = `<tr><td colspan="${columnesVisibles.length}"><div class="buit">Cap fila coincideix amb el filtre</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${cols.length}"><div class="buit">Cap fila coincideix amb el filtre</div></td></tr>`;
     document.getElementById("contador").textContent = "0 de " + filasCompletas.length + " files";
     return;
   }
@@ -604,7 +679,7 @@ function renderTaula(){
 
     const claseAlerta = esColorAlerta(f.colorFondo) ? "fila-alerta" : "";
 
-    const celdas = columnesVisibles.map(i => {
+    const celdas = cols.map(i => {
 
       let valor = f.valores[i];
 
@@ -629,11 +704,12 @@ function exportarCSV(){
     return;
   }
 
-  const capcaleres = columnesVisibles.map(i => headers[i]);
+  const cols = columnesMostrades();
+  const capcaleres = cols.map(i => headers[i]);
   const linies = [capcaleres];
 
   filasFiltradas.forEach(f => {
-    linies.push(columnesVisibles.map(i => {
+    linies.push(cols.map(i => {
       const v = f.valores[i];
       if(typeof v === "boolean") return v ? "Sí" : "No";
       if(typeof v === "number") return String(v).replace(".", ",");
