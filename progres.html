@@ -636,6 +636,7 @@ function exportarCSV(){
     linies.push(columnesVisibles.map(i => {
       const v = f.valores[i];
       if(typeof v === "boolean") return v ? "Sí" : "No";
+      if(typeof v === "number") return String(v).replace(".", ",");
       return v === null || v === undefined ? "" : v;
     }));
   });
