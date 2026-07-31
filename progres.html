@@ -364,6 +364,7 @@ tbody tr.fila-acabada:hover td{background:#d3ecda;}
       <a class="app-tab activa" href="./progres.html">Progrés sondes</a>
     </nav>
     <button class="btn" onclick="carregarDades()">🔄 Actualitzar</button>
+    <button class="btn" onclick="exportarExcelColors()">🎨 Exportar Excel (amb colors)</button>
     <button class="btn btn-primary" onclick="exportarCSV()">⬇️ Exportar CSV</button>
   </div>
 </header>
@@ -764,6 +765,81 @@ function exportarCSV(){
   const a = document.createElement("a");
   a.href = url;
   a.download = "progres-sondes-" + new Date().toISOString().slice(0,10) + ".csv";
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+
+// Genera un .xls (formato HTML, que Excel entiende y abre con normalidad)
+// conservando el rojo de las problemàtiques y el verde de las acabades
+function exportarExcelColors(){
+
+  if(!filasFiltradas.length){
+    alert("No hi ha files per exportar amb aquest filtre");
+    return;
+  }
+
+  const cols = columnesMostrades();
+
+  const capceleraHtml = "<tr>" + cols.map(i =>
+    `<th style="background:#10242B;color:#fff;padding:6px 8px;text-align:left;">${escapeHtml(headers[i])}</th>`
+  ).join("") + "</tr>";
+
+  const filesHtml = filasFiltradas.map(f => {
+
+    let colorFons = "";
+    if(esColorAlerta(f.colorFondo)){
+      colorFons = "#F4CCCC";
+    }else if(idxAcabat !== -1 && f.valores[idxAcabat] === true){
+      colorFons = "#E5F5EA";
+    }
+
+    const estilFila = colorFons ? ` style="background:${colorFons};"` : "";
+
+    const celdes = cols.map(i => {
+      const v = f.valores[i];
+      let texto;
+      if(typeof v === "boolean") texto = v ? "Sí" : "No";
+      else if(typeof v === "number") texto = String(v).replace(".", ",");
+      else texto = (v === null || v === undefined || v === "") ? "" : v;
+      return `<td style="padding:5px 8px;border:1px solid #DCE4E2;">${escapeHtml(texto)}</td>`;
+    }).join("");
+
+    return `<tr${estilFila}>${celdes}</tr>`;
+  }).join("");
+
+  const html = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+    <head>
+      <meta charset="utf-8">
+      <!--[if gte mso 9]>
+      <xml>
+        <x:ExcelWorkbook>
+          <x:ExcelWorksheets>
+            <x:ExcelWorksheet>
+              <x:Name>Progrés sondes</x:Name>
+              <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+            </x:ExcelWorksheet>
+          </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+      </xml>
+      <![endif]-->
+    </head>
+    <body>
+      <table>
+        <thead>${capceleraHtml}</thead>
+        <tbody>${filesHtml}</tbody>
+      </table>
+    </body>
+    </html>
+  `;
+
+  const blob = new Blob(["\uFEFF" + html], { type: "application/vnd.ms-excel;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "progres-sondes-" + new Date().toISOString().slice(0,10) + ".xls";
   a.click();
 
   URL.revokeObjectURL(url);
