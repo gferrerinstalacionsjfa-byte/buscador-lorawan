@@ -303,15 +303,20 @@ async function carregarDades(intent){
 
   document.getElementById("estatCarrega").style.display = "block";
   document.getElementById("estatCarrega").textContent =
-    intent === 1 ? "Carregant…" : "Carregant… (el servidor s'està despertant, un moment)";
+    intent === 1 ? "Carregant…" : "Carregant… (intent " + intent + " de 4)";
 
   try{
 
     const r = await fetch(API + "?accion=progresSondes");
+
+    if(!r.ok){
+      throw new Error("HTTP " + r.status);
+    }
+
     const dades = await r.json();
 
     if(!dades.ok){
-      document.getElementById("estatCarrega").textContent = "Error carregant les dades";
+      document.getElementById("estatCarrega").textContent = "Error carregant les dades: " + (dades.mensaje || "desconegut");
       return;
     }
 
@@ -329,16 +334,18 @@ async function carregarDades(intent){
     document.getElementById("estatCarrega").style.display = "none";
 
   }catch(error){
-    console.error(error);
+    console.error("Error carregant progrés sondes (intent " + intent + "):", error);
 
-    // Primer intento fallido: probablemente Apps Script "despertando" tras
-    // un rato sin uso — reintentamos un par de veces solo, en silencio
-    if(intent < 3){
-      setTimeout(() => carregarDades(intent + 1), 1200);
+    // Reintentamos con más margen cada vez, por si el arranque en frío
+    // de Apps Script tarda más de lo habitual
+    if(intent < 4){
+      setTimeout(() => carregarDades(intent + 1), intent * 2500);
       return;
     }
 
-    document.getElementById("estatCarrega").textContent = "Error de comunicació";
+    document.getElementById("estatCarrega").innerHTML =
+      "Error de comunicació (" + escapeHtml(String(error.message || error)) + ") " +
+      "<button class=\"btn\" style=\"margin-left:8px;\" onclick=\"carregarDades()\">Tornar a provar</button>";
   }
 }
 
@@ -386,7 +393,9 @@ function construirFiltresColumna(){
     cont.appendChild(wrap);
   });
 
-  const contador = document.getElementById("contador");
+  const contador = document.createElement("span");
+  contador.className = "contador";
+  contador.id = "contador";
   cont.appendChild(contador);
 }
 
