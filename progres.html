@@ -267,6 +267,46 @@ thead th{
 thead th:hover{background:var(--accent-dark);}
 thead th .fletxa{opacity:.6;font-size:10px;margin-left:3px;}
 
+thead th{position:sticky;}
+thead th .capcalera-inner{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+thead th .amagar-columna{
+  opacity:0;
+  font-size:12px;
+  font-weight:400;
+  padding:0 3px;
+  border-radius:3px;
+  margin-left:auto;
+}
+thead th:hover .amagar-columna{opacity:.7;}
+thead th .amagar-columna:hover{opacity:1 !important;background:rgba(255,255,255,0.2);}
+
+.fila-columnes-ocultes{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  align-items:center;
+  margin-bottom:10px;
+  font-size:12px;
+  color:var(--ink-soft);
+}
+
+.chip-columna-oculta{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:4px 10px;
+  cursor:pointer;
+  font-size:12px;
+}
+.chip-columna-oculta:hover{border-color:var(--accent);color:var(--accent-dark);}
+
 tbody td{
   padding:7px 10px;
   border-bottom:1px solid var(--line);
@@ -321,10 +361,6 @@ tbody tr.fila-alerta:hover td{background:#f7d3d0;}
       <a class="app-tab activa" href="./progres.html">Progrés sondes</a>
     </nav>
     <button class="btn" onclick="carregarDades()">🔄 Actualitzar</button>
-    <div class="filtre-multi" id="wrapColumnes">
-      <button type="button" class="filtre-boto" id="botoColumnes" onclick="obrirPanellColumnes(event)">👁️ Columnes</button>
-      <div class="filtre-panell" id="panellColumnes"></div>
-    </div>
     <button class="btn btn-primary" onclick="exportarCSV()">⬇️ Exportar CSV</button>
   </div>
 </header>
@@ -337,6 +373,8 @@ tbody tr.fila-alerta:hover td{background:#f7d3d0;}
       <span class="contador" id="contador"></span>
     </div>
   </div>
+
+  <div id="filaColumnesOcultes" class="fila-columnes-ocultes" style="display:none;"></div>
 
   <div class="taula-wrap">
     <table>
@@ -411,7 +449,7 @@ async function carregarDades(intent){
     construirCapcalera();
     construirFiltresColumna();
     aplicarFiltres();
-    document.getElementById("botoColumnes").classList.toggle("actiu", columnesOcultesManual.size > 0);
+    renderColumnesOcultesChips();
 
     document.getElementById("estatCarrega").style.display = "none";
 
@@ -434,9 +472,46 @@ async function carregarDades(intent){
 function construirCapcalera(){
 
   const thead = document.getElementById("capcalera");
-  thead.innerHTML = "<tr>" + columnesMostrades().map(i =>
-    `<th onclick="ordenarPer(${i})">${escapeHtml(headers[i])}<span class="fletxa" id="fletxa-${i}"></span></th>`
-  ).join("") + "</tr>";
+  thead.innerHTML = "<tr>" + columnesMostrades().map(i => `
+    <th onclick="ordenarPer(${i})">
+      <div class="capcalera-inner">
+        <span>${escapeHtml(headers[i])}</span>
+        <span class="fletxa" id="fletxa-${i}"></span>
+        <span class="amagar-columna" title="Amagar aquesta columna" onclick="amagarColumna(event, ${i})">✕</span>
+      </div>
+    </th>
+  `).join("") + "</tr>";
+}
+
+function amagarColumna(ev, indice){
+  ev.stopPropagation();
+  columnesOcultesManual.add(headers[indice]);
+  desarColumnesOcultes();
+  refrescarVistaColumnes();
+}
+
+function mostrarColumna(indice){
+  columnesOcultesManual.delete(headers[indice]);
+  desarColumnesOcultes();
+  refrescarVistaColumnes();
+}
+
+function renderColumnesOcultesChips(){
+
+  const cont = document.getElementById("filaColumnesOcultes");
+
+  const ocultes = columnesVisibles.filter(i => columnesOcultesManual.has(headers[i]));
+
+  if(!ocultes.length){
+    cont.style.display = "none";
+    cont.innerHTML = "";
+    return;
+  }
+
+  cont.style.display = "flex";
+  cont.innerHTML = "Columnes amagades: " + ocultes.map(i =>
+    `<span class="chip-columna-oculta" onclick="mostrarColumna(${i})">${escapeHtml(headers[i])} ✕</span>`
+  ).join("");
 }
 
 // Detecta qué columnas conviene mostrar como desplegable (pocos valores
@@ -580,57 +655,6 @@ function aplicarFiltres(){
   renderTaula();
 }
 
-function obrirPanellColumnes(ev){
-
-  ev.stopPropagation();
-
-  const panell = document.getElementById("panellColumnes");
-  const obert = panell.classList.contains("obert");
-
-  document.querySelectorAll(".filtre-panell.obert").forEach(p => p.classList.remove("obert"));
-
-  if(obert) return; // ya estaba abierto, con cerrarlo basta (hecho arriba)
-
-  panell.innerHTML = "";
-  panell.onclick = (e) => e.stopPropagation();
-
-  const accions = document.createElement("div");
-  accions.className = "filtre-panell-accions";
-  accions.innerHTML = `<a href="#" data-accio="totes">Mostrar totes</a>`;
-  accions.querySelector('[data-accio="totes"]').onclick = (e) => {
-    e.preventDefault();
-    columnesOcultesManual.clear();
-    desarColumnesOcultes();
-    refrescarVistaColumnes();
-  };
-  panell.appendChild(accions);
-
-  columnesVisibles.forEach(i => {
-
-    const opcio = document.createElement("label");
-    opcio.className = "filtre-opcio";
-
-    const check = document.createElement("input");
-    check.type = "checkbox";
-    check.checked = !columnesOcultesManual.has(headers[i]);
-    check.onchange = () => {
-      if(check.checked){
-        columnesOcultesManual.delete(headers[i]);
-      }else{
-        columnesOcultesManual.add(headers[i]);
-      }
-      desarColumnesOcultes();
-      refrescarVistaColumnes();
-    };
-
-    opcio.appendChild(check);
-    opcio.appendChild(document.createTextNode(headers[i]));
-    panell.appendChild(opcio);
-  });
-
-  panell.classList.add("obert");
-}
-
 function desarColumnesOcultes(){
   localStorage.setItem("progresColumnesOcultes", JSON.stringify(Array.from(columnesOcultesManual)));
 }
@@ -638,7 +662,7 @@ function desarColumnesOcultes(){
 function refrescarVistaColumnes(){
   construirCapcalera();
   renderTaula();
-  document.getElementById("botoColumnes").classList.toggle("actiu", columnesOcultesManual.size > 0);
+  renderColumnesOcultesChips();
 }
 
 function ordenarPer(indice){
