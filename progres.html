@@ -297,10 +297,13 @@ let filtresColumna = {};   // índice columna -> valor seleccionado ("" = todos)
 let ordreColumna = null;
 let ordreAscendent = true;
 
-async function carregarDades(){
+async function carregarDades(intent){
+
+  intent = intent || 1;
 
   document.getElementById("estatCarrega").style.display = "block";
-  document.getElementById("estatCarrega").textContent = "Carregant…";
+  document.getElementById("estatCarrega").textContent =
+    intent === 1 ? "Carregant…" : "Carregant… (el servidor s'està despertant, un moment)";
 
   try{
 
@@ -327,6 +330,14 @@ async function carregarDades(){
 
   }catch(error){
     console.error(error);
+
+    // Primer intento fallido: probablemente Apps Script "despertando" tras
+    // un rato sin uso — reintentamos un par de veces solo, en silencio
+    if(intent < 3){
+      setTimeout(() => carregarDades(intent + 1), 1200);
+      return;
+    }
+
     document.getElementById("estatCarrega").textContent = "Error de comunicació";
   }
 }
