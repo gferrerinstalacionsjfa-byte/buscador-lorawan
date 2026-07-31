@@ -321,6 +321,9 @@ tbody tr:hover td{background:var(--bg);}
 tbody tr.fila-alerta td{background:var(--danger-soft);}
 tbody tr.fila-alerta:hover td{background:#f7d3d0;}
 
+tbody tr.fila-acabada td{background:#E5F5EA;}
+tbody tr.fila-acabada:hover td{background:#d3ecda;}
+
 .badge-si{
   display:inline-block;
   font-size:11px;
@@ -398,6 +401,7 @@ let filasFiltradas = [];
 let filtresColumna = {};   // índice columna -> Set de valores marcados (vacío = sin filtrar)
 let ordreColumna = null;
 let ordreAscendent = true;
+let idxAcabat = -1; // índice de la columna "Acabat", para marcar las filas en verde
 
 // Columnas que el usuario ha decidido ocultar a mano (por nombre, para que
 // se recuerde entre sesiones aunque cambie el orden de las columnas)
@@ -431,6 +435,7 @@ async function carregarDades(intent){
     }
 
     headers = dades.headers;
+    idxAcabat = headers.findIndex(h => String(h || "").trim().toLowerCase() === "acabat");
 
     const columnesOcultes = ["lloc", "completats:"];
 
@@ -701,7 +706,12 @@ function renderTaula(){
 
   tbody.innerHTML = filasFiltradas.map(f => {
 
-    const claseAlerta = esColorAlerta(f.colorFondo) ? "fila-alerta" : "";
+    let claseFila = "";
+    if(esColorAlerta(f.colorFondo)){
+      claseFila = "fila-alerta";
+    }else if(idxAcabat !== -1 && f.valores[idxAcabat] === true){
+      claseFila = "fila-acabada";
+    }
 
     const celdas = cols.map(i => {
 
@@ -714,7 +724,7 @@ function renderTaula(){
       return `<td title="${escapeHtml(valor)}">${escapeHtml(valor === "" || valor === null ? "-" : valor)}</td>`;
     }).join("");
 
-    return `<tr class="${claseAlerta}">${celdas}</tr>`;
+    return `<tr class="${claseFila}">${celdas}</tr>`;
 
   }).join("");
 
