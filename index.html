@@ -836,7 +836,12 @@ async function cargarDatos(intent){
     actualizarStats();
   }
 
-  card.classList.add("cargando");
+  // Solo se atenúa/bloquea la tarjeta si no hay nada que mostrar todavía.
+  // Si ya se ve el inventario (aunque sea de caché), el refresco de fondo
+  // no debe "apagar" ni bloquear algo que ya es usable
+  if(!habiaCache){
+    card.classList.add("cargando");
+  }
 
   if(intent > 1 && !habiaCache){
     stats.innerHTML = "Carregant… (intent " + intent + " de 4)";
@@ -1191,44 +1196,6 @@ function mostrarEquipo(equipo){
 
     </div>
   `;
-
-  // Coordenadas y serie no vienen en el listado inicial (para que cargue más
-  // rápido) — se piden aparte al abrir la ficha y, en cuanto llegan, se
-  // repinta esta misma ficha ya completa, sin que se note ningún cambio raro
-  if(!equipo._detalleCargado && !equipo._detalleCargando){
-    cargarDetalleEquipo(equipo);
-  }
-}
-
-async function cargarDetalleEquipo(equipo){
-
-  equipo._detalleCargando = true;
-
-  try{
-
-    const r = await fetch(API + "?q=" + encodeURIComponent(equipo.codigo));
-    const dades = await r.json();
-
-    if(dades && dades.tipo === "equipo"){
-      equipo.lat = dades.lat;
-      equipo.lon = dades.lon;
-      equipo.serieSonda = dades.serieSonda;
-    }
-
-    equipo._detalleCargado = true;
-
-    // Si seguimos con la ficha de este mismo equipo abierta, la repintamos
-    // ya con los datos completos (botón "Com arribar-hi", serie, etc.)
-    const codigoActual = location.hash.replace("#","").toUpperCase();
-    if(codigoActual === String(equipo.codigo).toUpperCase()){
-      mostrarEquipo(equipo);
-    }
-
-  }catch(error){
-    console.error("No s'han pogut carregar els detalls del pou:", error);
-  }finally{
-    equipo._detalleCargando = false;
-  }
 }
 
 async function gestionarSessio(){
