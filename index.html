@@ -817,9 +817,20 @@ async function cargarDatos(intent){
   const card = document.getElementById("statsCard");
   const stats = document.getElementById("stats");
 
+  const cache = localStorage.getItem("cacheEquipos");
+  const habiaCache = !!cache;
+
+  // Si ya hay algo guardado, se pinta al instante sin esperar a la red —
+  // la web se siente cargada desde el primer momento, y los datos frescos
+  // llegan y sustituyen esto en cuanto estén listos
+  if(intent === 1 && habiaCache && !equipos.length){
+    equipos = JSON.parse(cache);
+    actualizarStats();
+  }
+
   card.classList.add("cargando");
 
-  if(intent > 1){
+  if(intent > 1 && !habiaCache){
     stats.innerHTML = "Carregant… (intent " + intent + " de 4)";
   }
 
@@ -831,8 +842,8 @@ async function cargarDatos(intent){
     equipos = await r.json();
     actualizarStats();
 
-    // Se guarda como copia local, para poder seguir consultando el
-    // inventario aunque el próximo intento falle por falta de cobertura
+    // Se guarda como copia local, para la próxima vez que se abra la web
+    // (y como red de seguridad si el siguiente intento falla)
     try{
       localStorage.setItem("cacheEquipos", JSON.stringify(equipos));
       localStorage.setItem("cacheEquiposFecha", new Date().toISOString());
@@ -842,18 +853,14 @@ async function cargarDatos(intent){
     console.error("Error carregant inventari (intent " + intent + "):", error);
 
     if(intent < 4){
-      setTimeout(() => cargarDatos(intent + 1), intent * 2000);
-      return;
+      await new Promise(res => setTimeout(res, intent * 2000));
+      card.classList.remove("cargando");
+      return cargarDatos(intent + 1);
     }
 
-    // Se acabaron los reintentos: si hay una copia local, se usa esa en
-    // vez de dejar la pantalla en blanco
-    const cache = localStorage.getItem("cacheEquipos");
-
-    if(cache){
-      equipos = JSON.parse(cache);
-      actualizarStats();
-
+    if(habiaCache){
+      // Ya se estaba mostrando la copia guardada: solo un aviso discreto,
+      // sin tapar los datos que ya se ven
       const fecha = localStorage.getItem("cacheEquiposFecha");
       const cuando = fecha ? new Date(fecha).toLocaleString() : "data desconeguda";
 
@@ -1178,6 +1185,44 @@ function mostrarEquipo(equipo){
 
     </div>
   `;
+
+  // Coordenadas y serie no vienen en el listado inicial (para que cargue más
+  // rápido) — se piden aparte al abrir la ficha y, en cuanto llegan, se
+  // repinta esta misma ficha ya completa, sin que se note ningún cambio raro
+  if(!equipo._detalleCargado && !equipo._detalleCargando){
+    cargarDetalleEquipo(equipo);
+  }
+}
+
+async function cargarDetalleEquipo(equipo){
+
+  equipo._detalleCargando = true;
+
+  try{
+
+    const r = await fetch(API + "?q=" + encodeURIComponent(equipo.codigo));
+    const dades = await r.json();
+
+    if(dades && dades.tipo === "equipo"){
+      equipo.lat = dades.lat;
+      equipo.lon = dades.lon;
+      equipo.serieSonda = dades.serieSonda;
+    }
+
+    equipo._detalleCargado = true;
+
+    // Si seguimos con la ficha de este mismo equipo abierta, la repintamos
+    // ya con los datos completos (botón "Com arribar-hi", serie, etc.)
+    const codigoActual = location.hash.replace("#","").toUpperCase();
+    if(codigoActual === String(equipo.codigo).toUpperCase()){
+      mostrarEquipo(equipo);
+    }
+
+  }catch(error){
+    console.error("No s'han pogut carregar els detalls del pou:", error);
+  }finally{
+    equipo._detalleCargando = false;
+  }
 }
 
 async function gestionarSessio(){
@@ -1218,6 +1263,14 @@ function tancarSessioInstalador(){
 async function refrescarDadesInstalador(intent){
 
   intent = intent || 1;
+
+  const cache = localStorage.getItem("cacheEquiposInstalador_" + instaladorPerfil);
+  const habiaCache = !!cache;
+
+  if(intent === 1 && habiaCache && !equipos.length){
+    equipos = JSON.parse(cache);
+    actualizarStats();
+  }
 
   try{
 
@@ -1265,17 +1318,18 @@ async function refrescarDadesInstalador(intent){
     console.error("Error carregant dades d'instal·lador (intent " + intent + "):", error);
 
     if(intent < 4){
-      setTimeout(() => refrescarDadesInstalador(intent + 1), intent * 2000);
-      return;
+      await new Promise(res => setTimeout(res, intent * 2000));
+      return refrescarDadesInstalador(intent + 1);
     }
 
     // Se acabaron los reintentos: usar la copia local de este perfil si existe
-    const cache = localStorage.getItem("cacheEquiposInstalador_" + instaladorPerfil);
     const stats = document.getElementById("stats");
 
     if(cache){
-      equipos = JSON.parse(cache);
-      actualizarStats();
+      if(!habiaCache){
+        equipos = JSON.parse(cache);
+        actualizarStats();
+      }
 
       const fecha = localStorage.getItem("cacheEquiposInstaladorFecha_" + instaladorPerfil);
       const cuando = fecha ? new Date(fecha).toLocaleString() : "data desconeguda";
