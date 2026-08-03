@@ -736,6 +736,19 @@ function escapeHtml(valor){
     .replaceAll("'","&#39;");
 }
 
+// fetch con límite de tiempo: en cobertura muy mala, evita quedarse
+// esperando indefinidamente antes de pasar al siguiente reintento
+function fetchAmbTimeout(url, opcions, msTimeout){
+  opcions = opcions || {};
+  msTimeout = msTimeout || 12000;
+
+  const controlador = new AbortController();
+  const id = setTimeout(() => controlador.abort(), msTimeout);
+
+  return fetch(url, Object.assign({}, opcions, { signal: controlador.signal }))
+    .finally(() => clearTimeout(id));
+}
+
 window.onload = async () => {
   actualizarModoAdmin();
   actualizarModoInstalador();
@@ -757,21 +770,63 @@ window.onload = async () => {
   }
 };
 
-async function cargarDatos(){
+async function cargarDatos(intent){
+
+  intent = intent || 1;
+
   const card = document.getElementById("statsCard");
   const stats = document.getElementById("stats");
 
   card.classList.add("cargando");
 
+  if(intent > 1){
+    stats.innerHTML = "Carregant… (intent " + intent + " de 4)";
+  }
+
   try{
-    const r = await fetch(API);
+
+    const r = await fetchAmbTimeout(API);
+    if(!r.ok) throw new Error("HTTP " + r.status);
+
     equipos = await r.json();
     actualizarStats();
+
+    // Se guarda como copia local, para poder seguir consultando el
+    // inventario aunque el próximo intento falle por falta de cobertura
+    try{
+      localStorage.setItem("cacheEquipos", JSON.stringify(equipos));
+      localStorage.setItem("cacheEquiposFecha", new Date().toISOString());
+    }catch(e){ /* si no cabe en localStorage, no pasa nada grave */ }
+
   }catch(error){
-    console.error(error);
-    stats.innerHTML =
-      "⚠️ No s'ha pogut carregar l'inventari. " +
-      "<button class=\"btn btn-outline\" onclick=\"cargarDatos()\">Reintentar</button>";
+    console.error("Error carregant inventari (intent " + intent + "):", error);
+
+    if(intent < 4){
+      setTimeout(() => cargarDatos(intent + 1), intent * 2000);
+      return;
+    }
+
+    // Se acabaron los reintentos: si hay una copia local, se usa esa en
+    // vez de dejar la pantalla en blanco
+    const cache = localStorage.getItem("cacheEquipos");
+
+    if(cache){
+      equipos = JSON.parse(cache);
+      actualizarStats();
+
+      const fecha = localStorage.getItem("cacheEquiposFecha");
+      const cuando = fecha ? new Date(fecha).toLocaleString() : "data desconeguda";
+
+      stats.innerHTML =
+        `⚠️ Sense connexió — mostrant dades guardades de ${escapeHtml(cuando)}. ` +
+        "<button class=\"btn btn-outline\" onclick=\"cargarDatos()\">Tornar a provar</button>" +
+        stats.innerHTML;
+
+    }else{
+      stats.innerHTML =
+        "⚠️ No s'ha pogut carregar l'inventari. " +
+        "<button class=\"btn btn-outline\" onclick=\"cargarDatos()\">Reintentar</button>";
+    }
   }finally{
     card.classList.remove("cargando");
   }
@@ -1120,11 +1175,13 @@ function tancarSessioInstalador(){
   localStorage.removeItem("instaladorPozosAsignados");
 }
 
-async function refrescarDadesInstalador(){
+async function refrescarDadesInstalador(intent){
+
+  intent = intent || 1;
 
   try{
 
-    const r = await fetch(API, {
+    const r = await fetchAmbTimeout(API, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({
@@ -1133,6 +1190,8 @@ async function refrescarDadesInstalador(){
         contrasenya: instaladorContrasenya
       })
     });
+
+    if(!r.ok) throw new Error("HTTP " + r.status);
 
     const dades = await r.json();
 
@@ -1147,6 +1206,12 @@ async function refrescarDadesInstalador(){
     instaladorPozosAsignados = dades.equipos.map(e => String(e.codigo).toUpperCase());
     localStorage.setItem("instaladorPozosAsignados", JSON.stringify(instaladorPozosAsignados));
 
+    // Copia local por perfil, para poder seguir viendo sus pozos sin cobertura
+    try{
+      localStorage.setItem("cacheEquiposInstalador_" + instaladorPerfil, JSON.stringify(dades.equipos));
+      localStorage.setItem("cacheEquiposInstaladorFecha_" + instaladorPerfil, new Date().toISOString());
+    }catch(e){ /* sin espacio en localStorage, no es grave */ }
+
     // Si estava veient "tots", torna a demanar la llista completa amb
     // l'estat actualitzat; si no, es queda amb la llista restringida
     if(instaladorVeureTots){
@@ -1157,7 +1222,33 @@ async function refrescarDadesInstalador(){
     }
 
   }catch(error){
-    console.error(error);
+    console.error("Error carregant dades d'instal·lador (intent " + intent + "):", error);
+
+    if(intent < 4){
+      setTimeout(() => refrescarDadesInstalador(intent + 1), intent * 2000);
+      return;
+    }
+
+    // Se acabaron los reintentos: usar la copia local de este perfil si existe
+    const cache = localStorage.getItem("cacheEquiposInstalador_" + instaladorPerfil);
+    const stats = document.getElementById("stats");
+
+    if(cache){
+      equipos = JSON.parse(cache);
+      actualizarStats();
+
+      const fecha = localStorage.getItem("cacheEquiposInstaladorFecha_" + instaladorPerfil);
+      const cuando = fecha ? new Date(fecha).toLocaleString() : "data desconeguda";
+
+      stats.innerHTML =
+        `⚠️ Sense connexió — mostrant els teus pous de ${escapeHtml(cuando)}. ` +
+        "<button class=\"btn btn-outline\" onclick=\"refrescarDadesInstalador()\">Tornar a provar</button>" +
+        stats.innerHTML;
+    }else{
+      stats.innerHTML =
+        "⚠️ No s'han pogut carregar els teus pous. " +
+        "<button class=\"btn btn-outline\" onclick=\"refrescarDadesInstalador()\">Reintentar</button>";
+    }
   }
 }
 
