@@ -7,9 +7,10 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
 
-<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://unpkg.com/html5-qrcode" defer></script>
 
 <style>
 
@@ -607,6 +608,7 @@ main{
     <nav class="app-switch">
       <a class="app-tab activa" href="https://inventari.instalacionsjfa.com">Inventari</a>
       <a class="app-tab" href="./mapa.html">Mapa</a>
+      <a class="app-tab" href="./progres.html">Progrés sondes</a>
     </nav>
 
     <a id="linkAdminPanel" class="btn btn-ghost" href="./admin.html" style="display:none;text-decoration:none;">⚙️ Instal·ladors</a>
@@ -735,42 +737,151 @@ function escapeHtml(valor){
     .replaceAll("'","&#39;");
 }
 
-window.onload = async () => {
+// fetch con límite de tiempo: en cobertura muy mala, evita quedarse
+// esperando indefinidamente antes de pasar al siguiente reintento
+function fetchAmbTimeout(url, opcions, msTimeout){
+  opcions = opcions || {};
+  msTimeout = msTimeout || 12000;
+
+  const controlador = new AbortController();
+  const id = setTimeout(() => controlador.abort(), msTimeout);
+
+  return fetch(url, Object.assign({}, opcions, { signal: controlador.signal }))
+    .finally(() => clearTimeout(id));
+}
+
+// fetch con reintentos automáticos, para acciones de escritura (instalar,
+// subir cobertura, cambiar estado). Con nombres de archivo estables ya no
+// hay riesgo de duplicar si un intento anterior sí llegó a completarse.
+async function fetchAmbReintents(url, opcions, callbackProgres){
+
+  const intentosMax = 3;
+  let ultimoError;
+
+  for(let intento = 1; intento <= intentosMax; intento++){
+
+    if(intento > 1 && callbackProgres){
+      callbackProgres("Tallada la connexió, reintentant (" + intento + " de " + intentosMax + ")…");
+    }
+
+    try{
+      const r = await fetchAmbTimeout(url, opcions, 20000);
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      return r;
+    }catch(error){
+      ultimoError = error;
+      if(intento < intentosMax){
+        await new Promise(res => setTimeout(res, intento * 1500));
+      }
+    }
+  }
+
+  throw ultimoError;
+}
+
+// Convierte una respuesta en JSON de forma segura: si el servidor devuelve
+// algo que no es JSON (p. ej. una página de error de Google por un corte de
+// red), no volcamos ese texto en crudo al usuario
+function parsearRespuestaJSON(texto){
+  try{
+    return JSON.parse(texto);
+  }catch(err){
+    return { ok: false, mensaje: "Resposta inesperada del servidor. Comprova la connexió i torna-ho a provar." };
+  }
+}
+
+// No usamos window.onload: ese evento espera a que TODO haya terminado de
+// cargar (fuentes de Google, la librería del escáner QR...), lo que en mala
+// cobertura puede tardar varios segundos por sí solo, antes siquiera de
+// empezar a pintar el inventario guardado. Este script va al final del
+// <body>, así que el HTML ya está listo — arrancamos ya mismo.
+iniciarApp();
+
+async function iniciarApp(){
   actualizarModoAdmin();
   actualizarModoInstalador();
 
-  if(instaladorActiu){
-    await refrescarDadesInstalador();
-  }else{
-    await cargarDatos();
-  }
+  // Se lanzan a la vez, no una detrás de otra: así sus tiempos de espera
+  // se solapan en vez de sumarse
+  const promesaPrincipal = instaladorActiu ? refrescarDadesInstalador() : cargarDatos();
 
   if(admin){
     cargarPanellInstaladors();
   }
+
+  await promesaPrincipal;
 
   const codigo = location.hash.replace("#","").toUpperCase();
   if(codigo){
     document.getElementById("busqueda").value = codigo;
     buscar();
   }
-};
+}
 
-async function cargarDatos(){
+async function cargarDatos(intent){
+
+  intent = intent || 1;
+
   const card = document.getElementById("statsCard");
   const stats = document.getElementById("stats");
 
+  const cache = localStorage.getItem("cacheEquipos");
+  const habiaCache = !!cache;
+
+  // Si ya hay algo guardado, se pinta al instante sin esperar a la red —
+  // la web se siente cargada desde el primer momento, y los datos frescos
+  // llegan y sustituyen esto en cuanto estén listos
+  if(intent === 1 && habiaCache && !equipos.length){
+    equipos = JSON.parse(cache);
+    actualizarStats();
+  }
+
   card.classList.add("cargando");
 
+  if(intent > 1 && !habiaCache){
+    stats.innerHTML = "Carregant… (intent " + intent + " de 4)";
+  }
+
   try{
-    const r = await fetch(API);
+
+    const r = await fetchAmbTimeout(API, undefined, 25000);
+    if(!r.ok) throw new Error("HTTP " + r.status);
+
     equipos = await r.json();
     actualizarStats();
+
+    // Se guarda como copia local, para la próxima vez que se abra la web
+    // (y como red de seguridad si el siguiente intento falla)
+    try{
+      localStorage.setItem("cacheEquipos", JSON.stringify(equipos));
+      localStorage.setItem("cacheEquiposFecha", new Date().toISOString());
+    }catch(e){ /* si no cabe en localStorage, no pasa nada grave */ }
+
   }catch(error){
-    console.error(error);
-    stats.innerHTML =
-      "⚠️ No s'ha pogut carregar l'inventari. " +
-      "<button class=\"btn btn-outline\" onclick=\"cargarDatos()\">Reintentar</button>";
+    console.error("Error carregant inventari (intent " + intent + "):", error);
+
+    if(intent < 4){
+      await new Promise(res => setTimeout(res, intent * 2000));
+      card.classList.remove("cargando");
+      return cargarDatos(intent + 1);
+    }
+
+    if(habiaCache){
+      // Ya se estaba mostrando la copia guardada: solo un aviso discreto,
+      // sin tapar los datos que ya se ven
+      const fecha = localStorage.getItem("cacheEquiposFecha");
+      const cuando = fecha ? new Date(fecha).toLocaleString() : "data desconeguda";
+
+      stats.innerHTML =
+        `⚠️ Sense connexió — mostrant dades guardades de ${escapeHtml(cuando)}. ` +
+        "<button class=\"btn btn-outline\" onclick=\"cargarDatos()\">Tornar a provar</button>" +
+        stats.innerHTML;
+
+    }else{
+      stats.innerHTML =
+        "⚠️ No s'ha pogut carregar l'inventari. " +
+        "<button class=\"btn btn-outline\" onclick=\"cargarDatos()\">Reintentar</button>";
+    }
   }finally{
     card.classList.remove("cargando");
   }
@@ -778,15 +889,13 @@ async function cargarDatos(){
 
 async function actualizarDatos(){
 
-  if(instaladorActiu){
-    await refrescarDadesInstalador();
-  }else{
-    await cargarDatos();
-  }
+  const promesaPrincipal = instaladorActiu ? refrescarDadesInstalador() : cargarDatos();
 
   if(admin){
     cargarPanellInstaladors();
   }
+
+  await promesaPrincipal;
 
   const codigo = location.hash.replace("#","").toUpperCase();
   if(codigo){
@@ -1082,6 +1191,44 @@ function mostrarEquipo(equipo){
 
     </div>
   `;
+
+  // Coordenadas y serie no vienen en el listado inicial (para que cargue más
+  // rápido) — se piden aparte al abrir la ficha y, en cuanto llegan, se
+  // repinta esta misma ficha ya completa, sin que se note ningún cambio raro
+  if(!equipo._detalleCargado && !equipo._detalleCargando){
+    cargarDetalleEquipo(equipo);
+  }
+}
+
+async function cargarDetalleEquipo(equipo){
+
+  equipo._detalleCargando = true;
+
+  try{
+
+    const r = await fetch(API + "?q=" + encodeURIComponent(equipo.codigo));
+    const dades = await r.json();
+
+    if(dades && dades.tipo === "equipo"){
+      equipo.lat = dades.lat;
+      equipo.lon = dades.lon;
+      equipo.serieSonda = dades.serieSonda;
+    }
+
+    equipo._detalleCargado = true;
+
+    // Si seguimos con la ficha de este mismo equipo abierta, la repintamos
+    // ya con los datos completos (botón "Com arribar-hi", serie, etc.)
+    const codigoActual = location.hash.replace("#","").toUpperCase();
+    if(codigoActual === String(equipo.codigo).toUpperCase()){
+      mostrarEquipo(equipo);
+    }
+
+  }catch(error){
+    console.error("No s'han pogut carregar els detalls del pou:", error);
+  }finally{
+    equipo._detalleCargando = false;
+  }
 }
 
 async function gestionarSessio(){
@@ -1119,11 +1266,21 @@ function tancarSessioInstalador(){
   localStorage.removeItem("instaladorPozosAsignados");
 }
 
-async function refrescarDadesInstalador(){
+async function refrescarDadesInstalador(intent){
+
+  intent = intent || 1;
+
+  const cache = localStorage.getItem("cacheEquiposInstalador_" + instaladorPerfil);
+  const habiaCache = !!cache;
+
+  if(intent === 1 && habiaCache && !equipos.length){
+    equipos = JSON.parse(cache);
+    actualizarStats();
+  }
 
   try{
 
-    const r = await fetch(API, {
+    const r = await fetchAmbTimeout(API, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({
@@ -1131,7 +1288,9 @@ async function refrescarDadesInstalador(){
         perfil: instaladorPerfil,
         contrasenya: instaladorContrasenya
       })
-    });
+    }, 25000);
+
+    if(!r.ok) throw new Error("HTTP " + r.status);
 
     const dades = await r.json();
 
@@ -1146,6 +1305,12 @@ async function refrescarDadesInstalador(){
     instaladorPozosAsignados = dades.equipos.map(e => String(e.codigo).toUpperCase());
     localStorage.setItem("instaladorPozosAsignados", JSON.stringify(instaladorPozosAsignados));
 
+    // Copia local por perfil, para poder seguir viendo sus pozos sin cobertura
+    try{
+      localStorage.setItem("cacheEquiposInstalador_" + instaladorPerfil, JSON.stringify(dades.equipos));
+      localStorage.setItem("cacheEquiposInstaladorFecha_" + instaladorPerfil, new Date().toISOString());
+    }catch(e){ /* sin espacio en localStorage, no es grave */ }
+
     // Si estava veient "tots", torna a demanar la llista completa amb
     // l'estat actualitzat; si no, es queda amb la llista restringida
     if(instaladorVeureTots){
@@ -1156,7 +1321,34 @@ async function refrescarDadesInstalador(){
     }
 
   }catch(error){
-    console.error(error);
+    console.error("Error carregant dades d'instal·lador (intent " + intent + "):", error);
+
+    if(intent < 4){
+      await new Promise(res => setTimeout(res, intent * 2000));
+      return refrescarDadesInstalador(intent + 1);
+    }
+
+    // Se acabaron los reintentos: usar la copia local de este perfil si existe
+    const stats = document.getElementById("stats");
+
+    if(cache){
+      if(!habiaCache){
+        equipos = JSON.parse(cache);
+        actualizarStats();
+      }
+
+      const fecha = localStorage.getItem("cacheEquiposInstaladorFecha_" + instaladorPerfil);
+      const cuando = fecha ? new Date(fecha).toLocaleString() : "data desconeguda";
+
+      stats.innerHTML =
+        `⚠️ Sense connexió — mostrant els teus pous de ${escapeHtml(cuando)}. ` +
+        "<button class=\"btn btn-outline\" onclick=\"refrescarDadesInstalador()\">Tornar a provar</button>" +
+        stats.innerHTML;
+    }else{
+      stats.innerHTML =
+        "⚠️ No s'han pogut carregar els teus pous. " +
+        "<button class=\"btn btn-outline\" onclick=\"refrescarDadesInstalador()\">Reintentar</button>";
+    }
   }
 }
 
@@ -1387,7 +1579,7 @@ async function cambiarEstado(codigo,accion){
   }, construirAuthPayload());
 
   try{
-    const r = await fetch(API, {
+    const r = await fetchAmbReintents(API, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload)
@@ -1411,11 +1603,11 @@ async function cambiarEstado(codigo,accion){
       actualizarStats();
       mostrarEquipo(equipo);
     }else{
-      alert("Error: " + respuesta);
+      alert("Error: " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
     }
   }catch(error){
     console.error(error);
-    alert("Error de comunicació");
+    alert("Error de comunicació. Torna-ho a provar.");
   }
 }
 
@@ -1440,7 +1632,7 @@ async function marcarNoInstalar(codigo){
   }, construirAuthPayload());
 
   try{
-    const r = await fetch(API, {
+    const r = await fetchAmbReintents(API, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload)
@@ -1455,7 +1647,7 @@ async function marcarNoInstalar(codigo){
       actualizarStats();
       mostrarEquipo(equipo);
     }else{
-      alert("Error: " + respuesta);
+      alert("Error: " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
     }
   }catch(error){
     console.error(error);
@@ -1496,6 +1688,24 @@ function fileToBase64(file){
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+// Hash rápido y estable del contenido (no criptográfico, solo para dar el
+// mismo nombre a un mismo archivo en reintentos y evitar duplicados).
+// Muestrea el principio y el final en vez de recorrer el base64 entero,
+// para que no penalice con fotos de varios MB.
+function hashContenido(base64){
+  let hash = 0;
+  const muestra = base64.length > 6000
+    ? base64.slice(0, 3000) + base64.slice(-3000)
+    : base64;
+
+  for(let i = 0; i < muestra.length; i++){
+    hash = ((hash << 5) - hash) + muestra.charCodeAt(i);
+    hash |= 0;
+  }
+
+  return Math.abs(hash).toString(36) + base64.length.toString(36);
 }
 
 // Redimensiona y comprime una foto en el propio navegador antes de subirla,
@@ -1585,9 +1795,14 @@ async function confirmarInstalacion(){
           console.error("No s'ha pogut comprimir, es puja l'original:", err);
         }
 
+        const base64Foto = await fileToBase64(blobFinal);
+
         payload.fotos.push({
-          base64: await fileToBase64(blobFinal),
-          nombre: equipo.codigo + "_" + Date.now() + "_" + fichero.name.replace(/\.[^.]+$/, "") + ".jpg",
+          base64: base64Foto,
+          // Nombre estable a partir del contenido: si esta misma foto se
+          // reenvía por un reintento tras un error de red, genera el mismo
+          // nombre y el servidor no la duplica
+          nombre: equipo.codigo + "_" + hashContenido(base64Foto) + "_" + fichero.name.replace(/\.[^.]+$/, "") + ".jpg",
           mime: "image/jpeg"
         });
       }
@@ -1597,20 +1812,14 @@ async function confirmarInstalacion(){
     estadoDiv.textContent = "Enviant al servidor…";
 
     // Content-Type text/plain evita el preflight OPTIONS, que Apps Script no gestiona bien
-    const r = await fetch(API, {
+    const r = await fetchAmbReintents(API, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload)
-    });
+    }, (msg) => { estadoDiv.textContent = msg; });
 
     const respuestaTexto = await r.text();
-
-    let respuesta;
-    try{
-      respuesta = JSON.parse(respuestaTexto);
-    }catch(err){
-      respuesta = { ok:false, mensaje: respuestaTexto };
-    }
+    const respuesta = parsearRespuestaJSON(respuestaTexto);
 
     if(respuesta.ok){
 
@@ -1676,23 +1885,17 @@ async function confirmarCobertura(){
       });
     }
 
-    const r = await fetch(API, {
+    const r = await fetchAmbReintents(API, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(Object.assign({
         accion: "cobertura",
         archivos: archivos
       }, construirAuthPayload()))
-    });
+    }, (msg) => { estadoDiv.textContent = msg; });
 
     const respuestaTexto = await r.text();
-
-    let respuesta;
-    try{
-      respuesta = JSON.parse(respuestaTexto);
-    }catch(err){
-      respuesta = { ok:false, mensaje: respuestaTexto };
-    }
+    const respuesta = parsearRespuestaJSON(respuestaTexto);
 
     if(respuesta.ok){
       estadoDiv.textContent = "";
