@@ -801,15 +801,15 @@ async function iniciarApp(){
   actualizarModoAdmin();
   actualizarModoInstalador();
 
-  if(instaladorActiu){
-    await refrescarDadesInstalador();
-  }else{
-    await cargarDatos();
-  }
+  // Se lanzan a la vez, no una detrás de otra: así sus tiempos de espera
+  // se solapan en vez de sumarse
+  const promesaPrincipal = instaladorActiu ? refrescarDadesInstalador() : cargarDatos();
 
   if(admin){
     cargarPanellInstaladors();
   }
+
+  await promesaPrincipal;
 
   const codigo = location.hash.replace("#","").toUpperCase();
   if(codigo){
@@ -844,7 +844,7 @@ async function cargarDatos(intent){
 
   try{
 
-    const r = await fetchAmbTimeout(API);
+    const r = await fetchAmbTimeout(API, undefined, 25000);
     if(!r.ok) throw new Error("HTTP " + r.status);
 
     equipos = await r.json();
@@ -889,15 +889,13 @@ async function cargarDatos(intent){
 
 async function actualizarDatos(){
 
-  if(instaladorActiu){
-    await refrescarDadesInstalador();
-  }else{
-    await cargarDatos();
-  }
+  const promesaPrincipal = instaladorActiu ? refrescarDadesInstalador() : cargarDatos();
 
   if(admin){
     cargarPanellInstaladors();
   }
+
+  await promesaPrincipal;
 
   const codigo = location.hash.replace("#","").toUpperCase();
   if(codigo){
@@ -1290,7 +1288,7 @@ async function refrescarDadesInstalador(intent){
         perfil: instaladorPerfil,
         contrasenya: instaladorContrasenya
       })
-    });
+    }, 25000);
 
     if(!r.ok) throw new Error("HTTP " + r.status);
 
