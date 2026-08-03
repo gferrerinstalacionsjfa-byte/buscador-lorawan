@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://unpkg.com/html5-qrcode" defer></script>
 
 <style>
 
@@ -789,7 +789,14 @@ function parsearRespuestaJSON(texto){
   }
 }
 
-window.onload = async () => {
+// No usamos window.onload: ese evento espera a que TODO haya terminado de
+// cargar (fuentes de Google, la librería del escáner QR...), lo que en mala
+// cobertura puede tardar varios segundos por sí solo, antes siquiera de
+// empezar a pintar el inventario guardado. Este script va al final del
+// <body>, así que el HTML ya está listo — arrancamos ya mismo.
+iniciarApp();
+
+async function iniciarApp(){
   actualizarModoAdmin();
   actualizarModoInstalador();
 
@@ -808,7 +815,7 @@ window.onload = async () => {
     document.getElementById("busqueda").value = codigo;
     buscar();
   }
-};
+}
 
 async function cargarDatos(intent){
 
