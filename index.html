@@ -855,6 +855,15 @@ async function cargarDatos(intent){
     equipos = await r.json();
     actualizarStats();
 
+    // Si hay una ficha abierta (p. ej. la abriste mientras esta carga de
+    // fondo aún iba en marcha), se repinta ya con los datos frescos —
+    // así "Com arribar-hi" y demás aparecen sin esperar a un refresco manual
+    const codigoAbierto = location.hash.replace("#","").toUpperCase();
+    if(codigoAbierto){
+      const equipoAbierto = equipos.find(e => String(e.codigo||"").toUpperCase() === codigoAbierto);
+      if(equipoAbierto) mostrarEquipo(equipoAbierto);
+    }
+
     // Se guarda como copia local, para la próxima vez que se abra la web
     // (y como red de seguridad si el siguiente intento falla)
     try{
@@ -1285,6 +1294,13 @@ async function refrescarDadesInstalador(intent){
     }else{
       equipos = dades.equipos;
       actualizarStats();
+    }
+
+    // Si hay una ficha abierta, se repinta ya con los datos frescos
+    const codigoAbierto = location.hash.replace("#","").toUpperCase();
+    if(codigoAbierto){
+      const equipoAbierto = equipos.find(e => String(e.codigo||"").toUpperCase() === codigoAbierto);
+      if(equipoAbierto) mostrarEquipo(equipoAbierto);
     }
 
   }catch(error){
@@ -1727,12 +1743,15 @@ async function confirmarInstalacion(){
   if(!usuario) return;
 
   const estadoDiv = document.getElementById("instalarEstado");
-  estadoDiv.textContent = "Pujant dades…";
+  estadoDiv.textContent = "Guardant…";
 
   const ficherosFoto = Array.from(document.getElementById("inpFoto").files);
   const cableFinsCota = document.getElementById("inpCableFinsCota").value.trim();
   const observacions = document.getElementById("inpObservacions").value.trim();
 
+  // 1) Marcar instalado primero — una petición pequeña y rápida, sin fotos
+  // dentro, para que el estado quede guardado aunque luego alguna foto
+  // tarde mucho (o falle) por mala cobertura
   const payload = Object.assign({
     accion: "instalado",
     fila: equipo.fila,
@@ -1745,40 +1764,6 @@ async function confirmarInstalacion(){
 
   try{
 
-    if(ficherosFoto.length){
-
-      payload.fotos = [];
-
-      for(let i = 0; i < ficherosFoto.length; i++){
-
-        estadoDiv.textContent = `Comprimint i pujant foto ${i+1} de ${ficherosFoto.length}…`;
-
-        const fichero = ficherosFoto[i];
-
-        let blobFinal = fichero;
-        try{
-          blobFinal = await comprimirImagen(fichero);
-        }catch(err){
-          console.error("No s'ha pogut comprimir, es puja l'original:", err);
-        }
-
-        const base64Foto = await fileToBase64(blobFinal);
-
-        payload.fotos.push({
-          base64: base64Foto,
-          // Nombre estable a partir del contenido: si esta misma foto se
-          // reenvía por un reintento tras un error de red, genera el mismo
-          // nombre y el servidor no la duplica
-          nombre: equipo.codigo + "_" + hashContenido(base64Foto) + "_" + fichero.name.replace(/\.[^.]+$/, "") + ".jpg",
-          mime: "image/jpeg"
-        });
-      }
-
-    }
-
-    estadoDiv.textContent = "Enviant al servidor…";
-
-    // Content-Type text/plain evita el preflight OPTIONS, que Apps Script no gestiona bien
     const r = await fetchAmbReintents(API, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -1788,22 +1773,71 @@ async function confirmarInstalacion(){
     const respuestaTexto = await r.text();
     const respuesta = parsearRespuestaJSON(respuestaTexto);
 
-    if(respuesta.ok){
+    if(!respuesta.ok){
+      estadoDiv.textContent = "Error: " + (respuesta.mensaje || respuestaTexto);
+      return;
+    }
 
-      equipo.estado = "Instalado";
-      equipo.usuario = usuario;
-      equipo.fecha = new Date().toLocaleString();
+    equipo.estado = "Instalado";
+    equipo.usuario = usuario;
+    equipo.fecha = new Date().toLocaleString();
+    actualizarStats();
 
-      actualizarStats();
-      cerrarModalInstalacion();
-      mostrarEquipo(equipo);
+    const avisos = Array.isArray(respuesta.avisos) ? respuesta.avisos.slice() : [];
 
-      if(respuesta.avisos && respuesta.avisos.length){
-        alert("Instal·lat, però amb avisos:\n\n" + respuesta.avisos.join("\n"));
+    // 2) Fotos, una a una — cada una en su propia petición pequeña. Si
+    // alguna falla, no arrastra a las demás ni al estado ya guardado
+    for(let i = 0; i < ficherosFoto.length; i++){
+
+      estadoDiv.textContent = `Comprimint i pujant foto ${i+1} de ${ficherosFoto.length}…`;
+
+      const fichero = ficherosFoto[i];
+
+      let blobFinal = fichero;
+      try{
+        blobFinal = await comprimirImagen(fichero);
+      }catch(err){
+        console.error("No s'ha pogut comprimir, es puja l'original:", err);
       }
 
-    }else{
-      estadoDiv.textContent = "Error: " + (respuesta.mensaje || respuestaTexto);
+      const base64Foto = await fileToBase64(blobFinal);
+
+      // Nombre estable a partir del contenido: si esta misma foto se
+      // reenvía por un reintento tras un error de red, genera el mismo
+      // nombre y el servidor no la duplica
+      const nombreFoto = equipo.codigo + "_" + hashContenido(base64Foto) + "_" + fichero.name.replace(/\.[^.]+$/, "") + ".jpg";
+
+      try{
+
+        const rFoto = await fetchAmbReintents(API, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(Object.assign({
+            accion: "subirFoto",
+            codigo: equipo.codigo,
+            nombre: nombreFoto,
+            base64: base64Foto,
+            mime: "image/jpeg"
+          }, construirAuthPayload()))
+        }, (msg) => { estadoDiv.textContent = `Foto ${i+1} de ${ficherosFoto.length}: ${msg}`; });
+
+        const dadesFoto = parsearRespuestaJSON(await rFoto.text());
+
+        if(!dadesFoto.ok){
+          avisos.push(`Foto ${i+1}: ${dadesFoto.mensaje || "no s'ha pogut pujar"}`);
+        }
+
+      }catch(errorFoto){
+        console.error("Error pujant foto " + (i+1) + ":", errorFoto);
+        avisos.push(`Foto ${i+1}: error de comunicació, no s'ha pujat`);
+      }
+    }
+
+    cerrarModalInstalacion();
+    mostrarEquipo(equipo);
+
+    if(avisos.length){
+      alert("Instal·lat, però amb avisos:\n\n" + avisos.join("\n"));
     }
 
   }catch(error){
@@ -1838,44 +1872,49 @@ async function confirmarCobertura(){
     return;
   }
 
-  estadoDiv.textContent = `Pujant ${ficheros.length} fitxer(s)…`;
+  const errores = [];
 
-  try{
+  for(let i = 0; i < ficheros.length; i++){
 
-    const archivos = [];
+    estadoDiv.textContent = `Pujant fitxer ${i+1} de ${ficheros.length}…`;
 
-    for(const fichero of ficheros){
-      archivos.push({
-        base64: await fileToBase64(fichero),
-        nombre: fichero.name,
-        mime: fichero.type || "text/csv"
-      });
+    const fichero = ficheros[i];
+
+    try{
+
+      const base64 = await fileToBase64(fichero);
+
+      const r = await fetchAmbReintents(API, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(Object.assign({
+          accion: "subirCoberturaArchivo",
+          nombre: fichero.name,
+          base64: base64,
+          mime: fichero.type || "text/csv"
+        }, construirAuthPayload()))
+      }, (msg) => { estadoDiv.textContent = `Fitxer ${i+1} de ${ficheros.length}: ${msg}`; });
+
+      const dades = parsearRespuestaJSON(await r.text());
+
+      if(!dades.ok){
+        errores.push(`${fichero.name}: ${dades.mensaje || "no s'ha pogut pujar"}`);
+      }
+
+    }catch(error){
+      console.error("Error pujant " + fichero.name + ":", error);
+      errores.push(`${fichero.name}: error de comunicació`);
     }
-
-    const r = await fetchAmbReintents(API, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(Object.assign({
-        accion: "cobertura",
-        archivos: archivos
-      }, construirAuthPayload()))
-    }, (msg) => { estadoDiv.textContent = msg; });
-
-    const respuestaTexto = await r.text();
-    const respuesta = parsearRespuestaJSON(respuestaTexto);
-
-    if(respuesta.ok){
-      estadoDiv.textContent = "";
-      cerrarModalCobertura();
-    }else{
-      estadoDiv.textContent = "Error: " + (respuesta.mensaje || respuestaTexto);
-    }
-
-  }catch(error){
-    console.error(error);
-    estadoDiv.textContent = "Error de comunicació. Torna-ho a provar.";
   }
 
+  if(errores.length){
+    estadoDiv.textContent = "";
+    alert("Alguns fitxers no s'han pogut pujar:\n\n" + errores.join("\n"));
+  }else{
+    estadoDiv.textContent = "";
+  }
+
+  cerrarModalCobertura();
 }
 
 // ============================================================
