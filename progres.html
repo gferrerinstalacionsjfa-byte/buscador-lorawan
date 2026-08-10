@@ -436,6 +436,27 @@ async function carregarDades(intent){
     }
 
     headers = dades.headers;
+    filasCompletas = dades.filas;
+
+    // Columna virtual "Illa", calculada a partir del prefijo del código
+    // (MA/ME/EI/FO) — no existe como tal en la hoja, se añade aquí para
+    // que herede automáticamente el filtro de desplegable de las demás
+    const colCodi = headers.findIndex(h => String(h || "").trim().toUpperCase() === "CODI");
+
+    if(colCodi !== -1){
+
+      const idxIlla = headers.length;
+      headers = headers.concat(["Illa"]);
+
+      const nombresIlla = { MA: "Mallorca", ME: "Menorca", EI: "Eivissa", FO: "Formentera" };
+
+      filasCompletas.forEach(f => {
+        const codi = String(f.valores[colCodi] || "").trim().toUpperCase();
+        const prefijo = codi.slice(0, 2);
+        f.valores = f.valores.concat([ nombresIlla[prefijo] || "Altres" ]);
+      });
+    }
+
     idxAcabat = headers.findIndex(h => String(h || "").trim().toLowerCase() === "acabat");
 
     const columnesOcultes = ["lloc", "completats:"];
@@ -449,8 +470,6 @@ async function carregarDades(intent){
         if(/^\d+$/.test(nom)) return false;                    // cabecera residual tipo "50"
         return true;
       });
-
-    filasCompletas = dades.filas;
 
     construirCapcalera();
     construirFiltresColumna();
