@@ -710,7 +710,7 @@ function renderTaula(){
     let claseFila = "";
     if(esColorAlerta(f.colorFondo)){
       claseFila = "fila-alerta";
-    }else if(idxAcabat !== -1 && f.valores[idxAcabat] === true){
+    }else if(idxAcabat !== -1 && String(f.valores[idxAcabat] || "").trim() === "Sí"){
       claseFila = "fila-acabada";
     }
 
@@ -790,7 +790,7 @@ function exportarExcelColors(){
     let colorFons = "";
     if(esColorAlerta(f.colorFondo)){
       colorFons = "#F4CCCC";
-    }else if(idxAcabat !== -1 && f.valores[idxAcabat] === true){
+    }else if(idxAcabat !== -1 && String(f.valores[idxAcabat] || "").trim() === "Sí"){
       colorFons = "#E5F5EA";
     }
 
