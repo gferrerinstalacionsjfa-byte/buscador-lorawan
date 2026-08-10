@@ -504,6 +504,9 @@ async function carregarPunts(){
       marcador.bindPopup(
         `<div class="popup-codigo">${escapeHtml(p.codigo)}</div>` +
         `<div class="popup-estat">${escapeHtml(p.estado || "-")}</div>` +
+        (p.tipoSonda ? `<div class="popup-estat">🔧 ${escapeHtml(p.tipoSonda)}</div>` : "") +
+        (p.metraje ? `<div class="popup-estat">📏 ${escapeHtml(p.metraje)} m</div>` : "") +
+        (p.remesa ? `<div class="popup-estat">📦 Remesa ${escapeHtml(p.remesa)}</div>` : "") +
         (vigilant ? `<div class="popup-estat">👤 ${escapeHtml(vigilant)}</div>` : "") +
         `<a class="popup-link" href="${urlMaps}" target="_blank" rel="noopener">📍 Com arribar-hi</a>`
       );
