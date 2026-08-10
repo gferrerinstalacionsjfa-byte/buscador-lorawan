@@ -122,6 +122,69 @@ body{
 
 .btn:hover{border-color:#9fb0ad;}
 
+.filtre-multi{position:relative;}
+
+.filtre-boto{
+  font-family:var(--sans);
+  font-size:13px;
+  font-weight:600;
+  padding:9px 14px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--surface);
+  color:var(--ink-soft);
+  cursor:pointer;
+}
+.filtre-boto.actiu{
+  border-color:var(--accent);
+  color:var(--accent-dark);
+  background:#E1F1F1;
+}
+.filtre-boto:hover{border-color:var(--ink-faint);}
+
+.filtre-panell{
+  display:none;
+  position:absolute;
+  top:calc(100% + 4px);
+  right:0;
+  z-index:1200;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  box-shadow:var(--shadow);
+  padding:8px;
+  min-width:200px;
+  max-height:280px;
+  overflow-y:auto;
+}
+.filtre-panell.obert{display:block;}
+
+.filtre-panell-accions{
+  display:flex;
+  gap:10px;
+  padding-bottom:6px;
+  margin-bottom:6px;
+  border-bottom:1px solid var(--line);
+}
+.filtre-panell-accions a{
+  font-size:11.5px;
+  font-weight:600;
+  color:var(--accent);
+  text-decoration:none;
+  cursor:pointer;
+}
+
+.filtre-opcio{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:5px 2px;
+  font-size:12.5px;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.filtre-opcio input{margin:0;cursor:pointer;}
+
 .cerca-wrap{
   flex:1 1 180px;
   max-width:220px;
@@ -234,6 +297,11 @@ body{
     </div>
     <button class="btn" onclick="cercarPou()">🔍 Cercar</button>
 
+    <div class="filtre-multi" id="wrapVigilant">
+      <button type="button" class="filtre-boto" id="botoVigilant" onclick="obrirPanellVigilant(event)">👤 Vigilant</button>
+      <div class="filtre-panell" id="panellVigilant"></div>
+    </div>
+
     <button class="btn" onclick="carregarPunts()">🔄 Actualitzar</button>
   </div>
 </header>
@@ -258,8 +326,10 @@ const API =
 "https://script.google.com/macros/s/AKfycbzz8jwBBYvxLJBdYlf6OrTzPBKK_ojTu4D5w2LZsxVMksLo3-WBk6EUFIFBEWTEVBKNzA/exec";
 
 let mapa;
-let capesPerCategoria = {}; // categoria -> L.layerGroup()
+let capesPerCategoria = {}; // categoria -> L.layerGroup() (siempre en el mapa)
 let marcadorsPerCodi = {};  // codigo -> { marcador, lat, lon, categoria }
+let totsElsPunts = [];      // [{ marcador, capa, categoria, vigilant }] — para recalcular visibilidad
+let vigilantsSeleccionats = new Set(); // vacío = todos
 
 const CATEGORIES = ["nivell", "lila", "blaus", "nitrats", "acabat", "problematic", "altres"];
 
@@ -275,19 +345,102 @@ function inicialitzarMapa(){
     capesPerCategoria[cat] = L.layerGroup().addTo(mapa);
   });
 
-  // Checkboxes de la llegenda: muestran/ocultan la capa de su categoría
+  // Checkboxes de la llegenda: al cambiar, se recalcula qué marcadores
+  // tienen que verse (combinando esto con el filtro de vigilante)
   document.querySelectorAll('.llegenda-item input[data-categoria]').forEach(input => {
-    input.addEventListener('change', () => {
-      const capa = capesPerCategoria[input.dataset.categoria];
-      if(!capa) return;
-      if(input.checked){
-        mapa.addLayer(capa);
-      }else{
-        mapa.removeLayer(capa);
-      }
-    });
+    input.addEventListener('change', aplicarFiltresMapa);
   });
 }
+
+// Aplica a la vez el filtro de categoría (checkboxes) y el de vigilante:
+// un marcador se ve solo si las dos condiciones se cumplen
+function aplicarFiltresMapa(){
+
+  const categoriesActives = new Set(
+    Array.from(document.querySelectorAll('.llegenda-item input[data-categoria]:checked'))
+      .map(i => i.dataset.categoria)
+  );
+
+  totsElsPunts.forEach(p => {
+
+    const pasaCategoria = categoriesActives.has(p.categoria);
+    const pasaVigilant = vigilantsSeleccionats.size === 0 || vigilantsSeleccionats.has(p.vigilant);
+    const visible = pasaCategoria && pasaVigilant;
+
+    if(visible){
+      if(!p.capa.hasLayer(p.marcador)) p.marcador.addTo(p.capa);
+    }else{
+      if(p.capa.hasLayer(p.marcador)) p.capa.removeLayer(p.marcador);
+    }
+  });
+}
+
+function construirPanellVigilant(vigilantsUnics){
+
+  const panell = document.getElementById("panellVigilant");
+  panell.innerHTML = "";
+  panell.onclick = (ev) => ev.stopPropagation();
+
+  if(!vigilantsUnics.size){
+    panell.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);padding:4px 2px;">Cap pou té vigilant assignat</div>';
+    return;
+  }
+
+  const accions = document.createElement("div");
+  accions.className = "filtre-panell-accions";
+  accions.innerHTML = `<a href="#" data-accio="tots">Tots</a><a href="#" data-accio="cap">Cap</a>`;
+  accions.querySelector('[data-accio="tots"]').onclick = (ev) => {
+    ev.preventDefault();
+    panell.querySelectorAll("input[type=checkbox]").forEach(c => c.checked = true);
+    actualizarFiltreVigilant();
+  };
+  accions.querySelector('[data-accio="cap"]').onclick = (ev) => {
+    ev.preventDefault();
+    panell.querySelectorAll("input[type=checkbox]").forEach(c => c.checked = false);
+    actualizarFiltreVigilant();
+  };
+  panell.appendChild(accions);
+
+  Array.from(vigilantsUnics).sort().forEach(v => {
+    const opcio = document.createElement("label");
+    opcio.className = "filtre-opcio";
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.value = v;
+    check.checked = vigilantsSeleccionats.size === 0 || vigilantsSeleccionats.has(v);
+    check.onchange = actualizarFiltreVigilant;
+    opcio.appendChild(check);
+    opcio.appendChild(document.createTextNode(v));
+    panell.appendChild(opcio);
+  });
+}
+
+function actualizarFiltreVigilant(){
+
+  const panell = document.getElementById("panellVigilant");
+  const casillas = Array.from(panell.querySelectorAll("input[type=checkbox]"));
+  const marcadas = casillas.filter(c => c.checked);
+
+  // Si están todas marcadas, equivale a "sin filtro" (se ven todos)
+  vigilantsSeleccionats = (marcadas.length === casillas.length)
+    ? new Set()
+    : new Set(marcadas.map(c => c.value));
+
+  document.getElementById("botoVigilant").classList.toggle("actiu", vigilantsSeleccionats.size > 0);
+  aplicarFiltresMapa();
+}
+
+function obrirPanellVigilant(ev){
+  ev.stopPropagation();
+  const panell = document.getElementById("panellVigilant");
+  const obert = panell.classList.contains("obert");
+  document.querySelectorAll(".filtre-panell.obert").forEach(p => p.classList.remove("obert"));
+  if(!obert) panell.classList.add("obert");
+}
+
+document.addEventListener("click", () => {
+  document.querySelectorAll(".filtre-panell.obert").forEach(p => p.classList.remove("obert"));
+});
 
 function mostrarEstat(texto){
   const el = document.getElementById("estat");
@@ -315,9 +468,11 @@ async function carregarPunts(){
 
     CATEGORIES.forEach(cat => capesPerCategoria[cat].clearLayers());
     marcadorsPerCodi = {};
+    totsElsPunts = [];
 
     const bounds = [];
     const opcionsDatalist = [];
+    const vigilantsUnics = new Set();
 
     dades.puntos.forEach(p => {
 
@@ -325,6 +480,8 @@ async function carregarPunts(){
       const lon = Number(p.lon);
 
       if(!lat || !lon) return;
+
+      const vigilant = String(p.vigilant || "").trim();
 
       const marcador = L.circleMarker([lat, lon], {
         radius: 7,
@@ -347,16 +504,22 @@ async function carregarPunts(){
       marcador.bindPopup(
         `<div class="popup-codigo">${escapeHtml(p.codigo)}</div>` +
         `<div class="popup-estat">${escapeHtml(p.estado || "-")}</div>` +
+        (vigilant ? `<div class="popup-estat">👤 ${escapeHtml(vigilant)}</div>` : "") +
         `<a class="popup-link" href="${urlMaps}" target="_blank" rel="noopener">📍 Com arribar-hi</a>`
       );
 
       const capa = capesPerCategoria[p.categoria] || capesPerCategoria.altres;
-      marcador.addTo(capa);
       bounds.push([lat, lon]);
 
       marcadorsPerCodi[p.codigo.toUpperCase()] = { marcador: marcador, lat: lat, lon: lon, categoria: p.categoria };
+      totsElsPunts.push({ marcador: marcador, capa: capa, categoria: p.categoria, vigilant: vigilant });
+
+      if(vigilant) vigilantsUnics.add(vigilant);
       opcionsDatalist.push(p.codigo);
     });
+
+    construirPanellVigilant(vigilantsUnics);
+    aplicarFiltresMapa();
 
     const datalist = document.getElementById("llistaCodis");
     datalist.innerHTML = "";
