@@ -504,11 +504,20 @@ function renderPousDisponibles(filtro){
   const llista = totsElsEquips.filter(e => !f || String(e.codigo || "").toUpperCase().includes(f));
   const asignacionesAjenas = mapaAsignacionesAjenas();
 
+  const seleccionados = [];
   const disponibles = [];
   const porInstalador = {}; // perfil -> [equipos]
 
   llista.forEach(e => {
     const codi = String(e.codigo).toUpperCase();
+
+    // Los que ya están marcados van siempre arriba, en su propio grupo,
+    // para no tener que buscarlos entre el resto
+    if (pousSeleccionats.has(codi)) {
+      seleccionados.push(e);
+      return;
+    }
+
     const perfilAjeno = asignacionesAjenas[codi];
 
     if (perfilAjeno) {
@@ -533,6 +542,11 @@ function renderPousDisponibles(filtro){
   }
 
   let html = "";
+
+  if (seleccionados.length) {
+    html += `<div class="pou-grup-titol">Assignats a aquest perfil (${seleccionados.length})</div>`;
+    html += seleccionados.map(e => renderItem(e, null)).join("");
+  }
 
   if (disponibles.length) {
     html += `<div class="pou-grup-titol">Disponibles</div>`;
