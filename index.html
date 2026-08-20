@@ -1022,6 +1022,41 @@ function abrirEquipo(codigo){
   if(equipo) mostrarEquipo(equipo);
 }
 
+async function solicitarAcceso(codigo, boton){
+
+  const textoOriginal = boton.textContent;
+  boton.textContent = "Enviant…";
+  boton.disabled = true;
+
+  try{
+
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(Object.assign({
+        accion: "solicitarAcceso",
+        codigo: codigo
+      }, construirAuthPayload()))
+    });
+
+    const dades = parsearRespuestaJSON(await r.text());
+
+    if(dades.ok){
+      boton.textContent = "✅ Sol·licitud enviada";
+    }else{
+      alert("Error: " + (dades.mensaje || "no s'ha pogut enviar"));
+      boton.textContent = textoOriginal;
+      boton.disabled = false;
+    }
+
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació");
+    boton.textContent = textoOriginal;
+    boton.disabled = false;
+  }
+}
+
 async function obrirCarpetaFotos(codigo, boton){
 
   const textoOriginal = boton.textContent;
@@ -1189,6 +1224,8 @@ function mostrarEquipo(equipo){
       ${!puedeEditar && instaladorActiu ? `
         <div style="padding:0 18px 14px;font-size:12.5px;color:var(--ink-soft);">
           Aquest pou no és teu — només pots consultar-lo.
+          <br><br>
+          <button class="btn btn-outline" onclick="solicitarAcceso('${equipo.codigo}', this)">🔓 Sol·licitar accés</button>
         </div>
       ` : ""}
 
