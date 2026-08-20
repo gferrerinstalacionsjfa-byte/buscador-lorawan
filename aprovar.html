@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aprovar accés · Instalacions JFA</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
+
+<style>
+
+:root{
+  --bg:#EEF2F1;
+  --surface:#FFFFFF;
+  --ink:#10242B;
+  --ink-soft:#56686D;
+  --ink-faint:#8B9A9D;
+  --line:#DCE4E2;
+  --accent:#0E7C86;
+  --accent-dark:#0A5F67;
+  --danger:#B3261E;
+  --ok:#1F8A4C;
+  --radius:10px;
+  --radius-sm:7px;
+  --shadow:0 1px 2px rgba(16,36,43,0.06),0 6px 16px rgba(16,36,43,0.06);
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+}
+
+*{box-sizing:border-box;}
+
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--ink);
+  margin:0;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+
+.caixa{
+  width:100%;
+  max-width:400px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:28px;
+  text-align:center;
+}
+
+.brand{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  justify-content:center;
+  margin-bottom:20px;
+}
+.brand-mark{
+  font-family:var(--mono);
+  font-weight:600;
+  font-size:14px;
+  letter-spacing:0.06em;
+  background:var(--ink);
+  color:var(--surface);
+  padding:3px 7px;
+  border-radius:5px;
+}
+.brand-name{font-weight:600;font-size:15px;color:var(--ink-soft);}
+
+.pregunta{font-size:15px;margin-bottom:6px;}
+.detall{
+  font-family:var(--mono);
+  font-size:20px;
+  font-weight:600;
+  margin:10px 0 22px;
+}
+.detall .perfil{color:var(--accent);}
+
+.campo{margin-bottom:14px;text-align:left;}
+.campo label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;}
+.campo input{
+  width:100%;
+  padding:11px;
+  font-size:15px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--bg);
+  box-sizing:border-box;
+}
+
+.btn{
+  width:100%;
+  padding:12px;
+  font-family:var(--sans);
+  font-size:15px;
+  font-weight:600;
+  border-radius:var(--radius-sm);
+  border:none;
+  cursor:pointer;
+  margin-top:6px;
+}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:var(--accent-dark);}
+.btn-secundari{background:var(--bg);color:var(--ink-soft);border:1px solid var(--line);margin-top:8px;}
+
+.estat{min-height:20px;font-size:13px;margin-top:14px;}
+.estat.error{color:var(--danger);}
+.estat.ok{color:var(--ok);font-weight:600;}
+
+</style>
+</head>
+
+<body>
+
+<div class="caixa">
+
+  <div class="brand">
+    <span class="brand-mark">JFA</span>
+    <span class="brand-name">Instalacions</span>
+  </div>
+
+  <div id="carregant">
+    <p style="color:var(--ink-soft);">Comprovant…</p>
+  </div>
+
+  <div id="contingut" style="display:none;">
+
+    <div class="pregunta">Vols donar accés al pou</div>
+    <div class="detall"><span id="codiMostrat"></span> a <span class="perfil" id="perfilMostrat"></span>?</div>
+
+    <div id="loginBox" style="display:none;">
+      <div class="campo">
+        <label for="inpPass">Contrasenya d'administrador</label>
+        <input id="inpPass" type="password" placeholder="Contrasenya" onkeydown="if(event.key==='Enter') confirmarAcces()">
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="confirmarAcces()">✅ Sí, donar accés</button>
+    <button class="btn btn-secundari" onclick="location.href='./admin.html'">Cancel·lar</button>
+
+    <div id="estat" class="estat"></div>
+
+  </div>
+
+</div>
+
+<script>
+
+const API =
+"https://script.google.com/macros/s/AKfycbzz8jwBBYvxLJBdYlf6OrTzPBKK_ojTu4D5w2LZsxVMksLo3-WBk6EUFIFBEWTEVBKNzA/exec";
+
+const params = new URL(location.href).searchParams;
+const codi = (params.get("codi") || "").trim().toUpperCase();
+const perfilObjectiu = (params.get("perfil") || "").trim();
+
+let authPerfil = localStorage.getItem("instaladorPerfil") || "";
+let authContrasenya = localStorage.getItem("instaladorContrasenya") || "";
+const teniaSessioGuardada = localStorage.getItem("admin") === "si";
+
+iniciarAprovacio();
+
+function iniciarAprovacio(){
+
+  if(!codi || !perfilObjectiu){
+    document.getElementById("carregant").innerHTML =
+      '<p style="color:var(--danger);">Enllaç incomplet — falta el pou o el perfil.</p>';
+    return;
+  }
+
+  document.getElementById("codiMostrat").textContent = codi;
+  document.getElementById("perfilMostrat").textContent = perfilObjectiu;
+
+  document.getElementById("carregant").style.display = "none";
+  document.getElementById("contingut").style.display = "block";
+
+  // Si no hay sesión de admin guardada en este navegador, pedimos la
+  // contrasenya aquí mismo (uso puntual, no hace falta pasar por login.html)
+  if(!teniaSessioGuardada){
+    document.getElementById("loginBox").style.display = "block";
+  }
+}
+
+async function confirmarAcces(){
+
+  const estatDiv = document.getElementById("estat");
+
+  if(!teniaSessioGuardada){
+    const pass = document.getElementById("inpPass").value;
+    if(!pass){
+      estatDiv.className = "estat error";
+      estatDiv.textContent = "Escriu la contrasenya";
+      return;
+    }
+    authPerfil = "Admin";
+    authContrasenya = pass;
+  }
+
+  estatDiv.className = "estat";
+  estatDiv.textContent = "Comprovant permisos…";
+
+  try{
+
+    // 1) Buscar el perfil objectiu para no perder sus pozos ni su esAdmin
+    const rLlista = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ accion: "instaladors", perfil: authPerfil, contrasenya: authContrasenya })
+    });
+    const dadesLlista = await rLlista.json();
+
+    if(!dadesLlista.ok){
+      estatDiv.className = "estat error";
+      estatDiv.textContent = dadesLlista.mensaje || "Contrasenya incorrecta";
+      return;
+    }
+
+    const perfilTrobat = dadesLlista.perfils.find(p => p.perfil === perfilObjectiu);
+
+    if(!perfilTrobat){
+      estatDiv.className = "estat error";
+      estatDiv.textContent = "No s'ha trobat el perfil \"" + perfilObjectiu + "\"";
+      return;
+    }
+
+    if(perfilTrobat.pozos.includes(codi)){
+      estatDiv.className = "estat ok";
+      estatDiv.textContent = "Aquest perfil ja tenia accés a aquest pou.";
+      return;
+    }
+
+    // 2) Guardar el perfil con el pozo nuevo añadido a la lista
+    estatDiv.textContent = "Donant accés…";
+
+    const nousPous = perfilTrobat.pozos.concat([codi]);
+
+    const rGuardar = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        accion: "guardarInstalador",
+        sessioPerfil: authPerfil,
+        sessioContrasenya: authContrasenya,
+        perfilOriginal: perfilObjectiu,
+        perfil: perfilObjectiu,
+        contrasenya: "", // no se cambia
+        pozos: nousPous,
+        esAdmin: !!perfilTrobat.esAdmin
+      })
+    });
+    const dadesGuardar = await rGuardar.json();
+
+    if(dadesGuardar.ok){
+      estatDiv.className = "estat ok";
+      estatDiv.textContent = "✅ Accés concedit — " + perfilObjectiu + " ja pot gestionar " + codi + ".";
+    }else{
+      estatDiv.className = "estat error";
+      estatDiv.textContent = dadesGuardar.mensaje || "No s'ha pogut guardar";
+    }
+
+  }catch(error){
+    console.error(error);
+    estatDiv.className = "estat error";
+    estatDiv.textContent = "Error de comunicació";
+  }
+}
+
+</script>
+
+</body>
+</html>

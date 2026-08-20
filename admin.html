@@ -7,7 +7,8 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
 
 <style>
 
@@ -348,10 +349,21 @@ let totsElsEquips = [];
 let perfilEditant = null; // null = nou; string = nom original del perfil que s'edita
 let pousSeleccionats = new Set();
 
-window.onload = async () => {
+// No usamos window.onload (espera a que todo termine de cargar, fuentes
+// incluidas) — este script va al final del <body>, así que arrancamos ya
+iniciarAdmin();
+
+async function iniciarAdmin(){
 
   authPerfil = localStorage.getItem("instaladorPerfil") || "";
   authContrasenya = localStorage.getItem("instaladorContrasenya") || "";
+
+  // Si ya tenías sesión de admin guardada, se muestra el panel al momento
+  // (optimista) mientras la comprobación real va por detrás, en silencio
+  if(localStorage.getItem("admin") === "si"){
+    document.getElementById("carregant").style.display = "none";
+    document.getElementById("panell").style.display = "block";
+  }
 
   const ok = await carregarPerfils();
 
@@ -361,9 +373,10 @@ window.onload = async () => {
     document.getElementById("panell").style.display = "block";
     await carregarEquips();
   }else{
+    document.getElementById("panell").style.display = "none";
     document.getElementById("denegat").style.display = "block";
   }
-};
+}
 
 async function carregarPerfils(){
   try{
