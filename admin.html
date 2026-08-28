@@ -202,6 +202,31 @@ main{
   box-sizing:border-box;
 }
 
+.seleccio-rapida{
+  display:flex;
+  gap:6px;
+  margin-bottom:8px;
+  align-items:flex-start;
+}
+
+.seleccio-rapida input,
+.seleccio-rapida textarea{
+  flex:1;
+  padding:8px;
+  font-size:12.5px;
+  font-family:var(--sans);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  box-sizing:border-box;
+  resize:vertical;
+}
+
+.seleccio-rapida .btn{
+  white-space:nowrap;
+  padding:8px 12px;
+  font-size:12.5px;
+}
+
 .pous-llista{
   max-height:220px;
   overflow-y:auto;
@@ -324,6 +349,17 @@ main{
       <div class="pous-buscador">
         <input id="buscadorPous" placeholder="Cercar codi de pou…" oninput="filtrarPous()">
       </div>
+
+      <div class="seleccio-rapida">
+        <input id="inpCaixaRapida" type="text" inputmode="numeric" placeholder="Núm. de caixa" style="max-width:110px;">
+        <button type="button" class="btn" onclick="marcarPerCaixa()">Marcar caixa</button>
+      </div>
+
+      <div class="seleccio-rapida">
+        <textarea id="inpCodisRapida" placeholder="O enganxa una llista de codis (separats per comes, espais o salts de línia)…" rows="2"></textarea>
+        <button type="button" class="btn" onclick="marcarPerLlistaCodis()">Marcar llista</button>
+      </div>
+
       <div id="llistaPous" class="pous-llista"></div>
       <div class="seleccio-contador"><span id="contadorSeleccio">0</span> pous seleccionats</div>
     </div>
@@ -583,6 +619,65 @@ function toggleSeleccio(input){
 
 function actualizarContadorSeleccio(){
   document.getElementById("contadorSeleccio").textContent = pousSeleccionats.size;
+}
+
+function marcarPerCaixa(){
+
+  const valor = document.getElementById("inpCaixaRapida").value.trim();
+  const estatDiv = document.getElementById("modalEstat");
+
+  if(!valor){
+    estatDiv.style.color = "var(--danger)";
+    estatDiv.textContent = "Escriu un número de caixa";
+    return;
+  }
+
+  const coincidents = totsElsEquips.filter(e => String(e.caja || "").trim() === valor);
+
+  if(!coincidents.length){
+    estatDiv.style.color = "var(--danger)";
+    estatDiv.textContent = "Cap pou trobat a la caixa " + valor;
+    return;
+  }
+
+  coincidents.forEach(e => pousSeleccionats.add(String(e.codigo).toUpperCase()));
+
+  document.getElementById("inpCaixaRapida").value = "";
+  renderPousDisponibles(document.getElementById("buscadorPous").value);
+
+  estatDiv.style.color = "var(--ok)";
+  estatDiv.textContent = `Marcats ${coincidents.length} pous de la caixa ${valor}`;
+}
+
+function marcarPerLlistaCodis(){
+
+  const text = document.getElementById("inpCodisRapida").value;
+  const estatDiv = document.getElementById("modalEstat");
+
+  const codis = text
+    .split(/[\s,;]+/)
+    .map(c => c.trim().toUpperCase())
+    .filter(Boolean);
+
+  if(!codis.length){
+    estatDiv.style.color = "var(--danger)";
+    estatDiv.textContent = "Enganxa almenys un codi";
+    return;
+  }
+
+  const codigosValidos = new Set(totsElsEquips.map(e => String(e.codigo).toUpperCase()));
+  const trobats = codis.filter(c => codigosValidos.has(c));
+  const noTrobats = codis.filter(c => !codigosValidos.has(c));
+
+  trobats.forEach(c => pousSeleccionats.add(c));
+
+  document.getElementById("inpCodisRapida").value = "";
+  renderPousDisponibles(document.getElementById("buscadorPous").value);
+
+  estatDiv.style.color = noTrobats.length ? "var(--danger)" : "var(--ok)";
+  estatDiv.textContent = noTrobats.length
+    ? `Marcats ${trobats.length}. No trobats: ${noTrobats.join(", ")}`
+    : `Marcats ${trobats.length} pous`;
 }
 
 async function guardarPerfil(){
