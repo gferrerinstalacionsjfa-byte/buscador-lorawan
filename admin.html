@@ -423,6 +423,34 @@ const API =
 "https://script.google.com/macros/s/AKfycbzz8jwBBYvxLJBdYlf6OrTzPBKK_ojTu4D5w2LZsxVMksLo3-WBk6EUFIFBEWTEVBKNzA/exec";
 
 let authPerfil = "";
+
+// fetch con límite de tiempo, para no quedarse colgado esperando
+function fetchAmbTimeout(url, opcions, msTimeout){
+  opcions = opcions || {};
+  msTimeout = msTimeout || 20000;
+  const controlador = new AbortController();
+  const id = setTimeout(() => controlador.abort(), msTimeout);
+  return fetch(url, Object.assign({}, opcions, { signal: controlador.signal }))
+    .finally(() => clearTimeout(id));
+}
+
+// fetch con reintentos automáticos ante errores puntuales de conexión
+async function fetchAmbReintents(url, opcions, callbackProgres){
+  const intentosMax = 3;
+  let ultimoError;
+  for(let intento = 1; intento <= intentosMax; intento++){
+    if(intento > 1 && callbackProgres) callbackProgres(intento);
+    try{
+      const r = await fetchAmbTimeout(url, opcions, 20000);
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      return r;
+    }catch(error){
+      ultimoError = error;
+      if(intento < intentosMax) await new Promise(res => setTimeout(res, intento * 1200));
+    }
+  }
+  throw ultimoError;
+}
 let authContrasenya = "";
 let perfils = [];
 let totsElsEquips = [];
@@ -877,51 +905,37 @@ async function guardarAssignacioMultiple(){
   }
 
   estatDiv.style.color = "var(--ink-soft)";
+  estatDiv.textContent = `Assignant a ${instaladorsMarcats.length} instal·lador(s)…`;
 
   const pousNous = Array.from(pousSeleccionatsMultiple);
-  let errors = [];
 
-  for(const nomPerfil of instaladorsMarcats){
+  try{
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        accion: "asignarPozosMultiple",
+        sessioPerfil: authPerfil,
+        sessioContrasenya: authContrasenya,
+        perfiles: instaladorsMarcats,
+        pozos: pousNous
+      })
+    }, (msg) => { estatDiv.textContent = msg; });
 
-    estatDiv.textContent = `Assignant a ${nomPerfil}…`;
+    const dades = await r.json();
 
-    const perfil = perfils.find(p => p.perfil === nomPerfil);
-    if(!perfil) continue;
+    await carregarPerfils();
 
-    const pozosActualizados = Array.from(new Set(perfil.pozos.concat(pousNous)));
-
-    try{
-      const r = await fetch(API, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({
-          accion: "guardarInstalador",
-          sessioPerfil: authPerfil,
-          sessioContrasenya: authContrasenya,
-          perfilOriginal: nomPerfil,
-          perfil: nomPerfil,
-          contrasenya: "",
-          pozos: pozosActualizados,
-          esAdmin: !!perfil.esAdmin
-        })
-      });
-      const dades = await r.json();
-      if(!dades.ok){
-        errors.push(nomPerfil + ": " + (dades.mensaje || "error"));
-      }
-    }catch(error){
-      console.error(error);
-      errors.push(nomPerfil + ": error de comunicació");
+    if(dades.ok){
+      tancarModalMultiple();
+    }else{
+      estatDiv.style.color = "var(--danger)";
+      estatDiv.textContent = dades.mensaje || "Error assignant els pous";
     }
-  }
-
-  await carregarPerfils();
-
-  if(errors.length){
+  }catch(error){
+    console.error(error);
     estatDiv.style.color = "var(--danger)";
-    estatDiv.textContent = "Fet amb errors — " + errors.join(" | ");
-  }else{
-    tancarModalMultiple();
+    estatDiv.textContent = "Error de comunicació. Torna-ho a provar.";
   }
 }
 
