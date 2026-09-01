@@ -1609,6 +1609,26 @@ async function cambiarEstado(codigo,accion){
   const usuario = obtenerUsuario();
   if(!usuario) return;
 
+  // Se guarda el estado anterior por si hay que deshacer el cambio
+  const estadoPrevio = { estado: equipo.estado, usuario: equipo.usuario, fecha: equipo.fecha };
+
+  // Se actualiza la pantalla al instante, sin esperar al servidor
+  if(accion==="retirar") equipo.estado="Retirado";
+  if(accion==="instalado") equipo.estado="Instalado";
+  if(accion==="noinstalar") equipo.estado="No instalar";
+  if(accion==="almacen") equipo.estado="Almacén";
+
+  if(accion==="almacen"){
+    equipo.fecha="";
+    equipo.usuario="";
+  }else{
+    equipo.usuario=usuario;
+    equipo.fecha=new Date().toLocaleString();
+  }
+
+  actualizarStats();
+  mostrarEquipo(equipo);
+
   const payload = Object.assign({
     accion: accion,
     fila: equipo.fila,
@@ -1625,27 +1645,18 @@ async function cambiarEstado(codigo,accion){
     });
     const respuesta = await r.text();
 
-    if(respuesta==="OK"){
-      if(accion==="retirar") equipo.estado="Retirado";
-      if(accion==="instalado") equipo.estado="Instalado";
-      if(accion==="noinstalar") equipo.estado="No instalar";
-      if(accion==="almacen") equipo.estado="Almacén";
-
-      if(accion==="almacen"){
-        equipo.fecha="";
-        equipo.usuario="";
-      }else{
-        equipo.usuario=usuario;
-        equipo.fecha=new Date().toLocaleString();
-      }
-
+    if(respuesta!=="OK"){
+      // El servidor no lo aceptó: se deshace el cambio en pantalla
+      Object.assign(equipo, estadoPrevio);
       actualizarStats();
       mostrarEquipo(equipo);
-    }else{
       alert("Error: " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
     }
   }catch(error){
     console.error(error);
+    Object.assign(equipo, estadoPrevio);
+    actualizarStats();
+    mostrarEquipo(equipo);
     alert("Error de comunicació. Torna-ho a provar.");
   }
 }
@@ -1670,6 +1681,14 @@ async function marcarNoInstalar(codigo){
     observacions: observacions
   }, construirAuthPayload());
 
+  const estadoPrevio = { estado: equipo.estado, usuario: equipo.usuario, fecha: equipo.fecha };
+
+  equipo.estado = "No instalar";
+  equipo.usuario = usuario;
+  equipo.fecha = new Date().toLocaleString();
+  actualizarStats();
+  mostrarEquipo(equipo);
+
   try{
     const r = await fetchAmbReintents(API, {
       method: "POST",
@@ -1678,18 +1697,17 @@ async function marcarNoInstalar(codigo){
     });
     const respuesta = await r.text();
 
-    if(respuesta==="OK"){
-      equipo.estado = "No instalar";
-      equipo.usuario = usuario;
-      equipo.fecha = new Date().toLocaleString();
-
+    if(respuesta!=="OK"){
+      Object.assign(equipo, estadoPrevio);
       actualizarStats();
       mostrarEquipo(equipo);
-    }else{
       alert("Error: " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
     }
   }catch(error){
     console.error(error);
+    Object.assign(equipo, estadoPrevio);
+    actualizarStats();
+    mostrarEquipo(equipo);
     alert("Error de comunicació");
   }
 }
