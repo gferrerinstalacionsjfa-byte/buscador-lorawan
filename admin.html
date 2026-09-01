@@ -314,9 +314,12 @@ main{
 
   <div id="panell" style="display:none;">
 
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;">
       <h2 style="margin:0;">Perfils d'instal·lador</h2>
-      <button class="btn btn-primary" onclick="obrirModalNou()">+ Nou perfil</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="obrirModalMultiple()">👥 Assignar a diversos</button>
+        <button class="btn btn-primary" onclick="obrirModalNou()">+ Nou perfil</button>
+      </div>
     </div>
 
     <div id="llistaPerfils"></div>
@@ -373,6 +376,47 @@ main{
   </div>
 </div>
 
+<div id="modalMultiple" class="modal">
+  <div class="modal-box">
+    <h3>Assignar pous a diversos instal·ladors</h3>
+    <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-8px;">
+      Els pous que marquis s'afegiran als instal·ladors que seleccionis — no toca res del que ja tinguessin.
+    </p>
+
+    <div class="campo">
+      <label>Instal·ladors</label>
+      <div id="llistaInstaladorsMultiple" style="border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px;max-height:140px;overflow-y:auto;"></div>
+    </div>
+
+    <div class="campo">
+      <label>Pous a assignar</label>
+      <div class="pous-buscador">
+        <input id="buscadorPousMultiple" placeholder="Cercar codi de pou…" oninput="filtrarPousMultiple()">
+      </div>
+
+      <div class="seleccio-rapida">
+        <input id="inpCaixaRapidaMultiple" type="text" inputmode="numeric" placeholder="Núm. de caixa" style="max-width:110px;">
+        <button type="button" class="btn" onclick="marcarPerCaixaMultiple()">Marcar caixa</button>
+      </div>
+
+      <div class="seleccio-rapida">
+        <textarea id="inpCodisRapidaMultiple" placeholder="O enganxa una llista de codis…" rows="2"></textarea>
+        <button type="button" class="btn" onclick="marcarPerLlistaCodisMultiple()">Marcar llista</button>
+      </div>
+
+      <div id="llistaPousMultiple" class="pous-llista"></div>
+      <div class="seleccio-contador"><span id="contadorSeleccioMultiple">0</span> pous seleccionats</div>
+    </div>
+
+    <div id="modalEstatMultiple" style="font-size:13px;color:var(--danger);"></div>
+
+    <div class="modal-acciones">
+      <button class="btn" onclick="tancarModalMultiple()">Cancel·lar</button>
+      <button class="btn btn-primary" onclick="guardarAssignacioMultiple()">Assignar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 
 const API =
@@ -384,6 +428,7 @@ let perfils = [];
 let totsElsEquips = [];
 let perfilEditant = null; // null = nou; string = nom original del perfil que s'edita
 let pousSeleccionats = new Set();
+let pousSeleccionatsMultiple = new Set();
 
 // No usamos window.onload (espera a que todo termine de cargar, fuentes
 // incluidas) — este script va al final del <body>, así que arrancamos ya
@@ -678,6 +723,206 @@ function marcarPerLlistaCodis(){
   estatDiv.textContent = noTrobats.length
     ? `Marcats ${trobats.length}. No trobats: ${noTrobats.join(", ")}`
     : `Marcats ${trobats.length} pous`;
+}
+
+// ============================================================
+// Modal: assignar pous a diversos instal·ladors a la vegada
+// ============================================================
+
+function obrirModalMultiple(){
+
+  pousSeleccionatsMultiple = new Set();
+
+  const contInstaladors = document.getElementById("llistaInstaladorsMultiple");
+
+  if(!perfils.length){
+    contInstaladors.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Encara no hi ha cap perfil creat.</div>';
+  }else{
+    contInstaladors.innerHTML = perfils.map(p => `
+      <label class="filtre-opcio" style="padding:5px 2px;">
+        <input type="checkbox" value="${escapeHtml(p.perfil)}">
+        ${escapeHtml(p.perfil)} ${p.esAdmin ? '' : `<span style="color:var(--ink-soft);font-weight:400;">(${p.pozos.length})</span>`}
+      </label>
+    `).join("");
+  }
+
+  document.getElementById("buscadorPousMultiple").value = "";
+  document.getElementById("inpCaixaRapidaMultiple").value = "";
+  document.getElementById("inpCodisRapidaMultiple").value = "";
+  document.getElementById("modalEstatMultiple").textContent = "";
+
+  renderPousDisponiblesMultiple();
+  document.getElementById("modalMultiple").style.display = "block";
+}
+
+function tancarModalMultiple(){
+  document.getElementById("modalMultiple").style.display = "none";
+}
+
+function filtrarPousMultiple(){
+  renderPousDisponiblesMultiple(document.getElementById("buscadorPousMultiple").value);
+}
+
+function renderPousDisponiblesMultiple(filtro){
+
+  const cont = document.getElementById("llistaPousMultiple");
+  const f = (filtro || "").trim().toUpperCase();
+
+  const llista = totsElsEquips.filter(e => !f || String(e.codigo || "").toUpperCase().includes(f));
+
+  cont.innerHTML = llista.map(e => {
+    const marcado = pousSeleccionatsMultiple.has(String(e.codigo).toUpperCase()) ? "checked" : "";
+    return `
+      <label class="pou-item">
+        <input type="checkbox" value="${escapeHtml(e.codigo)}" ${marcado} onchange="toggleSeleccioMultiple(this)">
+        ${escapeHtml(e.codigo)}
+      </label>
+    `;
+  }).join("") || '<div class="buit" style="padding:14px;">Cap pou coincideix amb la cerca</div>';
+
+  actualizarContadorSeleccioMultiple();
+}
+
+function toggleSeleccioMultiple(input){
+  const codi = input.value.toUpperCase();
+  if(input.checked){
+    pousSeleccionatsMultiple.add(codi);
+  }else{
+    pousSeleccionatsMultiple.delete(codi);
+  }
+  actualizarContadorSeleccioMultiple();
+}
+
+function actualizarContadorSeleccioMultiple(){
+  document.getElementById("contadorSeleccioMultiple").textContent = pousSeleccionatsMultiple.size;
+}
+
+function marcarPerCaixaMultiple(){
+
+  const valor = document.getElementById("inpCaixaRapidaMultiple").value.trim();
+  const estatDiv = document.getElementById("modalEstatMultiple");
+
+  if(!valor){
+    estatDiv.style.color = "var(--danger)";
+    estatDiv.textContent = "Escriu un número de caixa";
+    return;
+  }
+
+  const coincidents = totsElsEquips.filter(e => String(e.caja || "").trim() === valor);
+
+  if(!coincidents.length){
+    estatDiv.style.color = "var(--danger)";
+    estatDiv.textContent = "Cap pou trobat a la caixa " + valor;
+    return;
+  }
+
+  coincidents.forEach(e => pousSeleccionatsMultiple.add(String(e.codigo).toUpperCase()));
+
+  document.getElementById("inpCaixaRapidaMultiple").value = "";
+  renderPousDisponiblesMultiple(document.getElementById("buscadorPousMultiple").value);
+
+  estatDiv.style.color = "var(--ok)";
+  estatDiv.textContent = `Marcats ${coincidents.length} pous de la caixa ${valor}`;
+}
+
+function marcarPerLlistaCodisMultiple(){
+
+  const text = document.getElementById("inpCodisRapidaMultiple").value;
+  const estatDiv = document.getElementById("modalEstatMultiple");
+
+  const codis = text
+    .split(/[\s,;]+/)
+    .map(c => c.trim().toUpperCase())
+    .filter(Boolean);
+
+  if(!codis.length){
+    estatDiv.style.color = "var(--danger)";
+    estatDiv.textContent = "Enganxa almenys un codi";
+    return;
+  }
+
+  const codigosValidos = new Set(totsElsEquips.map(e => String(e.codigo).toUpperCase()));
+  const trobats = codis.filter(c => codigosValidos.has(c));
+  const noTrobats = codis.filter(c => !codigosValidos.has(c));
+
+  trobats.forEach(c => pousSeleccionatsMultiple.add(c));
+
+  document.getElementById("inpCodisRapidaMultiple").value = "";
+  renderPousDisponiblesMultiple(document.getElementById("buscadorPousMultiple").value);
+
+  estatDiv.style.color = noTrobats.length ? "var(--danger)" : "var(--ok)";
+  estatDiv.textContent = noTrobats.length
+    ? `Marcats ${trobats.length}. No trobats: ${noTrobats.join(", ")}`
+    : `Marcats ${trobats.length} pous`;
+}
+
+async function guardarAssignacioMultiple(){
+
+  const estatDiv = document.getElementById("modalEstatMultiple");
+
+  const instaladorsMarcats = Array.from(
+    document.querySelectorAll("#llistaInstaladorsMultiple input[type=checkbox]:checked")
+  ).map(c => c.value);
+
+  if(!instaladorsMarcats.length){
+    estatDiv.style.color = "var(--danger)";
+    estatDiv.textContent = "Selecciona almenys un instal·lador";
+    return;
+  }
+
+  if(!pousSeleccionatsMultiple.size){
+    estatDiv.style.color = "var(--danger)";
+    estatDiv.textContent = "Selecciona almenys un pou";
+    return;
+  }
+
+  estatDiv.style.color = "var(--ink-soft)";
+
+  const pousNous = Array.from(pousSeleccionatsMultiple);
+  let errors = [];
+
+  for(const nomPerfil of instaladorsMarcats){
+
+    estatDiv.textContent = `Assignant a ${nomPerfil}…`;
+
+    const perfil = perfils.find(p => p.perfil === nomPerfil);
+    if(!perfil) continue;
+
+    const pozosActualizados = Array.from(new Set(perfil.pozos.concat(pousNous)));
+
+    try{
+      const r = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          accion: "guardarInstalador",
+          sessioPerfil: authPerfil,
+          sessioContrasenya: authContrasenya,
+          perfilOriginal: nomPerfil,
+          perfil: nomPerfil,
+          contrasenya: "",
+          pozos: pozosActualizados,
+          esAdmin: !!perfil.esAdmin
+        })
+      });
+      const dades = await r.json();
+      if(!dades.ok){
+        errors.push(nomPerfil + ": " + (dades.mensaje || "error"));
+      }
+    }catch(error){
+      console.error(error);
+      errors.push(nomPerfil + ": error de comunicació");
+    }
+  }
+
+  await carregarPerfils();
+
+  if(errors.length){
+    estatDiv.style.color = "var(--danger)";
+    estatDiv.textContent = "Fet amb errors — " + errors.join(" | ");
+  }else{
+    tancarModalMultiple();
+  }
 }
 
 async function guardarPerfil(){
