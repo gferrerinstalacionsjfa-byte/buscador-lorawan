@@ -1251,6 +1251,7 @@ function mostrarEquipo(equipo){
       ${puedeEditar ? `
         <div class="ficha-acciones">
           <button class="btn btn-outline warn" onclick="cambiarEstado('${equipo.codigo}','retirar')">Retirar</button>
+          ${admin ? `<button class="btn btn-outline warn" onclick="cambiarEstado('${equipo.codigo}','retirar','SAMPOL')">Retirar (SAMPOL)</button>` : ""}
           <button class="btn btn-outline info" onclick="abrirModalInstalacion('${equipo.codigo}')">Instal·lar</button>
           <button class="btn btn-outline danger" onclick="marcarNoInstalar('${equipo.codigo}')">🚫 No instal·lar</button>
           <button class="btn btn-outline ok" onclick="cambiarEstado('${equipo.codigo}','almacen')">Magatzem</button>
@@ -1602,11 +1603,11 @@ async function cerrarEscaner(){
   document.getElementById("scannerModal").style.display = "none";
 }
 
-async function cambiarEstado(codigo,accion){
+async function cambiarEstado(codigo,accion,usuarioForzado){
   const equipo = equipos.find(e=>e.codigo===codigo);
   if(!equipo) return;
 
-  const usuario = obtenerUsuario();
+  const usuario = usuarioForzado || obtenerUsuario();
   if(!usuario) return;
 
   // Se guarda el estado anterior por si hay que deshacer el cambio
