@@ -302,6 +302,11 @@ body{
       <div class="filtre-panell" id="panellVigilant"></div>
     </div>
 
+    <div class="filtre-multi" id="wrapInstalador" style="display:none;">
+      <button type="button" class="filtre-boto" id="botoInstalador" onclick="obrirPanellInstalador(event)">👷 Instal·lador</button>
+      <div class="filtre-panell" id="panellInstalador"></div>
+    </div>
+
     <button class="btn" onclick="carregarPunts()">🔄 Actualitzar</button>
   </div>
 </header>
@@ -328,8 +333,10 @@ const API =
 let mapa;
 let capesPerCategoria = {}; // categoria -> L.layerGroup() (siempre en el mapa)
 let marcadorsPerCodi = {};  // codigo -> { marcador, lat, lon, categoria }
-let totsElsPunts = [];      // [{ marcador, capa, categoria, vigilant }] — para recalcular visibilidad
+let totsElsPunts = [];      // [{ marcador, capa, categoria, vigilant, instalador }]
 let vigilantsSeleccionats = new Set(); // vacío = todos
+let instaladorsSeleccionats = new Set(); // vacío = todos
+const esAdmin = localStorage.getItem("admin") === "si";
 
 const CATEGORIES = ["nivell", "lila", "blaus", "nitrats", "acabat", "problematic", "altres"];
 
@@ -344,6 +351,10 @@ function inicialitzarMapa(){
   CATEGORIES.forEach(cat => {
     capesPerCategoria[cat] = L.layerGroup().addTo(mapa);
   });
+
+  if(esAdmin){
+    document.getElementById("wrapInstalador").style.display = "inline-flex";
+  }
 
   // Checkboxes de la llegenda: al cambiar, se recalcula qué marcadores
   // tienen que verse (combinando esto con el filtro de vigilante)
@@ -365,7 +376,8 @@ function aplicarFiltresMapa(){
 
     const pasaCategoria = categoriesActives.has(p.categoria);
     const pasaVigilant = vigilantsSeleccionats.size === 0 || vigilantsSeleccionats.has(p.vigilant);
-    const visible = pasaCategoria && pasaVigilant;
+    const pasaInstalador = instaladorsSeleccionats.size === 0 || instaladorsSeleccionats.has(p.instalador);
+    const visible = pasaCategoria && pasaVigilant && pasaInstalador;
 
     if(visible){
       if(!p.capa.hasLayer(p.marcador)) p.marcador.addTo(p.capa);
@@ -438,6 +450,68 @@ function obrirPanellVigilant(ev){
   if(!obert) panell.classList.add("obert");
 }
 
+function construirPanellInstalador(instaladorsUnics){
+
+  const panell = document.getElementById("panellInstalador");
+  panell.innerHTML = "";
+  panell.onclick = (ev) => ev.stopPropagation();
+
+  if(!instaladorsUnics.size){
+    panell.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);padding:4px 2px;">Cap pou té instal·lador registrat</div>';
+    return;
+  }
+
+  const accions = document.createElement("div");
+  accions.className = "filtre-panell-accions";
+  accions.innerHTML = `<a href="#" data-accio="tots">Tots</a><a href="#" data-accio="cap">Cap</a>`;
+  accions.querySelector('[data-accio="tots"]').onclick = (ev) => {
+    ev.preventDefault();
+    panell.querySelectorAll("input[type=checkbox]").forEach(c => c.checked = true);
+    actualizarFiltreInstalador();
+  };
+  accions.querySelector('[data-accio="cap"]').onclick = (ev) => {
+    ev.preventDefault();
+    panell.querySelectorAll("input[type=checkbox]").forEach(c => c.checked = false);
+    actualizarFiltreInstalador();
+  };
+  panell.appendChild(accions);
+
+  Array.from(instaladorsUnics).sort().forEach(v => {
+    const opcio = document.createElement("label");
+    opcio.className = "filtre-opcio";
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.value = v;
+    check.checked = instaladorsSeleccionats.size === 0 || instaladorsSeleccionats.has(v);
+    check.onchange = actualizarFiltreInstalador;
+    opcio.appendChild(check);
+    opcio.appendChild(document.createTextNode(v));
+    panell.appendChild(opcio);
+  });
+}
+
+function actualizarFiltreInstalador(){
+
+  const panell = document.getElementById("panellInstalador");
+  const casillas = Array.from(panell.querySelectorAll("input[type=checkbox]"));
+  const marcadas = casillas.filter(c => c.checked);
+
+  instaladorsSeleccionats = (marcadas.length === casillas.length)
+    ? new Set()
+    : new Set(marcadas.map(c => c.value));
+
+  document.getElementById("botoInstalador").classList.toggle("actiu", instaladorsSeleccionats.size > 0);
+  aplicarFiltresMapa();
+}
+
+function obrirPanellInstalador(ev){
+  ev.stopPropagation();
+  const panell = document.getElementById("panellInstalador");
+  const obert = panell.classList.contains("obert");
+  document.querySelectorAll(".filtre-panell.obert").forEach(p => p.classList.remove("obert"));
+  if(!obert) panell.classList.add("obert");
+}
+
 document.addEventListener("click", () => {
   document.querySelectorAll(".filtre-panell.obert").forEach(p => p.classList.remove("obert"));
 });
@@ -473,6 +547,7 @@ async function carregarPunts(){
     const bounds = [];
     const opcionsDatalist = [];
     const vigilantsUnics = new Set();
+    const instaladorsUnics = new Set();
 
     dades.puntos.forEach(p => {
 
@@ -482,6 +557,7 @@ async function carregarPunts(){
       if(!lat || !lon) return;
 
       const vigilant = String(p.vigilant || "").trim();
+      const instalador = String(p.instalador || "").trim();
 
       const marcador = L.circleMarker([lat, lon], {
         radius: 7,
@@ -508,6 +584,7 @@ async function carregarPunts(){
         (p.metraje ? `<div class="popup-estat">📏 ${escapeHtml(p.metraje)} m</div>` : "") +
         (p.remesa ? `<div class="popup-estat">📦 Remesa ${escapeHtml(p.remesa)}</div>` : "") +
         (vigilant ? `<div class="popup-estat">👤 ${escapeHtml(vigilant)}</div>` : "") +
+        (esAdmin && instalador ? `<div class="popup-estat">👷 ${escapeHtml(instalador)}</div>` : "") +
         `<a class="popup-link" href="${urlMaps}" target="_blank" rel="noopener">📍 Com arribar-hi</a>`
       );
 
@@ -515,13 +592,15 @@ async function carregarPunts(){
       bounds.push([lat, lon]);
 
       marcadorsPerCodi[p.codigo.toUpperCase()] = { marcador: marcador, lat: lat, lon: lon, categoria: p.categoria };
-      totsElsPunts.push({ marcador: marcador, capa: capa, categoria: p.categoria, vigilant: vigilant });
+      totsElsPunts.push({ marcador: marcador, capa: capa, categoria: p.categoria, vigilant: vigilant, instalador: instalador });
 
       if(vigilant) vigilantsUnics.add(vigilant);
+      if(instalador) instaladorsUnics.add(instalador);
       opcionsDatalist.push(p.codigo);
     });
 
     construirPanellVigilant(vigilantsUnics);
+    if(esAdmin) construirPanellInstalador(instaladorsUnics);
     aplicarFiltresMapa();
 
     const datalist = document.getElementById("llistaCodis");
