@@ -673,7 +673,11 @@ main{
 
     <div class="campo-form">
       <label for="inpCableFinsCota">📏 Cable fins cota (metres)</label>
-      <input type="number" id="inpCableFinsCota" step="0.01" inputmode="decimal">
+      <div style="font-size:11.5px;color:var(--ink-soft);margin:-4px 0 6px;">
+        És la longitud de cable que queda fora del tub, des de la boca fins a la marca on el vigilant pren la mesura.
+      </div>
+      <input type="number" id="inpCableFinsCota" step="0.01" inputmode="decimal" oninput="comprovarCableFinsCota()">
+      <div id="avisCableFinsCota" style="display:none;margin-top:6px;padding:8px 10px;background:#FBE7E5;color:#B3261E;border-radius:7px;font-size:12.5px;font-weight:600;"></div>
     </div>
 
     <div class="campo-form">
@@ -804,6 +808,7 @@ async function iniciarApp(){
   // Se lanzan a la vez, no una detrás de otra: así sus tiempos de espera
   // se solapan en vez de sumarse
   const promesaPrincipal = instaladorActiu ? refrescarDadesInstalador() : cargarDatos();
+  cargarConfiguracio();
 
   if(admin){
     cargarPanellInstaladors();
@@ -815,6 +820,20 @@ async function iniciarApp(){
   if(codigo){
     document.getElementById("busqueda").value = codigo;
     buscar();
+  }
+}
+
+let bloquejarCableFinsCotaActiu = false;
+
+async function cargarConfiguracio(){
+  try{
+    const r = await fetchAmbTimeout(API + "?accion=configuracio");
+    const dades = await r.json();
+    if(dades.ok){
+      bloquejarCableFinsCotaActiu = !!dades.bloquejarCableFinsCota;
+    }
+  }catch(error){
+    console.error("No s'ha pogut carregar la configuració:", error);
   }
 }
 
@@ -1729,8 +1748,32 @@ function abrirModalInstalacion(codigo){
   document.getElementById("inpCableFinsCota").value = "";
   document.getElementById("inpObservacions").value = "";
   document.getElementById("instalarEstado").textContent = "";
+  document.getElementById("avisCableFinsCota").style.display = "none";
 
   document.getElementById("instalarModal").style.display = "block";
+}
+
+// Avisa si el valor escrito coincide con el largo total de la sonda —
+// error típico de confundir "cable fins cota" con el cable entero.
+// Devuelve true si el valor no es válido (para poder bloquear el envío).
+function comprovarCableFinsCota(){
+
+  const avisDiv = document.getElementById("avisCableFinsCota");
+  const equipo = equipos.find(e => e.codigo === codigoEnInstalacion);
+  const valor = parseFloat(document.getElementById("inpCableFinsCota").value);
+  const metraje = equipo ? parseFloat(equipo.metraje) : NaN;
+
+  const esInvalid = !isNaN(valor) && !isNaN(metraje) && valor >= metraje;
+
+  if(esInvalid){
+    const prefijo = bloquejarCableFinsCotaActiu ? "🚫 No es pot guardar: " : "⚠️ Avís: ";
+    avisDiv.textContent = `${prefijo}aquest valor (${valor} m) és igual o més gran que el llarg total de la sonda (${metraje} m). Segurament has posat el cable sencer en comptes del tram fins la cota.`;
+    avisDiv.style.display = "block";
+  }else{
+    avisDiv.style.display = "none";
+  }
+
+  return esInvalid;
 }
 
 function cerrarModalInstalacion(){
@@ -1813,6 +1856,12 @@ async function confirmarInstalacion(){
 
   const equipo = equipos.find(e => e.codigo === codigoEnInstalacion);
   if(!equipo) return;
+
+  const esInvalid = comprovarCableFinsCota();
+  if(esInvalid && bloquejarCableFinsCotaActiu){
+    document.getElementById("instalarEstado").textContent = "";
+    return; // el aviso en rojo ya explica el motivo, no se envía nada
+  }
 
   const usuario = obtenerUsuario();
   if(!usuario) return;

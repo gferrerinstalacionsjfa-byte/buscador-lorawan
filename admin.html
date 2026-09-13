@@ -314,6 +314,15 @@ main{
 
   <div id="panell" style="display:none;">
 
+    <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px;margin-bottom:18px;">
+      <h3 style="margin:0 0 4px;">⚙️ Ajustos</h3>
+      <label style="display:flex;align-items:center;gap:10px;margin-top:10px;cursor:pointer;font-size:13.5px;">
+        <input type="checkbox" id="chkBloquejarCable" style="width:auto;" onchange="canviarBloqueigCable(this)">
+        Bloquejar l'enviament si "Cable fins a cota" és igual o major que el cable total de la sonda
+      </label>
+      <div id="estatBloqueigCable" style="font-size:12px;color:var(--ink-soft);margin-top:6px;"></div>
+    </div>
+
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;">
       <h2 style="margin:0;">Perfils d'instal·lador</h2>
       <div style="display:flex;gap:8px;">
@@ -481,6 +490,7 @@ async function iniciarAdmin(){
   if(ok){
     document.getElementById("panell").style.display = "block";
     await carregarEquips();
+    carregarConfiguracio();
   }else{
     document.getElementById("panell").style.display = "none";
     document.getElementById("denegat").style.display = "block";
@@ -506,6 +516,59 @@ async function carregarPerfils(){
   }catch(error){
     console.error(error);
     return false;
+  }
+}
+
+async function carregarConfiguracio(){
+  try{
+    const r = await fetchAmbTimeout(API + "?accion=configuracio");
+    const dades = await r.json();
+    if(dades.ok){
+      document.getElementById("chkBloquejarCable").checked = !!dades.bloquejarCableFinsCota;
+      mostrarEstatBloqueigCable(dades.bloquejarCableFinsCota);
+    }
+  }catch(error){
+    console.error(error);
+  }
+}
+
+function mostrarEstatBloqueigCable(actiu){
+  const div = document.getElementById("estatBloqueigCable");
+  div.textContent = actiu
+    ? "Actiu — no es podrà instal·lar si el valor és igual o major que el cable total."
+    : "Desactivat — només sortirà l'avís, es podrà enviar igualment.";
+}
+
+async function canviarBloqueigCable(checkbox){
+
+  const nouValor = checkbox.checked;
+  checkbox.disabled = true;
+
+  try{
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        accion: "actualizarConfiguracio",
+        sessioPerfil: authPerfil,
+        sessioContrasenya: authContrasenya,
+        bloquejarCableFinsCota: nouValor
+      })
+    });
+    const dades = await r.json();
+
+    if(dades.ok){
+      mostrarEstatBloqueigCable(dades.bloquejarCableFinsCota);
+    }else{
+      checkbox.checked = !nouValor;
+      alert("Error: " + (dades.mensaje || "no s'ha pogut guardar"));
+    }
+  }catch(error){
+    console.error(error);
+    checkbox.checked = !nouValor;
+    alert("Error de comunicació");
+  }finally{
+    checkbox.disabled = false;
   }
 }
 
