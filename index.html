@@ -473,6 +473,31 @@ main{
   padding:0 18px 4px;
 }
 
+.ficha-nota{
+  margin:0 18px 14px;
+  padding:9px 12px;
+  border-radius:8px;
+  font-size:12.5px;
+  font-weight:600;
+}
+
+.ficha-nota .sub{
+  font-size:11px;
+  font-weight:400;
+  margin-top:3px;
+  opacity:.85;
+}
+
+.ficha-nota.reubicacio{
+  background:var(--info-soft);
+  color:var(--info);
+}
+
+.ficha-nota.retirat{
+  background:var(--warn-soft);
+  color:var(--warn);
+}
+
 .ficha-acciones{
   padding:14px 18px 18px;
   border-top:1px solid var(--line);
@@ -1023,6 +1048,15 @@ function buscar(){
     return;
   }
 
+  // Si no hay coincidencia exacta con el código actual, mira si ese codi
+  // era el codi original d'una fila que s'ha renombrat després
+  const porOriginal = equipos.find(e => String(e.codigoOriginal || "").toUpperCase() === valor);
+
+  if(porOriginal){
+    mostrarEquipo(porOriginal);
+    return;
+  }
+
   const caja = Number(valor);
   if(!isNaN(caja)){
     const listaCaja = equipos.filter(e => Number(e.caja) === caja);
@@ -1222,6 +1256,20 @@ function mostrarEquipo(equipo){
         <button class="btn btn-outline" style="margin-left:8px;" onclick="obrirCarpetaFotos('${escapeHtml(equipo.codigo)}', this)">📁 Fotos</button>
       </div>
 
+      ${equipo.retiratPer ? `
+        <div class="ficha-nota retirat">
+          🚫 Retirat (mentre "No instal·lar")
+          <div class="sub">per ${escapeHtml(equipo.retiratPer)} el ${escapeHtml(equipo.retiratData || "")}</div>
+        </div>
+      ` : ""}
+
+      ${equipo.codigoOriginal ? `
+        <div class="ficha-nota reubicacio">
+          🔀 Codi original: <strong>${escapeHtml(equipo.codigoOriginal)}</strong> — renombrat a ${escapeHtml(equipo.codigo)}
+          <div class="sub">per ${escapeHtml(equipo.reubicatPer || "")} el ${escapeHtml(equipo.reubicatData || "")}</div>
+        </div>
+      ` : ""}
+
       <div class="ficha-body">
         <div class="campo">
           <div class="k">Tipus de sonda</div>
@@ -1274,6 +1322,7 @@ function mostrarEquipo(equipo){
           <button class="btn btn-outline info" onclick="abrirModalInstalacion('${equipo.codigo}')">Instal·lar</button>
           <button class="btn btn-outline danger" onclick="marcarNoInstalar('${equipo.codigo}')">🚫 No instal·lar</button>
           <button class="btn btn-outline ok" onclick="cambiarEstado('${equipo.codigo}','almacen')">Magatzem</button>
+          <button class="btn btn-ghost" onclick="marcarReubicacio('${equipo.codigo}')">🔀 Muntat a un altre pou</button>
           <button class="btn btn-ghost" onclick="asignarSerieSonda('${equipo.codigo}')">✏️ Manual</button>
           <button class="btn btn-primary" onclick="escanearSerieSonda('${equipo.codigo}')">📷 Escanejar</button>
         </div>
@@ -1630,20 +1679,36 @@ async function cambiarEstado(codigo,accion,usuarioForzado){
   if(!usuario) return;
 
   // Se guarda el estado anterior por si hay que deshacer el cambio
-  const estadoPrevio = { estado: equipo.estado, usuario: equipo.usuario, fecha: equipo.fecha };
+  const estadoPrevio = {
+    estado: equipo.estado,
+    usuario: equipo.usuario,
+    fecha: equipo.fecha,
+    retiratPer: equipo.retiratPer,
+    retiratData: equipo.retiratData
+  };
+
+  // Cas especial: retirar un pou que està marcat "No instalar" no li canvia
+  // l'estat (es manté "No instalar") — el retir es guarda com una anotació
+  // a part, perquè les dues coses quedin visibles a la vegada
+  const esRetirarMentreNoInstalar = accion === "retirar" && equipo.estado === "No instalar";
 
   // Se actualiza la pantalla al instante, sin esperar al servidor
-  if(accion==="retirar") equipo.estado="Retirado";
-  if(accion==="instalado") equipo.estado="Instalado";
-  if(accion==="noinstalar") equipo.estado="No instalar";
-  if(accion==="almacen") equipo.estado="Almacén";
-
-  if(accion==="almacen"){
-    equipo.fecha="";
-    equipo.usuario="";
+  if(esRetirarMentreNoInstalar){
+    equipo.retiratPer = usuario;
+    equipo.retiratData = new Date().toLocaleString();
   }else{
-    equipo.usuario=usuario;
-    equipo.fecha=new Date().toLocaleString();
+    if(accion==="retirar") equipo.estado="Retirado";
+    if(accion==="instalado") equipo.estado="Instalado";
+    if(accion==="noinstalar") equipo.estado="No instalar";
+    if(accion==="almacen") equipo.estado="Almacén";
+
+    if(accion==="almacen"){
+      equipo.fecha="";
+      equipo.usuario="";
+    }else{
+      equipo.usuario=usuario;
+      equipo.fecha=new Date().toLocaleString();
+    }
   }
 
   actualizarStats();
@@ -1729,6 +1794,114 @@ async function marcarNoInstalar(codigo){
     actualizarStats();
     mostrarEquipo(equipo);
     alert("Error de comunicació");
+  }
+}
+
+// Marca que este registrador se ha montado realmente en OTRO pou (ya
+// existente a l'inventari) — s'anota a les dues fitxes, sense tocar
+// l'estat ni cap altra dada de cap de les dues
+// Renombra un equipo a un código nuevo. Si ese código ya lo usa otro
+// registrador, pregunta si también quieres renombrar ese otro (y si
+// aceptas, se resuelve primero esa cadena antes de continuar). Devuelve
+// true si el renombrado (y los que hayan hecho falta por el camino) se
+// completaron con éxito.
+async function renombrarPou(equipo, codigoNuevoTexto, usuario){
+
+  const codigoNuevo = codigoNuevoTexto.trim().toUpperCase();
+
+  if(codigoNuevo === equipo.codigo.toUpperCase()){
+    alert("El codi nou no pot ser el mateix que l'actual (" + equipo.codigo + ").");
+    return false;
+  }
+
+  const equipoConflicto = equipos.find(e => e !== equipo && String(e.codigo).toUpperCase() === codigoNuevo);
+
+  if(equipoConflicto){
+
+    const volsRenombrarAltre = confirm(
+      "El codi " + codigoNuevo + " ja el fa servir un altre registrador " +
+      "(DevEUI " + equipoConflicto.deveui + ", caixa " + (equipoConflicto.caja || "-") + ", estat " + (equipoConflicto.estado || "-") + ").\n\n" +
+      "Vols renombrar també aquest altre registrador, per deixar lliure el codi " + codigoNuevo + "?"
+    );
+
+    if(!volsRenombrarAltre) return false;
+
+    const nouCodiPerAltre = prompt("Nou codi per a l'altre registrador (actualment " + equipoConflicto.codigo + "):");
+    if(nouCodiPerAltre === null || !nouCodiPerAltre.trim()) return false;
+
+    // Es resol primer aquesta col·lisió (en cadena, per si també xoca amb
+    // un tercer) abans de continuar amb el renombrat original
+    const exitAltre = await renombrarPou(equipoConflicto, nouCodiPerAltre, usuario);
+    if(!exitAltre) return false;
+  }
+
+  const codigoAnterior = equipo.codigo;
+
+  const payload = Object.assign({
+    accion: "reubicar",
+    fila: equipo.fila,
+    codigo: equipo.codigo,
+    deveui: equipo.deveui,
+    usuario: usuario,
+    codigoDestino: codigoNuevo
+  }, construirAuthPayload());
+
+  try{
+
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+    const respuesta = await r.text();
+
+    if(respuesta !== "OK"){
+      alert("Error renombrant " + codigoAnterior + " a " + codigoNuevo + ": " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
+      return false;
+    }
+
+    // El codi original es guarda només la primera vegada (si ja n'hi
+    // havia un, es conserva el de debò-original, no aquest darrer)
+    if(!equipo.codigoOriginal){
+      equipo.codigoOriginal = codigoAnterior;
+    }
+    equipo.reubicatPer = usuario;
+    equipo.reubicatData = new Date().toLocaleString();
+    equipo.codigo = codigoNuevo;
+
+    // Si un instal·lador tenia aquest pou assignat amb el codi antic,
+    // reflectim també el canvi a la sessió actual
+    const idxAsignado = instaladorPozosAsignados.indexOf(codigoAnterior.toUpperCase());
+    if(idxAsignado !== -1){
+      instaladorPozosAsignados[idxAsignado] = codigoNuevo;
+      localStorage.setItem("instaladorPozosAsignados", JSON.stringify(instaladorPozosAsignados));
+    }
+
+    return true;
+
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació renombrant " + codigoAnterior);
+    return false;
+  }
+}
+
+async function marcarReubicacio(codigo){
+
+  const equipo = equipos.find(e => e.codigo === codigo);
+  if(!equipo) return;
+
+  const destino = prompt("Codi del pou on s'ha muntat realment aquest registrador.\n\nEl codi actual (" + equipo.codigo + ") es conservarà com a \"codi original\" — no es perd, només queda substituït com a codi actiu.");
+  if(destino === null || !destino.trim()) return;
+
+  const usuario = obtenerUsuario();
+  if(!usuario) return;
+
+  const exito = await renombrarPou(equipo, destino, usuario);
+
+  if(exito){
+    location.hash = equipo.codigo;
+    mostrarEquipo(equipo);
   }
 }
 
