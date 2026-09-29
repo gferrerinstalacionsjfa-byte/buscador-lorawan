@@ -541,6 +541,8 @@ main{
 }
 .scan-log-item.ok{background:var(--ok-soft);color:var(--ok);}
 .scan-log-item.error{background:var(--danger-soft);color:var(--danger);}
+.scan-log-item.pendent,.scan-log-item.espera{background:var(--bg);color:var(--ink-soft);}
+.scan-log-item.avis{background:var(--warn-soft);color:var(--warn);}
 
 .scanner-box{
   max-width:440px;
@@ -1717,12 +1719,17 @@ async function cerrarEscaner(){
 // ============================================================
 
 let comptadorEscaneigRetirar = 0;
+let comptadorLogEscaneig = 0;
+let codisProcessatsEscaneig = new Set(); // ja confirmats amb èxit en aquesta sessió
+let codisEnCursEscaneig = new Set();     // esperant resposta del servidor ara mateix
 
 function obrirEscaneigRetirar(){
 
   document.getElementById("scannerRetirarModal").style.display = "block";
   document.getElementById("scannerRetirarLog").innerHTML = "";
   comptadorEscaneigRetirar = 0;
+  codisProcessatsEscaneig = new Set();
+  codisEnCursEscaneig = new Set();
   document.getElementById("scannerRetirarComptador").textContent = "0 retirats en aquesta sessió";
 
   const input = document.getElementById("inputEscaneigRetirar");
@@ -1749,31 +1756,68 @@ function onKeydownEscaneigRetirar(event){
 
   if(!codigoEscaneado) return;
 
+  // Si ja s'està processant aquest mateix codi (resposta del servidor
+  // encara pendent) o ja s'ha retirat amb èxit en aquesta sessió, no es
+  // torna a enviar — evita duplicar per escanejos repetits sense esperar
+  if(codisEnCursEscaneig.has(codigoEscaneado)){
+    afegirLogEscaneigRetirar(codigoEscaneado, "espera", "Encara s'està processant, espera un moment…");
+    return;
+  }
+  if(codisProcessatsEscaneig.has(codigoEscaneado)){
+    afegirLogEscaneigRetirar(codigoEscaneado, "avis", "Ja retirat en aquesta sessió — no s'ha tornat a enviar");
+    return;
+  }
+
   const equipo = equipos.find(e =>
     String(e.deveui || "").toUpperCase() === codigoEscaneado ||
     String(e.numSerie || "").toUpperCase() === codigoEscaneado
   );
 
   if(!equipo){
-    afegirLogEscaneigRetirar(codigoEscaneado, false, "No trobat a l'inventari");
+    afegirLogEscaneigRetirar(codigoEscaneado, "error", "No trobat a l'inventari");
     return;
   }
 
-  retirarPerEscaneig(equipo);
+  // Feedback a l'instant: el registre apareix ja mateix ("Processant…"),
+  // sense esperar la resposta del servidor — així es veu de seguida que
+  // l'escaneig s'ha registrat i no cal tornar a passar el lector
+  const idLog = afegirLogEscaneigRetirar(equipo.codigo, "pendent", "Processant…");
+
+  codisEnCursEscaneig.add(codigoEscaneado);
+  retirarPerEscaneig(equipo, codigoEscaneado, idLog);
 }
 
-function afegirLogEscaneigRetirar(codigo, ok, missatge){
+function iconEstatEscaneig(estat){
+  if(estat === "ok") return "✅";
+  if(estat === "error") return "❌";
+  if(estat === "avis") return "⚠️";
+  if(estat === "espera" || estat === "pendent") return "⏳";
+  return "•";
+}
+
+function afegirLogEscaneigRetirar(codigo, estat, missatge){
+  comptadorLogEscaneig++;
+  const id = "logscan-" + comptadorLogEscaneig;
   const log = document.getElementById("scannerRetirarLog");
   const item = document.createElement("div");
-  item.className = "scan-log-item " + (ok ? "ok" : "error");
-  item.textContent = (ok ? "✅ " : "❌ ") + codigo + " — " + missatge;
+  item.id = id;
+  item.className = "scan-log-item " + estat;
+  item.textContent = iconEstatEscaneig(estat) + " " + codigo + " — " + missatge;
   log.insertBefore(item, log.firstChild);
+  return id;
+}
+
+function actualizarLogEscaneigRetirar(id, codigo, estat, missatge){
+  const item = document.getElementById(id);
+  if(!item) return;
+  item.className = "scan-log-item " + estat;
+  item.textContent = iconEstatEscaneig(estat) + " " + codigo + " — " + missatge;
 }
 
 // Marca directament un equip com a Retirat (SAMPOL) — respecta el mateix
 // cas especial que el botó normal: si ja estava "No instalar", no li
 // canvia l'estat, només anota qui i quan l'ha retirat
-async function retirarPerEscaneig(equipo){
+async function retirarPerEscaneig(equipo, codigoEscaneado, idLog){
 
   const usuario = "SAMPOL";
 
@@ -1818,18 +1862,21 @@ async function retirarPerEscaneig(equipo){
     if(respuesta === "OK"){
       comptadorEscaneigRetirar++;
       document.getElementById("scannerRetirarComptador").textContent = comptadorEscaneigRetirar + " retirats en aquesta sessió";
-      afegirLogEscaneigRetirar(equipo.codigo, true, esRetirarMentreNoInstalar ? "Retirat (mentre No instal·lar)" : "Retirat");
+      codisProcessatsEscaneig.add(codigoEscaneado);
+      actualizarLogEscaneigRetirar(idLog, equipo.codigo, "ok", esRetirarMentreNoInstalar ? "Retirat (mentre No instal·lar)" : "Retirat");
     }else{
       Object.assign(equipo, estadoPrevio);
       actualizarStats();
-      afegirLogEscaneigRetirar(equipo.codigo, false, respuesta.trim().startsWith("<") ? "Resposta inesperada del servidor" : respuesta);
+      actualizarLogEscaneigRetirar(idLog, equipo.codigo, "error", respuesta.trim().startsWith("<") ? "Resposta inesperada del servidor" : respuesta);
     }
 
   }catch(error){
     console.error(error);
     Object.assign(equipo, estadoPrevio);
     actualizarStats();
-    afegirLogEscaneigRetirar(equipo.codigo, false, "Error de comunicació");
+    actualizarLogEscaneigRetirar(idLog, equipo.codigo, "error", "Error de comunicació");
+  }finally{
+    codisEnCursEscaneig.delete(codigoEscaneado);
   }
 }
 
