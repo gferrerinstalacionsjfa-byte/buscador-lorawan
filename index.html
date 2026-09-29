@@ -1305,6 +1305,11 @@ function mostrarEquipo(equipo){
         <div class="ficha-nota reubicacio">
           🔀 Codi original: <strong>${escapeHtml(equipo.codigoOriginal)}</strong> — renombrat a ${escapeHtml(equipo.codigo)}
           <div class="sub">per ${escapeHtml(equipo.reubicatPer || "")} el ${escapeHtml(equipo.reubicatData || "")}</div>
+          ${puedeEditar ? `
+            <div style="margin-top:8px;">
+              <button class="btn btn-outline" style="padding:6px 10px;font-size:12px;" onclick="desferReubicacio('${escapeHtml(equipo.codigo)}')">↩️ Desfer la reubicació</button>
+            </div>
+          ` : ""}
         </div>
       ` : ""}
 
@@ -2069,13 +2074,25 @@ async function renombrarPou(equipo, codigoNuevoTexto, usuario){
       return false;
     }
 
-    // El codi original es guarda només la primera vegada (si ja n'hi
-    // havia un, es conserva el de debò-original, no aquest darrer)
-    if(!equipo.codigoOriginal){
-      equipo.codigoOriginal = codigoAnterior;
+    // Si es torna exactament al codi original, es considera "desfer" la
+    // reubicació — es netegen les dades de seguiment en comptes
+    // d'actualitzar-les, igual que fa el servidor
+    const esDesfer = equipo.codigoOriginal && equipo.codigoOriginal.toUpperCase() === codigoNuevo;
+
+    if(esDesfer){
+      equipo.codigoOriginal = "";
+      equipo.reubicatPer = "";
+      equipo.reubicatData = "";
+    }else{
+      // El codi original es guarda només la primera vegada (si ja n'hi
+      // havia un, es conserva el de debò-original, no aquest darrer)
+      if(!equipo.codigoOriginal){
+        equipo.codigoOriginal = codigoAnterior;
+      }
+      equipo.reubicatPer = usuario;
+      equipo.reubicatData = new Date().toLocaleString();
     }
-    equipo.reubicatPer = usuario;
-    equipo.reubicatData = new Date().toLocaleString();
+
     equipo.codigo = codigoNuevo;
 
     // Si un instal·lador tenia aquest pou assignat amb el codi antic,
@@ -2092,6 +2109,31 @@ async function renombrarPou(equipo, codigoNuevoTexto, usuario){
     console.error(error);
     alert("Error de comunicació renombrant " + codigoAnterior);
     return false;
+  }
+}
+
+// Desfà del tot una reubicació anterior, tornant directament al codi
+// original — sense haver-lo d'escriure a mà. Reutilitza renombrarPou,
+// que ja sap detectar aquest cas i netejar les dades de seguiment.
+async function desferReubicacio(codigo){
+
+  const equipo = equipos.find(e => e.codigo === codigo);
+  if(!equipo || !equipo.codigoOriginal) return;
+
+  const confirmar = confirm(
+    "Vols desfer la reubicació d'aquest registrador?\n\n" +
+    "Tornarà a dir-se " + equipo.codigoOriginal + " (codi actual: " + equipo.codigo + "), i s'esborraran les dades de seguiment d'aquesta reubicació."
+  );
+  if(!confirmar) return;
+
+  const usuario = obtenerUsuario();
+  if(!usuario) return;
+
+  const exito = await renombrarPou(equipo, equipo.codigoOriginal, usuario);
+
+  if(exito){
+    location.hash = equipo.codigo;
+    mostrarEquipo(equipo);
   }
 }
 
