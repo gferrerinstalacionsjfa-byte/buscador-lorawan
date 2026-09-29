@@ -1321,6 +1321,7 @@ function mostrarEquipo(equipo){
         <div class="campo">
           <div class="k">Metratge</div>
           <div class="v">${escapeHtml(equipo.metraje || "-")} m</div>
+          ${equipo.metrajeOriginal ? `<div style="font-size:11px;color:var(--ink-soft);margin-top:2px;">Original: ${escapeHtml(equipo.metrajeOriginal)} m</div>` : ""}
         </div>
         <div class="campo">
           <div class="k">Sèrie sonda</div>
@@ -2188,6 +2189,11 @@ async function actualizarMetratgeSonda(equipo, nuevoMetraje){
     const respuesta = await r.text();
 
     if(respuesta === "OK"){
+      // Es conserva el primer metratge de tots, només si encara no n'hi
+      // havia cap guardat
+      if(!equipo.metrajeOriginal && equipo.metraje){
+        equipo.metrajeOriginal = equipo.metraje;
+      }
       equipo.metraje = nuevoMetraje;
     }else{
       alert("El codi s'ha canviat correctament, però no s'ha pogut actualitzar el metratge: " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
