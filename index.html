@@ -523,6 +523,25 @@ main{
   padding:20px;
 }
 
+#scannerRetirarModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(16,36,43,0.72);
+  z-index:9999;
+  padding:20px;
+  overflow-y:auto;
+}
+
+.scan-log-item{
+  padding:6px 8px;
+  border-radius:6px;
+  margin-bottom:4px;
+  font-family:var(--mono);
+}
+.scan-log-item.ok{background:var(--ok-soft);color:var(--ok);}
+.scan-log-item.error{background:var(--danger-soft);color:var(--danger);}
+
 .scanner-box{
   max-width:440px;
   margin:40px auto;
@@ -656,6 +675,7 @@ main{
     <button class="btn btn-outline" onclick="actualizarDatos()">🔄 Actualitzar</button>
     <button id="btnCobertura" class="btn btn-outline" onclick="abrirModalCobertura()" style="display:none;">📶 Pujar cobertura</button>
     <button id="btnMapa" class="btn btn-outline" onclick="actualizarMapa(event)" style="display:none;">🗺️ Actualitzar mapa</button>
+    <button id="btnEscanejarRetirar" class="btn btn-outline warn" onclick="obrirEscaneigRetirar()" style="display:none;">🔫 Retirar amb lector (SAMPOL)</button>
   </div>
 
   <div id="statsCard" class="stats-card">
@@ -684,6 +704,22 @@ main{
     <div id="scanner"></div>
     <br>
     <button class="btn btn-outline" onclick="cerrarEscaner()">❌ Tancar</button>
+  </div>
+</div>
+
+<div id="scannerRetirarModal" onclick="document.getElementById('inputEscaneigRetirar').focus()">
+  <div class="scanner-box" style="max-width:480px;">
+    <h3>🔫 Retirar amb lector de codis (SAMPOL)</h3>
+    <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-8px;">
+      Passa el lector pel QR (DevEUI) o pel codi de barres (Num. Sèrie) de cada caixa — es marca com a retirat (SAMPOL) sol, un darrere l'altre, sense haver de tocar res.
+    </p>
+    <input type="text" id="inputEscaneigRetirar" autocomplete="off" placeholder="Esperant lectura…"
+      style="width:100%;padding:12px;font-family:var(--mono);font-size:15px;text-align:center;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--bg);box-sizing:border-box;"
+      onkeydown="onKeydownEscaneigRetirar(event)">
+    <div id="scannerRetirarComptador" style="margin-top:10px;font-family:var(--mono);font-size:13px;color:var(--ink-soft);">0 retirats en aquesta sessió</div>
+    <div id="scannerRetirarLog" style="margin-top:8px;max-height:180px;overflow-y:auto;text-align:left;font-size:12.5px;"></div>
+    <br>
+    <button class="btn btn-outline" onclick="cerrarEscaneigRetirar()">❌ Tancar</button>
   </div>
 </div>
 
@@ -1512,6 +1548,8 @@ function actualizarVisibilidadCobertura(){
 function actualizarModoAdmin(){
   document.getElementById("linkAdminPanel").style.display = admin ? "inline-flex" : "none";
   document.getElementById("btnMapa").style.display = admin ? "inline-flex" : "none";
+  const esGuillem = admin && usuarioActual.trim().toLowerCase() === "guillem";
+  document.getElementById("btnEscanejarRetirar").style.display = esGuillem ? "inline-flex" : "none";
   actualizarBotoSessio();
   actualizarVisibilidadCobertura();
 }
@@ -1669,6 +1707,130 @@ async function cerrarEscaner(){
     console.log(error);
   }
   document.getElementById("scannerModal").style.display = "none";
+}
+
+// ============================================================
+// Escaneig en lot amb lector físic de codis de barres/QR (funciona com un
+// teclat: escriu el codi i envia un Enter tot sol) — QR (DevEUI) o codi de
+// barres (Num. Sèrie) de la caixa → marca directament com a Retirat
+// (SAMPOL), un darrere l'altre, sense tocar res entre lectura i lectura.
+// ============================================================
+
+let comptadorEscaneigRetirar = 0;
+
+function obrirEscaneigRetirar(){
+
+  document.getElementById("scannerRetirarModal").style.display = "block";
+  document.getElementById("scannerRetirarLog").innerHTML = "";
+  comptadorEscaneigRetirar = 0;
+  document.getElementById("scannerRetirarComptador").textContent = "0 retirats en aquesta sessió";
+
+  const input = document.getElementById("inputEscaneigRetirar");
+  input.value = "";
+  input.focus();
+}
+
+function cerrarEscaneigRetirar(){
+  document.getElementById("scannerRetirarModal").style.display = "none";
+}
+
+function onKeydownEscaneigRetirar(event){
+
+  // El lector físic "escriu" el codi lletra a lletra i acaba amb un Enter
+  // (o Tab, segons com estigui configurat) — amb això n'hi ha prou, no cal
+  // cap càmera ni cap llibreria de lectura
+  if(event.key !== "Enter" && event.key !== "Tab") return;
+
+  event.preventDefault();
+
+  const input = document.getElementById("inputEscaneigRetirar");
+  const codigoEscaneado = input.value.trim().toUpperCase();
+  input.value = "";
+
+  if(!codigoEscaneado) return;
+
+  const equipo = equipos.find(e =>
+    String(e.deveui || "").toUpperCase() === codigoEscaneado ||
+    String(e.numSerie || "").toUpperCase() === codigoEscaneado
+  );
+
+  if(!equipo){
+    afegirLogEscaneigRetirar(codigoEscaneado, false, "No trobat a l'inventari");
+    return;
+  }
+
+  retirarPerEscaneig(equipo);
+}
+
+function afegirLogEscaneigRetirar(codigo, ok, missatge){
+  const log = document.getElementById("scannerRetirarLog");
+  const item = document.createElement("div");
+  item.className = "scan-log-item " + (ok ? "ok" : "error");
+  item.textContent = (ok ? "✅ " : "❌ ") + codigo + " — " + missatge;
+  log.insertBefore(item, log.firstChild);
+}
+
+// Marca directament un equip com a Retirat (SAMPOL) — respecta el mateix
+// cas especial que el botó normal: si ja estava "No instalar", no li
+// canvia l'estat, només anota qui i quan l'ha retirat
+async function retirarPerEscaneig(equipo){
+
+  const usuario = "SAMPOL";
+
+  const estadoPrevio = {
+    estado: equipo.estado,
+    usuario: equipo.usuario,
+    fecha: equipo.fecha,
+    retiratPer: equipo.retiratPer,
+    retiratData: equipo.retiratData
+  };
+
+  const esRetirarMentreNoInstalar = equipo.estado === "No instalar";
+
+  if(esRetirarMentreNoInstalar){
+    equipo.retiratPer = usuario;
+    equipo.retiratData = new Date().toLocaleString();
+  }else{
+    equipo.estado = "Retirado";
+    equipo.usuario = usuario;
+    equipo.fecha = new Date().toLocaleString();
+  }
+
+  actualizarStats();
+
+  const payload = Object.assign({
+    accion: "retirar",
+    fila: equipo.fila,
+    codigo: equipo.codigo,
+    deveui: equipo.deveui,
+    usuario: usuario
+  }, construirAuthPayload());
+
+  try{
+
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+    const respuesta = await r.text();
+
+    if(respuesta === "OK"){
+      comptadorEscaneigRetirar++;
+      document.getElementById("scannerRetirarComptador").textContent = comptadorEscaneigRetirar + " retirats en aquesta sessió";
+      afegirLogEscaneigRetirar(equipo.codigo, true, esRetirarMentreNoInstalar ? "Retirat (mentre No instal·lar)" : "Retirat");
+    }else{
+      Object.assign(equipo, estadoPrevio);
+      actualizarStats();
+      afegirLogEscaneigRetirar(equipo.codigo, false, respuesta.trim().startsWith("<") ? "Resposta inesperada del servidor" : respuesta);
+    }
+
+  }catch(error){
+    console.error(error);
+    Object.assign(equipo, estadoPrevio);
+    actualizarStats();
+    afegirLogEscaneigRetirar(equipo.codigo, false, "Error de comunicació");
+  }
 }
 
 async function cambiarEstado(codigo,accion,usuarioForzado){
