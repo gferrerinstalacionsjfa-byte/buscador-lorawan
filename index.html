@@ -2103,14 +2103,57 @@ async function marcarReubicacio(codigo){
   const destino = prompt("Codi del pou on s'ha muntat realment aquest registrador.\n\nEl codi actual (" + equipo.codigo + ") es conservarà com a \"codi original\" — no es perd, només queda substituït com a codi actiu.");
   if(destino === null || !destino.trim()) return;
 
+  const metratgeText = prompt(
+    "Metratge de la sonda que hi ha instal·lada ara en aquest pou (metres).\n\n" +
+    "Deixa el mateix valor si és la mateixa sonda d'abans; canvia'l si n'has posat una altra:",
+    equipo.metraje || ""
+  );
+  if(metratgeText === null) return; // ha cancel·lat
+
   const usuario = obtenerUsuario();
   if(!usuario) return;
 
   const exito = await renombrarPou(equipo, destino, usuario);
+  if(!exito) return;
 
-  if(exito){
-    location.hash = equipo.codigo;
-    mostrarEquipo(equipo);
+  const metratgeNou = metratgeText.trim();
+  if(metratgeNou && metratgeNou !== String(equipo.metraje || "").trim()){
+    await actualizarMetratgeSonda(equipo, metratgeNou);
+  }
+
+  location.hash = equipo.codigo;
+  mostrarEquipo(equipo);
+}
+
+// Actualiza el metratge de la sonda (columna "long cable") — se usa sobre
+// todo después de una reubicació, cuando la sonda que queda instal·lada
+// en el pou nou no es la mateixa que la d'origen
+async function actualizarMetratgeSonda(equipo, nuevoMetraje){
+
+  const payload = Object.assign({
+    accion: "actualizarMetraje",
+    fila: equipo.fila,
+    metraje: nuevoMetraje
+  }, construirAuthPayload());
+
+  try{
+
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+    const respuesta = await r.text();
+
+    if(respuesta === "OK"){
+      equipo.metraje = nuevoMetraje;
+    }else{
+      alert("El codi s'ha canviat correctament, però no s'ha pogut actualitzar el metratge: " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
+    }
+
+  }catch(error){
+    console.error(error);
+    alert("El codi s'ha canviat correctament, però no s'ha pogut actualitzar el metratge (error de comunicació).");
   }
 }
 
