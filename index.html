@@ -1075,23 +1075,23 @@ function buscar(){
     return;
   }
 
-  const equipo = equipos.find(e =>
+  // Es busca a la vegada pel codi actual, DevEUI, sèrie i codi original —
+  // així, si el mateix codi coincideix amb dues files diferents (per
+  // exemple, dos pous que s'han intercanviat el codi entre ells), surten
+  // les dues en comptes de mostrar-ne només una sense avisar
+  const coincidencias = equipos.filter(e =>
     String(e.codigo || "").toUpperCase() === valor ||
     String(e.deveui || "").toUpperCase() === valor ||
-    String(e.serieSonda || "").toUpperCase() === valor
+    String(e.serieSonda || "").toUpperCase() === valor ||
+    String(e.codigoOriginal || "").toUpperCase() === valor
   );
 
-  if(equipo){
-    mostrarEquipo(equipo);
+  if(coincidencias.length === 1){
+    mostrarEquipo(coincidencias[0]);
     return;
   }
-
-  // Si no hay coincidencia exacta con el código actual, mira si ese codi
-  // era el codi original d'una fila que s'ha renombrat després
-  const porOriginal = equipos.find(e => String(e.codigoOriginal || "").toUpperCase() === valor);
-
-  if(porOriginal){
-    mostrarEquipo(porOriginal);
+  if(coincidencias.length > 1){
+    renderLista(coincidencias, `«${valor}» coincideix amb més d'un registre`);
     return;
   }
 
@@ -1250,7 +1250,7 @@ function renderLista(lista, titulo){
     html += `
       <div class="equipo-card" onclick="abrirEquipo('${escapeHtml(e.codigo)}')">
         <div>
-          <div class="codigo">${escapeHtml(e.codigo)}</div>
+          <div class="codigo">${e.codigoOriginal ? `${escapeHtml(e.codigoOriginal)} → ${escapeHtml(e.codigo)}` : escapeHtml(e.codigo)}</div>
           <div class="meta">
             <span>${escapeHtml(e.deveui)}</span>
             <span>🔧 ${escapeHtml(e.tipoSonda || "-")}</span>
