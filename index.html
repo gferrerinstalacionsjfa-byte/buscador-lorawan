@@ -493,6 +493,20 @@ main{
   color:var(--info);
 }
 
+.tag-dup{
+  font-family:var(--sans);
+  font-size:10.5px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  padding:2px 7px;
+  border-radius:999px;
+  margin-left:8px;
+  vertical-align:middle;
+}
+.tag-dup.original{background:var(--ok-soft);color:var(--ok);}
+.tag-dup.renombrat{background:var(--info-soft);color:var(--info);}
+
 .ficha-nota.retirat{
   background:var(--warn-soft);
   color:var(--warn);
@@ -940,11 +954,8 @@ async function cargarDatos(intent){
     // Si hay una ficha abierta (p. ej. la abriste mientras esta carga de
     // fondo aún iba en marcha), se repinta ya con los datos frescos —
     // así "Com arribar-hi" y demás aparecen sin esperar a un refresco manual
-    const codigoAbierto = location.hash.replace("#","").toUpperCase();
-    if(codigoAbierto){
-      const equipoAbierto = equipos.find(e => String(e.codigo||"").toUpperCase() === codigoAbierto);
-      if(equipoAbierto) mostrarEquipo(equipoAbierto);
-    }
+    const equipoAbierto = equipoObert();
+    if(equipoAbierto) mostrarEquipo(equipoAbierto);
 
     // Se guarda como copia local, para la próxima vez que se abra la web
     // (y como red de seguridad si el siguiente intento falla)
@@ -993,11 +1004,8 @@ async function actualizarDatos(){
 
   await promesaPrincipal;
 
-  const codigo = location.hash.replace("#","").toUpperCase();
-  if(codigo){
-    const equipo = equipos.find(e => String(e.codigo||"").toUpperCase() === codigo);
-    if(equipo){ mostrarEquipo(equipo); }
-  }
+  const equipo = equipoObert();
+  if(equipo){ mostrarEquipo(equipo); }
 }
 
 function actualizarStats(){
@@ -1113,9 +1121,51 @@ function filtrarEstado(estado){
   renderLista(lista, estado);
 }
 
-function abrirEquipo(codigo){
-  const equipo = equipos.find(e => e.codigo === codigo);
+// Fila (única) de la fitxa que hi ha oberta ara mateix — amb codis
+// repetits, el codi sol ja no basta per saber de quin registrador parlem
+let filaAbierta = null;
+
+function equipoPerFila(fila){
+  return equipos.find(e => Number(e.fila) === Number(fila));
+}
+
+// Fitxa oberta ara mateix: per fila si en tenim, i si no pel codi del hash
+function equipoObert(){
+  if(filaAbierta !== null){
+    const e = equipoPerFila(filaAbierta);
+    if(e) return e;
+  }
+  const codigo = location.hash.replace("#","").toUpperCase();
+  if(!codigo) return null;
+  return equipos.find(e => String(e.codigo||"").toUpperCase() === codigo) || null;
+}
+
+// Si el codi d'aquest registrador el comparteix amb un altre, retorna una
+// etiqueta que els diferencia: "original" (el que ja tenia el codi) o
+// "renombrat" (el que ha arribat a aquest codi després)
+function etiquetaDuplicat(e){
+  const cod = String(e.codigo||"").toUpperCase();
+  const hiHaMes = equipos.some(x => x !== e && String(x.codigo||"").toUpperCase() === cod);
+  if(!hiHaMes) return "";
+  return e.codigoOriginal
+    ? `<span class="tag-dup renombrat" title="Aquest registrador ha estat renombrat fins a aquest codi">renombrat</span>`
+    : `<span class="tag-dup original" title="Aquest és el registrador que ja tenia aquest codi">original</span>`;
+}
+
+function abrirEquipoFila(fila){
+  const equipo = equipoPerFila(fila);
   if(equipo) mostrarEquipo(equipo);
+}
+
+// Obre per codi: si hi ha més d'un registrador amb aquest codi, els
+// mostra tots en un llistat en comptes d'obrir-ne un a l'atzar
+function abrirEquipo(codigo){
+  const coincidents = equipos.filter(e => String(e.codigo||"").toUpperCase() === String(codigo||"").toUpperCase());
+  if(coincidents.length === 1){
+    mostrarEquipo(coincidents[0]);
+  }else if(coincidents.length > 1){
+    renderLista(coincidents, `«${codigo}» el fan servir ${coincidents.length} registradors`);
+  }
 }
 
 async function solicitarAcceso(codigo, boton){
@@ -1239,6 +1289,8 @@ async function cargarPanellInstaladors(){
 // Función única de listado (sustituye a las antiguas mostrarCaja / mostrarTodos / filtrarEstado)
 function renderLista(lista, titulo){
 
+  filaAbierta = null;
+
   let html = `
     <div class="lista-header">
       <h3>${escapeHtml(titulo)}</h3>
@@ -1248,9 +1300,9 @@ function renderLista(lista, titulo){
 
   lista.forEach(e=>{
     html += `
-      <div class="equipo-card" onclick="abrirEquipo('${escapeHtml(e.codigo)}')">
+      <div class="equipo-card" onclick="abrirEquipoFila(${e.fila})">
         <div>
-          <div class="codigo">${e.codigoOriginal ? `${escapeHtml(e.codigoOriginal)} → ${escapeHtml(e.codigo)}` : escapeHtml(e.codigo)}</div>
+          <div class="codigo">${e.codigoOriginal ? `${escapeHtml(e.codigoOriginal)} → ${escapeHtml(e.codigo)}` : escapeHtml(e.codigo)}${etiquetaDuplicat(e)}</div>
           <div class="meta">
             <span>${escapeHtml(e.deveui)}</span>
             <span>🔧 ${escapeHtml(e.tipoSonda || "-")}</span>
@@ -1269,7 +1321,11 @@ function renderLista(lista, titulo){
 
 function mostrarEquipo(equipo){
 
+  filaAbierta = equipo.fila;
   history.replaceState(null, null, "#" + equipo.codigo.toUpperCase());
+
+  // Altres registradors que ara mateix tenen exactament el mateix codi
+  const repetits = equipos.filter(e => e !== equipo && String(e.codigo||"").toUpperCase() === String(equipo.codigo||"").toUpperCase());
 
   const puedeEditar = puedeEditarEquipo(equipo);
 
@@ -1278,7 +1334,7 @@ function mostrarEquipo(equipo){
 
       <div class="ficha-head">
         <div>
-          <div class="codigo-grande">${escapeHtml(equipo.codigo)}</div>
+          <div class="codigo-grande">${escapeHtml(equipo.codigo)}${etiquetaDuplicat(equipo)}</div>
           <div class="deveui">${escapeHtml(equipo.deveui)}</div>
         </div>
         <span class="pill pill-${claseEstado(equipo.estado)}"><span class="dot"></span>${escapeHtml(equipo.estado || "-")}</span>
@@ -1301,13 +1357,22 @@ function mostrarEquipo(equipo){
         </div>
       ` : ""}
 
+      ${repetits.length ? `
+        <div class="ficha-nota retirat">
+          ⚠️ Hi ha ${repetits.length === 1 ? "un altre registrador" : repetits.length + " altres registradors"} amb aquest mateix codi
+          <div class="sub">
+            ${repetits.map(r => `<a href="#" onclick="abrirEquipoFila(${r.fila});return false;">${escapeHtml(r.codigoOriginal ? r.codigoOriginal + " → " + r.codigo : r.codigo)} (${escapeHtml(r.deveui)})</a>`).join(" · ")}
+          </div>
+        </div>
+      ` : ""}
+
       ${equipo.codigoOriginal ? `
         <div class="ficha-nota reubicacio">
           🔀 Codi original: <strong>${escapeHtml(equipo.codigoOriginal)}</strong> — renombrat a ${escapeHtml(equipo.codigo)}
           <div class="sub">per ${escapeHtml(equipo.reubicatPer || "")} el ${escapeHtml(equipo.reubicatData || "")}</div>
           ${puedeEditar ? `
             <div style="margin-top:8px;">
-              <button class="btn btn-outline" style="padding:6px 10px;font-size:12px;" onclick="desferReubicacio('${escapeHtml(equipo.codigo)}')">↩️ Desfer la reubicació</button>
+              <button class="btn btn-outline" style="padding:6px 10px;font-size:12px;" onclick="desferReubicacio(${equipo.fila})">↩️ Desfer la reubicació</button>
             </div>
           ` : ""}
         </div>
@@ -1361,14 +1426,14 @@ function mostrarEquipo(equipo){
 
       ${puedeEditar ? `
         <div class="ficha-acciones">
-          <button class="btn btn-outline warn" onclick="cambiarEstado('${equipo.codigo}','retirar')">Retirar</button>
-          ${admin ? `<button class="btn btn-outline warn" onclick="cambiarEstado('${equipo.codigo}','retirar','SAMPOL')">Retirar (SAMPOL)</button>` : ""}
-          <button class="btn btn-outline info" onclick="abrirModalInstalacion('${equipo.codigo}')">Instal·lar</button>
-          <button class="btn btn-outline danger" onclick="marcarNoInstalar('${equipo.codigo}')">🚫 No instal·lar</button>
-          <button class="btn btn-outline ok" onclick="cambiarEstado('${equipo.codigo}','almacen')">Magatzem</button>
-          <button class="btn btn-ghost" onclick="marcarReubicacio('${equipo.codigo}')">🔀 Muntat a un altre pou</button>
-          <button class="btn btn-ghost" onclick="asignarSerieSonda('${equipo.codigo}')">✏️ Manual</button>
-          <button class="btn btn-primary" onclick="escanearSerieSonda('${equipo.codigo}')">📷 Escanejar</button>
+          <button class="btn btn-outline warn" onclick="cambiarEstado(${equipo.fila},'retirar')">Retirar</button>
+          ${admin ? `<button class="btn btn-outline warn" onclick="cambiarEstado(${equipo.fila},'retirar','SAMPOL')">Retirar (SAMPOL)</button>` : ""}
+          <button class="btn btn-outline info" onclick="abrirModalInstalacion(${equipo.fila})">Instal·lar</button>
+          <button class="btn btn-outline danger" onclick="marcarNoInstalar(${equipo.fila})">🚫 No instal·lar</button>
+          <button class="btn btn-outline ok" onclick="cambiarEstado(${equipo.fila},'almacen')">Magatzem</button>
+          <button class="btn btn-ghost" onclick="marcarReubicacio(${equipo.fila})">🔀 Muntat a un altre pou</button>
+          <button class="btn btn-ghost" onclick="asignarSerieSonda(${equipo.fila})">✏️ Manual</button>
+          <button class="btn btn-primary" onclick="escanearSerieSonda(${equipo.fila})">📷 Escanejar</button>
         </div>
       ` : ""}
 
@@ -1466,11 +1531,8 @@ async function refrescarDadesInstalador(intent){
     }
 
     // Si hay una ficha abierta, se repinta ya con los datos frescos
-    const codigoAbierto = location.hash.replace("#","").toUpperCase();
-    if(codigoAbierto){
-      const equipoAbierto = equipos.find(e => String(e.codigo||"").toUpperCase() === codigoAbierto);
-      if(equipoAbierto) mostrarEquipo(equipoAbierto);
-    }
+    const equipoAbierto = equipoObert();
+    if(equipoAbierto) mostrarEquipo(equipoAbierto);
 
   }catch(error){
     console.error("Error carregant dades d'instal·lador (intent " + intent + "):", error);
@@ -1584,8 +1646,8 @@ function obtenerUsuario(){
   return usuarioActual;
 }
 
-async function asignarSerieSonda(codigo){
-  const equipo = equipos.find(e => e.codigo === codigo);
+async function asignarSerieSonda(fila){
+  const equipo = equipoPerFila(fila);
   if(!equipo) return;
 
   const serie = prompt("Número de sèrie de la sonda:", equipo.serieSonda || "");
@@ -1617,8 +1679,8 @@ async function asignarSerieSonda(codigo){
   }
 }
 
-async function escanearSerieSonda(codigo){
-  const equipo = equipos.find(e => e.codigo === codigo);
+async function escanearSerieSonda(fila){
+  const equipo = equipoPerFila(fila);
   if(!equipo) return;
 
   document.getElementById("scannerModal").style.display = "block";
@@ -1886,8 +1948,8 @@ async function retirarPerEscaneig(equipo, codigoEscaneado, idLog){
   }
 }
 
-async function cambiarEstado(codigo,accion,usuarioForzado){
-  const equipo = equipos.find(e=>e.codigo===codigo);
+async function cambiarEstado(fila,accion,usuarioForzado){
+  const equipo = equipoPerFila(fila);
   if(!equipo) return;
 
   const usuario = usuarioForzado || obtenerUsuario();
@@ -1961,9 +2023,9 @@ async function cambiarEstado(codigo,accion,usuarioForzado){
   }
 }
 
-async function marcarNoInstalar(codigo){
+async function marcarNoInstalar(fila){
 
-  const equipo = equipos.find(e=>e.codigo===codigo);
+  const equipo = equipoPerFila(fila);
   if(!equipo) return;
 
   const observacions = prompt("Motiu pel qual no es pot instal·lar (queda anotat a Progrés sondes):");
@@ -2029,25 +2091,43 @@ async function renombrarPou(equipo, codigoNuevoTexto, usuario){
     return false;
   }
 
-  const equipoConflicto = equipos.find(e => e !== equipo && String(e.codigo).toUpperCase() === codigoNuevo);
+  const conflictos = equipos.filter(e => e !== equipo && String(e.codigo).toUpperCase() === codigoNuevo);
 
-  if(equipoConflicto){
+  if(conflictos.length){
 
-    const volsRenombrarAltre = confirm(
-      "El codi " + codigoNuevo + " ja el fa servir un altre registrador " +
-      "(DevEUI " + equipoConflicto.deveui + ", caixa " + (equipoConflicto.caja || "-") + ", estat " + (equipoConflicto.estado || "-") + ").\n\n" +
-      "Vols renombrar també aquest altre registrador, per deixar lliure el codi " + codigoNuevo + "?"
+    const equipoConflicto = conflictos[0];
+    const descripcio = conflictos.length === 1
+      ? "(DevEUI " + equipoConflicto.deveui + ", caixa " + (equipoConflicto.caja || "-") + ", estat " + (equipoConflicto.estado || "-") + ")"
+      : "(" + conflictos.length + " registradors)";
+
+    // 1a opció: deixar el codi repetit. El que es renombra queda marcat
+    // amb el seu "codi original", així sempre se sap quin és quin
+    const deixarRepetit = confirm(
+      "El codi " + codigoNuevo + " ja el fa servir un altre registrador " + descripcio + ".\n\n" +
+      "Vols deixar-los amb el mateix codi?\n" +
+      "El que estàs renombrant quedarà marcat amb el seu codi original (" + equipo.codigo + "), i a les fitxes sortirà l'avís que el codi està repetit.\n\n" +
+      "Acceptar = deixar el codi repetit\n" +
+      "Cancel·lar = veure altres opcions"
     );
 
-    if(!volsRenombrarAltre) return false;
+    if(!deixarRepetit){
 
-    const nouCodiPerAltre = prompt("Nou codi per a l'altre registrador (actualment " + equipoConflicto.codigo + "):");
-    if(nouCodiPerAltre === null || !nouCodiPerAltre.trim()) return false;
+      // 2a opció: renombrar també l'altre per deixar el codi lliure
+      const volsRenombrarAltre = confirm(
+        "Vols renombrar l'altre registrador (actualment " + equipoConflicto.codigo + "), per deixar lliure el codi " + codigoNuevo + "?\n\n" +
+        "Cancel·lar = no fer res"
+      );
 
-    // Es resol primer aquesta col·lisió (en cadena, per si també xoca amb
-    // un tercer) abans de continuar amb el renombrat original
-    const exitAltre = await renombrarPou(equipoConflicto, nouCodiPerAltre, usuario);
-    if(!exitAltre) return false;
+      if(!volsRenombrarAltre) return false;
+
+      const nouCodiPerAltre = prompt("Nou codi per a l'altre registrador (actualment " + equipoConflicto.codigo + "):");
+      if(nouCodiPerAltre === null || !nouCodiPerAltre.trim()) return false;
+
+      // Es resol primer aquesta col·lisió (en cadena, per si també xoca amb
+      // un tercer) abans de continuar amb el renombrat original
+      const exitAltre = await renombrarPou(equipoConflicto, nouCodiPerAltre, usuario);
+      if(!exitAltre) return false;
+    }
   }
 
   const codigoAnterior = equipo.codigo;
@@ -2116,9 +2196,9 @@ async function renombrarPou(equipo, codigoNuevoTexto, usuario){
 // Desfà del tot una reubicació anterior, tornant directament al codi
 // original — sense haver-lo d'escriure a mà. Reutilitza renombrarPou,
 // que ja sap detectar aquest cas i netejar les dades de seguiment.
-async function desferReubicacio(codigo){
+async function desferReubicacio(fila){
 
-  const equipo = equipos.find(e => e.codigo === codigo);
+  const equipo = equipoPerFila(fila);
   if(!equipo || !equipo.codigoOriginal) return;
 
   const confirmar = confirm(
@@ -2133,14 +2213,13 @@ async function desferReubicacio(codigo){
   const exito = await renombrarPou(equipo, equipo.codigoOriginal, usuario);
 
   if(exito){
-    location.hash = equipo.codigo;
     mostrarEquipo(equipo);
   }
 }
 
-async function marcarReubicacio(codigo){
+async function marcarReubicacio(fila){
 
-  const equipo = equipos.find(e => e.codigo === codigo);
+  const equipo = equipoPerFila(fila);
   if(!equipo) return;
 
   const destino = prompt("Codi del pou on s'ha muntat realment aquest registrador.\n\nEl codi actual (" + equipo.codigo + ") es conservarà com a \"codi original\" — no es perd, només queda substituït com a codi actiu.");
@@ -2164,7 +2243,6 @@ async function marcarReubicacio(codigo){
     await actualizarMetratgeSonda(equipo, metratgeNou);
   }
 
-  location.hash = equipo.codigo;
   mostrarEquipo(equipo);
 }
 
@@ -2210,13 +2288,14 @@ async function actualizarMetratgeSonda(equipo, nuevoMetraje){
 // en un solo envío (sustituye a la llamada directa a cambiarEstado)
 // ============================================================
 
-let codigoEnInstalacion = null;
+let filaEnInstalacion = null;
 
-function abrirModalInstalacion(codigo){
+function abrirModalInstalacion(fila){
 
-  codigoEnInstalacion = codigo;
+  filaEnInstalacion = fila;
+  const equipoInst = equipoPerFila(fila);
 
-  document.getElementById("instalarTitulo").textContent = "Instal·lar " + codigo;
+  document.getElementById("instalarTitulo").textContent = "Instal·lar " + (equipoInst ? equipoInst.codigo : "");
   document.getElementById("inpFoto").value = "";
   document.getElementById("inpCableFinsCota").value = "";
   document.getElementById("inpObservacions").value = "";
@@ -2232,7 +2311,7 @@ function abrirModalInstalacion(codigo){
 function comprovarCableFinsCota(){
 
   const avisDiv = document.getElementById("avisCableFinsCota");
-  const equipo = equipos.find(e => e.codigo === codigoEnInstalacion);
+  const equipo = equipoPerFila(filaEnInstalacion);
   const valor = parseFloat(document.getElementById("inpCableFinsCota").value);
   const metraje = equipo ? parseFloat(equipo.metraje) : NaN;
 
@@ -2251,7 +2330,7 @@ function comprovarCableFinsCota(){
 
 function cerrarModalInstalacion(){
   document.getElementById("instalarModal").style.display = "none";
-  codigoEnInstalacion = null;
+  filaEnInstalacion = null;
 }
 
 // Convierte un File a base64 puro (sin el prefijo data:...;base64,)
@@ -2327,7 +2406,7 @@ function comprimirImagen(file, maxAncho = 1600, calidad = 0.72){
 
 async function confirmarInstalacion(){
 
-  const equipo = equipos.find(e => e.codigo === codigoEnInstalacion);
+  const equipo = equipoPerFila(filaEnInstalacion);
   if(!equipo) return;
 
   const esInvalid = comprovarCableFinsCota();
@@ -2569,10 +2648,13 @@ window.addEventListener("hashchange", () => {
   const codigo = location.hash.replace("#","").toUpperCase();
   if(!codigo) return;
 
-  const equipo = equipos.find(e => String(e.codigo || "").toUpperCase() === codigo);
-  if(equipo){
-    mostrarEquipo(equipo);
-  }
+  // Si la fitxa que ja hi ha oberta té aquest codi, no cal tocar res
+  // (amb codis repetits, obrir "el primer amb aquest codi" podria ser
+  // un altre registrador)
+  const actual = filaAbierta !== null ? equipoPerFila(filaAbierta) : null;
+  if(actual && String(actual.codigo||"").toUpperCase() === codigo) return;
+
+  abrirEquipo(codigo);
 });
 </script>
 
