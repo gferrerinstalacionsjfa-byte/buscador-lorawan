@@ -1091,7 +1091,8 @@ function buscar(){
     String(e.codigo || "").toUpperCase() === valor ||
     String(e.deveui || "").toUpperCase() === valor ||
     String(e.serieSonda || "").toUpperCase() === valor ||
-    String(e.codigoOriginal || "").toUpperCase() === valor
+    String(e.codigoOriginal || "").toUpperCase() === valor ||
+    codiBase(e.codigo) === valor
   );
 
   if(coincidencias.length === 1){
@@ -1125,6 +1126,12 @@ function filtrarEstado(estado){
 // repetits, el codi sol ja no basta per saber de quin registrador parlem
 let filaAbierta = null;
 
+// Codi sense els asteriscs finals ("MA1122*" -> "MA1122"): els asteriscs
+// marquen que és un codi repetit/còpia, però el codi base és el mateix
+function codiBase(c){
+  return String(c || "").toUpperCase().replace(/\*+$/, "");
+}
+
 function equipoPerFila(fila){
   return equipos.find(e => Number(e.fila) === Number(fila));
 }
@@ -1144,8 +1151,8 @@ function equipoObert(){
 // etiqueta que els diferencia: "original" (el que ja tenia el codi) o
 // "renombrat" (el que ha arribat a aquest codi després)
 function etiquetaDuplicat(e){
-  const cod = String(e.codigo||"").toUpperCase();
-  const hiHaMes = equipos.some(x => x !== e && String(x.codigo||"").toUpperCase() === cod);
+  const base = codiBase(e.codigo);
+  const hiHaMes = equipos.some(x => x !== e && codiBase(x.codigo) === base);
   if(!hiHaMes) return "";
   return e.codigoOriginal
     ? `<span class="tag-dup renombrat" title="Aquest registrador ha estat renombrat fins a aquest codi">renombrat</span>`
@@ -1325,7 +1332,7 @@ function mostrarEquipo(equipo){
   history.replaceState(null, null, "#" + equipo.codigo.toUpperCase());
 
   // Altres registradors que ara mateix tenen exactament el mateix codi
-  const repetits = equipos.filter(e => e !== equipo && String(e.codigo||"").toUpperCase() === String(equipo.codigo||"").toUpperCase());
+  const repetits = equipos.filter(e => e !== equipo && codiBase(e.codigo) === codiBase(equipo.codigo));
 
   const puedeEditar = puedeEditarEquipo(equipo);
 
@@ -1359,7 +1366,7 @@ function mostrarEquipo(equipo){
 
       ${repetits.length ? `
         <div class="ficha-nota retirat">
-          ⚠️ Hi ha ${repetits.length === 1 ? "un altre registrador" : repetits.length + " altres registradors"} amb aquest mateix codi
+          ⚠️ Hi ha ${repetits.length === 1 ? "un altre registrador" : repetits.length + " altres registradors"} amb el mateix codi base
           <div class="sub">
             ${repetits.map(r => `<a href="#" onclick="abrirEquipoFila(${r.fila});return false;">${escapeHtml(r.codigoOriginal ? r.codigoOriginal + " → " + r.codigo : r.codigo)} (${escapeHtml(r.deveui)})</a>`).join(" · ")}
           </div>
@@ -2084,7 +2091,7 @@ async function marcarNoInstalar(fila){
 // completaron con éxito.
 async function renombrarPou(equipo, codigoNuevoTexto, usuario){
 
-  const codigoNuevo = codigoNuevoTexto.trim().toUpperCase();
+  let codigoNuevo = codigoNuevoTexto.trim().toUpperCase();
 
   if(codigoNuevo === equipo.codigo.toUpperCase()){
     alert("El codi nou no pot ser el mateix que l'actual (" + equipo.codigo + ").");
@@ -2100,15 +2107,24 @@ async function renombrarPou(equipo, codigoNuevoTexto, usuario){
       ? "(DevEUI " + equipoConflicto.deveui + ", caixa " + (equipoConflicto.caja || "-") + ", estat " + (equipoConflicto.estado || "-") + ")"
       : "(" + conflictos.length + " registradors)";
 
-    // 1a opció: deixar el codi repetit. El que es renombra queda marcat
-    // amb el seu "codi original", així sempre se sap quin és quin
+    // 1a opció: continuar igualment, afegint un asterisc al codi perquè
+    // quedi clar que és repetit/còpia. El que es renombra conserva el seu
+    // "codi original", així sempre se sap quin és quin
+    let codigoAmbAsterisc = codigoNuevo + "*";
+    while(equipos.some(e => e !== equipo && String(e.codigo).toUpperCase() === codigoAmbAsterisc)){
+      codigoAmbAsterisc += "*";
+    }
+
     const deixarRepetit = confirm(
       "El codi " + codigoNuevo + " ja el fa servir un altre registrador " + descripcio + ".\n\n" +
-      "Vols deixar-los amb el mateix codi?\n" +
-      "El que estàs renombrant quedarà marcat amb el seu codi original (" + equipo.codigo + "), i a les fitxes sortirà l'avís que el codi està repetit.\n\n" +
-      "Acceptar = deixar el codi repetit\n" +
+      "Vols continuar igualment? Aquest registrador quedarà com a «" + codigoAmbAsterisc + "» (amb asterisc, per indicar que és repetit) i es guardarà el seu codi original (" + equipo.codigo + ").\n\n" +
+      "Acceptar = continuar amb «" + codigoAmbAsterisc + "»\n" +
       "Cancel·lar = veure altres opcions"
     );
+
+    if(deixarRepetit){
+      codigoNuevo = codigoAmbAsterisc;
+    }
 
     if(!deixarRepetit){
 
