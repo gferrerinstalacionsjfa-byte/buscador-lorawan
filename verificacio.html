@@ -341,8 +341,9 @@ function pintarMapa(){
     if (isNaN(lat) || isNaN(lon)) return;
     const m = L.circleMarker([lat, lon], {radius:8, color:"#fff", weight:2, fillColor:colorPou(p), fillOpacity:.95});
     const ids = esc(p.pozo);
-    m.bindPopup('<b>' + ids + '</b> ' + (p.sev===2?'🔴':'🟠') + '<br>' + (p.vigilant ? '👷 ' + esc(p.vigilant) + '<br>' : '') +
+    m.bindPopup('<b>' + ids + '</b> ' + (p.sev===2?'🔴':'🟠') + '<br>' + (p.vigilant ? '👷 Vigilant: ' + esc(p.vigilant) + '<br>' : '') + (p.instalador ? '🔧 Instal·lador: ' + esc(p.instalador) + '<br>' : '') +
       p.issues.slice(0,3).map(i => esc(i.msg)).join('<br>') + (p.issues.length>3 ? '<br>… +' + (p.issues.length-3) : '') +
+      '<div style="margin-top:6px;"><a href="https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lon + '&travelmode=driving" target="_blank" rel="noopener" style="font-weight:700;color:#0E7C86;">🧭 Com arribar-hi</a></div>' +
       '<div class="pop-btns"><button onclick="obrirMarca([\'' + ids + '\'],\'verificat\')">✅</button>' +
       '<button onclick="obrirMarca([\'' + ids + '\'],\'arreglat\')">🔧</button>' +
       '<button onclick="obrirMarca([\'' + ids + '\'],\'seguiment\')">👀</button>' +
