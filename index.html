@@ -1,2674 +1,2678 @@
-// ============================================================
-// CONFIGURACIÓN — ajusta aquí si algo cambia de sitio
-// ============================================================
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inventari LoRaWAN · Instalacions JFA</title>
 
-const CLAVE_VALIDA = "JFA2026"; // debe coincidir con PASSWORD en inventari.html
-const CARPETA_FOTOS_ID = "1XaFpitkORBr-0ZFgCM1tCYAVYtZDJpWu";       // "Fotos muntatge sondes" (subida al instalar)
-const CARPETA_FOTOS_INVENTARI_ID = "1erjeFUb57fZUOvUZmSGgfgJ2brImkToq"; // "Fotos inventari" (la que se consulta desde la ficha)
-const CARPETA_COBERTURA_ID = "13rwtts8Ri_iGYDeC7mpcb1rUFaf5Hx_Z";   // carpeta de mediciones de cobertura
-const HOJA_PROGRES_ID = "1hNBOLZ_AmJfheElXI3eqROpdZ0AKEOliDJGzkGnItgA"; // "Progrés sondes"
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
 
-const CACHE_KEY_LISTADO = "listado_equipos_v1";
-const CACHE_TTL_LISTADO = 90; // segundos que se sirve la copia en caché antes de releer la hoja
+<script src="https://unpkg.com/html5-qrcode" defer></script>
 
-// ---- Solicitud de acceso a un pozo (instalador -> admin) ----
-const ADMIN_EMAIL = "gferrerinstalacionsjfa@gmail.com";
-const TELEGRAM_BOT_TOKEN = "8867173098:AAEVhTcIVfj-OlHr1aqX2iUPVBN7LKRtTX8";
-const TELEGRAM_CHAT_ID = "1865124246";
+<style>
 
-// ---- Generación del mapa KML ----
-const KML_BASE_ID = "1csXdhfCQeAZQbXfqpJmUtxgOFQGpxLtt"; // "Sondas Piezométricas.kml" (carpeta Google Earth)
-const CARPETA_GOOGLE_EARTH_ID = "1ZY6_UDebuvPL5tFZ7NghO8-ASF0H622M"; // carpeta "Google Earth"
-const KML_OUTPUT_NAME = "Sondas Piezometriques ACTUALITZAT.kml";
-const STYLE_PROBLEMATIC = "__managed_style_01101CDCBB4092ED570C"; // rojo, carpeta "Problematics"
-const STYLE_ACABAT = "__managed_style_07599257564092ED5711";      // ámbar, carpeta "Acabats"
-
-// ============================================================
-// EJECUTA ESTO UNA VEZ A MANO desde el editor (▶ Ejecutar, eligiendo
-// esta función en el desplegable de arriba) para que Google te pida
-// autorizar el acceso a Drive y a la otra hoja. Sin este paso, las
-// fotos y la cobertura fallan silenciosamente por falta de permisos.
-// ============================================================
-function autorizarPermisos() {
-  DriveApp.getFolderById(CARPETA_FOTOS_ID);
-  DriveApp.getFolderById(CARPETA_FOTOS_INVENTARI_ID);
-  DriveApp.getFolderById(CARPETA_COBERTURA_ID);
-  SpreadsheetApp.openById(HOJA_PROGRES_ID);
-  DriveApp.getFileById(KML_BASE_ID);
-  DriveApp.getFolderById(CARPETA_GOOGLE_EARTH_ID);
-  obtenerHojaInstaladors();
+:root{
+  --bg:#EEF2F1;
+  --surface:#FFFFFF;
+  --ink:#10242B;
+  --ink-soft:#56686D;
+  --ink-faint:#8B9A9D;
+  --line:#DCE4E2;
+  --accent:#0E7C86;
+  --accent-dark:#0A5F67;
+  --accent-soft:#E1F1F1;
+  --ok:#1F8A4C;
+  --ok-soft:#E5F5EA;
+  --warn:#B7791F;
+  --warn-soft:#FBF0DE;
+  --info:#2563AF;
+  --info-soft:#E4EDF9;
+  --danger:#B3261E;
+  --danger-soft:#FBE7E5;
+  --radius:10px;
+  --radius-sm:7px;
+  --shadow:0 1px 2px rgba(16,36,43,0.06),0 6px 16px rgba(16,36,43,0.06);
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
 }
 
-// ============================================================
-// EJECUTA ESTO UNA VEZ A MANO (▶ Ejecutar, eligiendo esta función)
-// para copiar las coordenadas de cada pozo desde el KML a las columnas
-// R (lat) y S (lon) de la hoja de inventario. Puedes volver a
-// ejecutarla si añades pozos nuevos al KML; no toca nada más.
-// ============================================================
-function importarCoordenadas() {
+*{box-sizing:border-box;}
 
-  const kmlText = DriveApp.getFileById(KML_BASE_ID).getBlob().getDataAsString("UTF-8");
-
-  const coordenadasPorCodigo = {};
-  const placemarkRegex = /<Placemark id="[^"]*">([\s\S]*?)<\/Placemark>/g;
-  let pm;
-
-  while ((pm = placemarkRegex.exec(kmlText)) !== null) {
-
-    const nombreMatch = pm[1].match(/<name>([^<]*)<\/name>/);
-    const coordMatch = pm[1].match(/<coordinates>([^<]*)<\/coordinates>/);
-
-    if (nombreMatch && coordMatch) {
-      // El KML guarda "lon,lat,0" -> lo invertimos a lat,lon
-      // Se convierten a Number real (no texto) para que Sheets no reinterprete
-      // el punto decimal según la configuración regional
-      const partes = coordMatch[1].trim().split(",");
-      const lon = parseFloat(partes[0]);
-      const lat = parseFloat(partes[1]);
-      coordenadasPorCodigo[nombreMatch[1].trim().toUpperCase()] = { lat: lat, lon: lon };
-    }
-  }
-
-  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Hoja1");
-  const datos = hoja.getDataRange().getValues();
-
-  // Limpiar primero las columnas R (18) y S (19) por completo, para que las
-  // filas sin coincidencia en el KML queden vacías y no arrastren datos
-  // antiguos que pudiera haber ahí
-  if (datos.length > 1) {
-    hoja.getRange(2, 18, datos.length - 1, 2).clearContent();
-  }
-
-  let actualizados = 0;
-
-  for (let i = 1; i < datos.length; i++) {
-    const codigo = String(datos[i][2] || "").trim().toUpperCase();
-    const coords = coordenadasPorCodigo[codigo];
-    if (coords) {
-      const celdaLat = hoja.getRange(i + 1, 18); // columna R
-      const celdaLon = hoja.getRange(i + 1, 19); // columna S
-      celdaLat.setNumberFormat("0.00000000").setValue(coords.lat);
-      celdaLon.setNumberFormat("0.00000000").setValue(coords.lon);
-      actualizados++;
-    }
-  }
-
-  Logger.log("Coordenades importades: " + actualizados);
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--ink);
+  margin:0;
+  padding-bottom:60px;
+  -webkit-font-smoothing:antialiased;
 }
 
-function jsonOutput(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
+a{color:inherit;}
+
+/* ---------- Barra superior ---------- */
+
+.topbar{
+  background:var(--surface);
+  border-bottom:1px solid var(--line);
+  position:sticky;
+  top:0;
+  z-index:50;
 }
 
-// ============================================================
-// doGet — consultas y acciones simples (sin archivos), tal como ya tenías
-// ============================================================
-
-function doGet(e) {
-
-  if (e.parameter.accion === "mapa") {
-    if (!esAdminValido(e.parameter)) {
-      return jsonOutput({ ok: false, mensaje: "No autoritzat" });
-    }
-    return generarRespuestaMapa();
-  }
-
-  if (e.parameter.accion === "mapaJson") {
-    return generarMapaJSON();
-  }
-
-  if (e.parameter.accion === "progresSondes") {
-    return generarProgresSondesJSON();
-  }
-
-  if (e.parameter.accion === "configuracio") {
-    return obtenerConfiguracio();
-  }
-
-  if (e.parameter.accion === "verificacio") {
-    if (!esAdminValido(e.parameter)) {
-      return jsonOutput({ ok: false, mensaje: "No autoritzat" });
-    }
-    return generarVerificacioJSON(e.parameter.forcar === "1");
-  }
-
-  if (e.parameter.accion === "carpetaFotos") {
-    return obtenerCarpetaFotosURL(e.parameter.codigo);
-  }
-
-  if (e.parameter.accion === "loginInstalador") {
-    return procesarLoginInstalador(e.parameter.perfil, e.parameter.contrasenya);
-  }
-
-  if (e.parameter.accion === "instaladors") {
-    if (!esMestreValido(e.parameter)) {
-      return jsonOutput({ ok: false, mensaje: "No autoritzat" });
-    }
-    return listarInstaladors();
-  }
-
-  if (e.parameter.accion) {
-    return ejecutarAccion(e.parameter);
-  }
-
-  const busqueda = (e.parameter.q || "")
-    .toString()
-    .trim()
-    .toUpperCase();
-
-  if (!busqueda) {
-
-    // Si hay una copia reciente en caché, se sirve tal cual — nos ahorramos
-    // releer toda la hoja, que es la parte que más tarda
-    const cache = CacheService.getScriptCache();
-    const enCache = cache.get(CACHE_KEY_LISTADO);
-
-    if (enCache) {
-      return ContentService
-        .createTextOutput(enCache)
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-
-    const hoja = SpreadsheetApp
-      .getActiveSpreadsheet()
-      .getSheetByName("Hoja1");
-
-    const datos = hoja.getDataRange().getValues();
-
-    const equipos = [];
-
-    for (let i = 1; i < datos.length; i++) {
-
-      equipos.push({
-        fila: i + 1,
-        codigo: datos[i][2],
-        deveui: datos[i][8],
-        caja: datos[i][12],
-        tipoSonda: datos[i][5],
-        metraje: datos[i][3],
-        estado: datos[i][13],
-        fecha: datos[i][14],
-        usuario: datos[i][15],
-        serieSonda: datos[i][16],
-        numSerie: datos[i][11],
-        lat: datos[i][17],
-        lon: datos[i][18],
-        retiratPer: datos[i][20],
-        retiratData: datos[i][21],
-        codigoOriginal: datos[i][22],
-        reubicatPer: datos[i][23],
-        reubicatData: datos[i][24],
-        metrajeOriginal: datos[i][25]
-      });
-
-    }
-
-    const salida = JSON.stringify(equipos);
-
-    try {
-      cache.put(CACHE_KEY_LISTADO, salida, CACHE_TTL_LISTADO);
-    } catch (err) {
-      // Si el listado pesa más de 100KB (el límite de CacheService), no pasa
-      // nada grave: simplemente no se cachea esta vez
-      Logger.log("No s'ha pogut guardar la caché del llistat: " + err);
-    }
-
-    return ContentService
-      .createTextOutput(salida)
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
-  const hoja = SpreadsheetApp
-    .getActiveSpreadsheet()
-    .getSheetByName("Hoja1");
-
-  const datos = hoja.getDataRange().getValues();
-
-  for (let i = 1; i < datos.length; i++) {
-
-    const codigo = String(datos[i][2] || "").trim().toUpperCase();
-    const deveui = String(datos[i][8] || "").trim().toUpperCase();
-
-    if (busqueda === codigo || busqueda === deveui) {
-
-      return ContentService
-        .createTextOutput(JSON.stringify({
-          tipo: "equipo",
-          fila: i + 1,
-          codigo: datos[i][2],
-          deveui: datos[i][8],
-          caja: datos[i][12],
-          tipoSonda: datos[i][5],
-          metraje: datos[i][3],
-          estado: datos[i][13],
-          fecha: datos[i][14],
-          usuario: datos[i][15],
-          serieSonda: datos[i][16],
-          numSerie: datos[i][11],
-          lat: datos[i][17],
-          lon: datos[i][18],
-          retiratPer: datos[i][20],
-          retiratData: datos[i][21],
-          codigoOriginal: datos[i][22],
-          reubicatPer: datos[i][23],
-          reubicatData: datos[i][24],
-        metrajeOriginal: datos[i][25]
-        }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-  }
-
-  const equiposCaja = [];
-
-  for (let i = 1; i < datos.length; i++) {
-
-    const caja = String(datos[i][12] || "").trim();
-
-    if (caja === busqueda) {
-
-      equiposCaja.push({
-        fila: i + 1,
-        codigo: datos[i][2],
-        deveui: datos[i][8],
-        estado: datos[i][13],
-        fecha: datos[i][14],
-        usuario: datos[i][15]
-      });
-
-    }
-  }
-
-  if (equiposCaja.length > 0) {
-
-    return ContentService
-      .createTextOutput(JSON.stringify({
-        tipo: "caja",
-        caja: busqueda,
-        total: equiposCaja.length,
-        equipos: equiposCaja
-      }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
-  return ContentService
-    .createTextOutput(JSON.stringify({ error: true, mensaje: "No encontrado" }))
-    .setMimeType(ContentService.MimeType.JSON);
+.topbar-inner{
+  max-width:960px;
+  margin:auto;
+  padding:12px 20px;
+  display:flex;
+  align-items:center;
+  gap:16px;
+  flex-wrap:wrap;
 }
 
-function registrarMovimiento(movimientos, codigo, deveui, usuario, accion) {
-  movimientos.appendRow([new Date(), codigo, deveui, usuario, accion]);
+.brand{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  margin-right:auto;
 }
 
-// ============================================================
-// ejecutarAccion — ahora exige "clave" para cualquier acción que escriba
-// ============================================================
+.brand-mark{
+  font-family:var(--mono);
+  font-weight:600;
+  font-size:14px;
+  letter-spacing:0.06em;
+  background:var(--ink);
+  color:var(--surface);
+  padding:3px 7px;
+  border-radius:5px;
+}
 
-function ejecutarAccion(params) {
+.brand-name{
+  font-weight:600;
+  font-size:15px;
+  color:var(--ink-soft);
+}
 
-  const accion = params.accion;
+.app-switch{
+  display:flex;
+  background:var(--bg);
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:3px;
+  gap:2px;
+}
 
-  const accionesQueEscriben = ["retirar", "instalado", "noinstalar", "almacen", "serieSonda", "reubicar", "actualizarMetraje"];
+.app-tab{
+  text-decoration:none;
+  font-size:13px;
+  font-weight:600;
+  padding:7px 14px;
+  border-radius:999px;
+  color:var(--ink-soft);
+  transition:background .15s ease,color .15s ease;
+}
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const hoja = ss.getSheetByName("Hoja1");
-  const movimientos = ss.getSheetByName("MOVIMIENTOS");
+.app-tab.activa{
+  background:var(--ink);
+  color:var(--surface);
+}
 
-  const fila = Number(params.fila);
-  const codigo = params.codigo || "";
-  const deveui = params.deveui || "";
+.app-tab:not(.activa):hover{
+  background:var(--surface);
+}
 
-  let usuario = params.usuario || "";
+/* ---------- Botones ---------- */
 
-  if (accionesQueEscriben.indexOf(accion) !== -1) {
-    const auth = comprobarAutorizacion(params, codigo, fila);
-    if (!auth.autorizado) {
-      return ContentService.createTextOutput("ERROR: " + (auth.mensaje || "no autoritzat"));
+.btn{
+  font-family:var(--sans);
+  font-size:14px;
+  font-weight:600;
+  padding:10px 16px;
+  border-radius:var(--radius-sm);
+  border:1px solid transparent;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  line-height:1;
+}
+
+.btn-ghost{
+  background:transparent;
+  border-color:var(--line);
+  color:var(--ink-soft);
+}
+.btn-ghost:hover{background:var(--bg);}
+
+.btn-primary{
+  background:var(--accent);
+  color:#fff;
+}
+.btn-primary:hover{background:var(--accent-dark);}
+
+.btn-outline{
+  background:var(--surface);
+  border-color:var(--line);
+  color:var(--ink);
+}
+.btn-outline:hover{border-color:var(--ink-faint);}
+
+.btn-outline.ok{color:var(--ok);border-color:#BFE2CC;}
+.btn-outline.warn{color:var(--warn);border-color:#EED6A8;}
+.btn-outline.danger{color:var(--danger);border-color:#EFC3BF;}
+.btn-outline.info{color:var(--info);border-color:#C3D6F0;}
+
+.btn-block{width:100%;justify-content:center;}
+
+/* ---------- Contenido ---------- */
+
+main{
+  max-width:960px;
+  margin:auto;
+  padding:20px;
+}
+
+.toolbar-row{
+  display:flex;
+  gap:8px;
+  margin-bottom:16px;
+  flex-wrap:wrap;
+}
+
+.search-wrap{
+  position:relative;
+  flex:1 1 260px;
+}
+
+.search-wrap input{
+  width:100%;
+  padding:13px 14px;
+  font-size:16px;
+  font-family:var(--sans);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--surface);
+  color:var(--ink);
+}
+
+.search-wrap input:focus{
+  outline:2px solid var(--accent);
+  outline-offset:-1px;
+}
+
+/* ---------- Panel de estadísticas ---------- */
+
+.stats-card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:16px;
+  margin-bottom:18px;
+}
+
+.stats-card.cargando{opacity:.55;pointer-events:none;}
+
+.stats-total{
+  font-size:13px;
+  color:var(--ink-soft);
+  margin-bottom:12px;
+}
+
+.stats-total b{
+  color:var(--ink);
+  font-family:var(--mono);
+  font-size:15px;
+}
+
+.instalador-grup{
+  margin-bottom:14px;
+}
+
+.instalador-grup:last-child{
+  margin-bottom:0;
+}
+
+.instalador-nom{
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--ink);
+  margin-bottom:6px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.instalador-nom .count{
+  font-family:var(--mono);
+  font-weight:400;
+  color:var(--ink-soft);
+  font-size:11.5px;
+}
+
+.instalador-pous{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+
+.pou-chip{
+  font-family:var(--mono);
+  font-size:12px;
+  font-weight:600;
+  padding:4px 9px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:var(--bg);
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+}
+
+.pou-chip:hover{border-color:var(--ink-faint);}
+
+.stats-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:10px;
+}
+
+.stat-tile{
+  cursor:pointer;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:12px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  background:var(--bg);
+  transition:transform .1s ease,box-shadow .1s ease;
+}
+
+.stat-tile:hover{
+  transform:translateY(-1px);
+  box-shadow:var(--shadow);
+}
+
+.stat-tile .n{
+  font-family:var(--mono);
+  font-size:22px;
+  font-weight:600;
+}
+
+.stat-tile .lbl{
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--ink-soft);
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  display:inline-block;
+  flex:none;
+}
+
+.tile-almacen .dot,.pill-almacen .dot{background:var(--ok);}
+.tile-retirado .dot,.pill-retirado .dot{background:var(--warn);}
+.tile-instalado .dot,.pill-instalado .dot{background:var(--info);}
+.tile-averia .dot,.pill-averia .dot{background:var(--danger);}
+
+/* ---------- Selector de cámara ---------- */
+
+.controls-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-bottom:20px;
+}
+
+#cameraSelectWrap select{
+  padding:9px 10px;
+  font-size:14px;
+  font-family:var(--sans);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--surface);
+}
+
+/* ---------- Pills de estado ---------- */
+
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:12.5px;
+  font-weight:600;
+  padding:4px 10px;
+  border-radius:999px;
+  background:var(--bg);
+  border:1px solid var(--line);
+}
+
+.pill-almacen{color:var(--ok);background:var(--ok-soft);border-color:transparent;}
+.pill-retirado{color:var(--warn);background:var(--warn-soft);border-color:transparent;}
+.pill-instalado{color:var(--info);background:var(--info-soft);border-color:transparent;}
+.pill-averia{color:var(--danger);background:var(--danger-soft);border-color:transparent;}
+
+/* ---------- Listas de equipos ---------- */
+
+.lista-header{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  margin-bottom:10px;
+}
+
+.lista-header h3{
+  margin:0;
+  font-size:16px;
+}
+
+.lista-header .count{
+  font-size:12.5px;
+  color:var(--ink-soft);
+  font-family:var(--mono);
+}
+
+.equipo-card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:12px 14px;
+  margin-bottom:8px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.equipo-card:hover{border-color:var(--ink-faint);}
+
+.equipo-card .codigo{
+  font-family:var(--mono);
+  font-weight:600;
+  font-size:14px;
+}
+
+.equipo-card .meta{
+  font-size:12.5px;
+  color:var(--ink-soft);
+}
+
+.equipo-card .meta span{margin-right:10px;}
+
+/* ---------- Ficha de equipo ---------- */
+
+.ficha{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+
+.ficha-head{
+  padding:16px 18px;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.ficha-head .codigo-grande{
+  font-family:var(--mono);
+  font-size:20px;
+  font-weight:600;
+}
+
+.ficha-head .deveui{
+  font-family:var(--mono);
+  font-size:12.5px;
+  color:var(--ink-soft);
+  margin-top:2px;
+}
+
+.ficha-body{
+  padding:16px 18px;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:14px;
+}
+
+.campo .k{
+  font-size:11.5px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  color:var(--ink-faint);
+  font-weight:600;
+  margin-bottom:3px;
+}
+
+.campo .v{
+  font-size:14.5px;
+  font-family:var(--mono);
+}
+
+.ficha-caja{
+  font-size:13px;
+  color:var(--ink-soft);
+  padding:0 18px 4px;
+}
+
+.ficha-nota{
+  margin:0 18px 14px;
+  padding:9px 12px;
+  border-radius:8px;
+  font-size:12.5px;
+  font-weight:600;
+}
+
+.ficha-nota .sub{
+  font-size:11px;
+  font-weight:400;
+  margin-top:3px;
+  opacity:.85;
+}
+
+.ficha-nota.reubicacio{
+  background:var(--info-soft);
+  color:var(--info);
+}
+
+.tag-dup{
+  font-family:var(--sans);
+  font-size:10.5px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  padding:2px 7px;
+  border-radius:999px;
+  margin-left:8px;
+  vertical-align:middle;
+}
+.tag-dup.original{background:var(--ok-soft);color:var(--ok);}
+.tag-dup.renombrat{background:var(--info-soft);color:var(--info);}
+
+.ficha-nota.retirat{
+  background:var(--warn-soft);
+  color:var(--warn);
+}
+
+.ficha-acciones{
+  padding:14px 18px 18px;
+  border-top:1px solid var(--line);
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.no-encontrado{
+  text-align:center;
+  padding:40px 20px;
+  color:var(--ink-soft);
+}
+
+/* ---------- Modal escáner ---------- */
+
+#scannerModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(16,36,43,0.72);
+  z-index:9999;
+  padding:20px;
+}
+
+#scannerRetirarModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(16,36,43,0.72);
+  z-index:9999;
+  padding:20px;
+  overflow-y:auto;
+}
+
+.scan-log-item{
+  padding:6px 8px;
+  border-radius:6px;
+  margin-bottom:4px;
+  font-family:var(--mono);
+}
+.scan-log-item.ok{background:var(--ok-soft);color:var(--ok);}
+.scan-log-item.error{background:var(--danger-soft);color:var(--danger);}
+.scan-log-item.pendent,.scan-log-item.espera{background:var(--bg);color:var(--ink-soft);}
+.scan-log-item.avis{background:var(--warn-soft);color:var(--warn);}
+
+.scanner-box{
+  max-width:440px;
+  margin:40px auto;
+  background:var(--surface);
+  padding:20px;
+  border-radius:var(--radius);
+  text-align:center;
+}
+
+.scanner-box h3{margin-top:0;}
+
+#scanner{
+  border-radius:var(--radius-sm);
+  overflow:hidden;
+}
+
+/* ---------- Modal de instalación ---------- */
+
+#instalarModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(16,36,43,0.72);
+  z-index:9999;
+  padding:20px;
+  overflow-y:auto;
+}
+
+#coberturaModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(16,36,43,0.72);
+  z-index:9999;
+  padding:20px;
+  overflow-y:auto;
+}
+
+.instalar-box{
+  max-width:440px;
+  margin:30px auto;
+  background:var(--surface);
+  padding:20px;
+  border-radius:var(--radius);
+}
+
+.instalar-box h3{margin-top:0;}
+
+.campo-form{
+  margin-bottom:14px;
+  text-align:left;
+}
+
+.campo-form label{
+  display:block;
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--ink-soft);
+  margin-bottom:5px;
+}
+
+.campo-form input,
+.campo-form textarea{
+  width:100%;
+  padding:10px;
+  font-family:var(--sans);
+  font-size:14px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--bg);
+  color:var(--ink);
+  box-sizing:border-box;
+}
+
+.campo-form textarea{resize:vertical;}
+
+.instalar-estado{
+  font-size:13px;
+  color:var(--ink-soft);
+  min-height:18px;
+  margin-bottom:8px;
+}
+
+.instalar-acciones{
+  display:flex;
+  gap:8px;
+  justify-content:flex-end;
+}
+
+@media (max-width:520px){
+  .topbar-inner{padding:10px 14px;}
+  main{padding:14px;}
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="./" style="text-decoration:none;">
+      <span class="brand-mark">JFA</span>
+      <span class="brand-name">Instalacions</span>
+    </a>
+
+    <nav class="app-switch">
+      <a class="app-tab activa" href="https://inventari.instalacionsjfa.com">Inventari</a>
+      <a class="app-tab" href="./mapa.html">Mapa</a>
+      <a class="app-tab" href="./progres.html">Progrés sondes</a>
+    </nav>
+
+    <a id="linkAdminPanel" class="btn btn-ghost" href="./admin.html" style="display:none;text-decoration:none;">⚙️ Instal·ladors</a>
+    <button id="btnVistaInstalador" class="btn btn-ghost" onclick="alternarVistaInstalador()" style="display:none;">🔍 Veure tots</button>
+    <button id="btnInstalador" class="btn btn-ghost" onclick="gestionarSessio()">👤 Iniciar sessió</button>
+  </div>
+</header>
+
+<main>
+
+  <div class="toolbar-row">
+    <div class="search-wrap">
+      <input
+        id="busqueda"
+        placeholder="Codi, DevEUI o número de caixa"
+        onkeydown="if(event.key==='Enter') buscar()"
+      >
+    </div>
+    <button class="btn btn-primary" onclick="buscar()">Cercar</button>
+    <button class="btn btn-outline" onclick="actualizarDatos()">🔄 Actualitzar</button>
+    <button id="btnCobertura" class="btn btn-outline" onclick="abrirModalCobertura()" style="display:none;">📶 Pujar cobertura</button>
+    <button id="btnMapa" class="btn btn-outline" onclick="actualizarMapa(event)" style="display:none;">🗺️ Actualitzar mapa</button>
+    <button id="btnEscanejarRetirar" class="btn btn-outline warn" onclick="obrirEscaneigRetirar()" style="display:none;">🔫 Retirar amb lector (SAMPOL)</button>
+  </div>
+
+  <div id="statsCard" class="stats-card">
+    <div id="stats">Carregant inventari…</div>
+  </div>
+
+  <div id="instaladorsCard" class="stats-card" style="display:none;">
+    <div class="stats-total" style="margin-bottom:10px;">👷 Pous per instal·lador</div>
+    <div id="instaladorsCont">Carregant…</div>
+  </div>
+
+  <div class="controls-row">
+    <button class="btn btn-outline" onclick="seleccionarCamara()">⚙️ Seleccionar càmera</button>
+    <div id="cameraSelectWrap" style="display:none;">
+      <select id="cameraSelect" onchange="guardarCamaraSeleccionada()"></select>
+    </div>
+  </div>
+
+  <div id="resultado"></div>
+
+</main>
+
+<div id="scannerModal">
+  <div class="scanner-box">
+    <h3>Escanejar codi</h3>
+    <div id="scanner"></div>
+    <br>
+    <button class="btn btn-outline" onclick="cerrarEscaner()">❌ Tancar</button>
+  </div>
+</div>
+
+<div id="scannerRetirarModal" onclick="document.getElementById('inputEscaneigRetirar').focus()">
+  <div class="scanner-box" style="max-width:480px;">
+    <h3>🔫 Retirar amb lector de codis (SAMPOL)</h3>
+    <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-8px;">
+      Passa el lector pel QR (DevEUI) o pel codi de barres (Num. Sèrie) de cada caixa — es marca com a retirat (SAMPOL) sol, un darrere l'altre, sense haver de tocar res.
+    </p>
+    <input type="text" id="inputEscaneigRetirar" autocomplete="off" placeholder="Esperant lectura…"
+      style="width:100%;padding:12px;font-family:var(--mono);font-size:15px;text-align:center;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--bg);box-sizing:border-box;"
+      onkeydown="onKeydownEscaneigRetirar(event)">
+    <div id="scannerRetirarComptador" style="margin-top:10px;font-family:var(--mono);font-size:13px;color:var(--ink-soft);">0 retirats en aquesta sessió</div>
+    <div id="scannerRetirarLog" style="margin-top:8px;max-height:180px;overflow-y:auto;text-align:left;font-size:12.5px;"></div>
+    <br>
+    <button class="btn btn-outline" onclick="cerrarEscaneigRetirar()">❌ Tancar</button>
+  </div>
+</div>
+
+<div id="instalarModal">
+  <div class="instalar-box">
+    <h3 id="instalarTitulo">Instal·lar sonda</h3>
+
+    <div class="campo-form">
+      <label for="inpFoto">📷 Fotos del muntatge (pots seleccionar-ne diverses)</label>
+      <input type="file" id="inpFoto" accept="image/*" multiple>
+    </div>
+
+    <div class="campo-form">
+      <label for="inpCableFinsCota">📏 Cable fins cota (metres)</label>
+      <div style="font-size:11.5px;color:var(--ink-soft);margin:-4px 0 6px;">
+        És la longitud de cable que queda fora del tub, des de la boca fins a la marca on el vigilant pren la mesura.
+      </div>
+      <input type="number" id="inpCableFinsCota" step="0.01" inputmode="decimal" oninput="comprovarCableFinsCota()">
+      <div id="avisCableFinsCota" style="display:none;margin-top:6px;padding:8px 10px;background:#FBE7E5;color:#B3261E;border-radius:7px;font-size:12.5px;font-weight:600;"></div>
+    </div>
+
+    <div class="campo-form">
+      <label for="inpObservacions">📝 Observacions (opcional)</label>
+      <textarea id="inpObservacions" rows="3"></textarea>
+    </div>
+
+    <div id="instalarEstado" class="instalar-estado"></div>
+
+    <div class="instalar-acciones">
+      <button class="btn btn-outline" onclick="cerrarModalInstalacion()">Cancel·lar</button>
+      <button class="btn btn-primary" onclick="confirmarInstalacion()">Guardar i marcar instal·lat</button>
+    </div>
+  </div>
+</div>
+
+<div id="coberturaModal">
+  <div class="instalar-box">
+    <h3>Pujar fitxers de cobertura</h3>
+
+    <div class="campo-form">
+      <label for="inpCoberturaLote">📶 Selecciona un o més CSV del medidor</label>
+      <input type="file" id="inpCoberturaLote" accept=".csv,text/csv" multiple>
+    </div>
+
+    <div id="coberturaEstado" class="instalar-estado"></div>
+
+    <div class="instalar-acciones">
+      <button class="btn btn-outline" onclick="cerrarModalCobertura()">Cancel·lar</button>
+      <button class="btn btn-primary" onclick="confirmarCobertura()">Pujar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+const API =
+"https://script.google.com/macros/s/AKfycbzz8jwBBYvxLJBdYlf6OrTzPBKK_ojTu4D5w2LZsxVMksLo3-WBk6EUFIFBEWTEVBKNzA/exec";
+
+// Longitud que debe tener una serie de sonda válida al escanearla por QR
+const LONGITUD_SERIE_VALIDA = 7;
+
+let equipos = [];
+let html5QrCode = null;
+let admin = localStorage.getItem("admin") === "si";
+let usuarioActual = localStorage.getItem("usuarioActual") || "";
+let camarasDisponibles = [];
+
+let instaladorActiu = localStorage.getItem("instaladorActiu") === "si";
+let instaladorPerfil = localStorage.getItem("instaladorPerfil") || "";
+let instaladorContrasenya = localStorage.getItem("instaladorContrasenya") || "";
+let instaladorPozosAsignados = JSON.parse(localStorage.getItem("instaladorPozosAsignados") || "[]");
+let instaladorVeureTots = false;
+
+function escapeHtml(valor){
+  return String(valor ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#39;");
+}
+
+// fetch con límite de tiempo: en cobertura muy mala, evita quedarse
+// esperando indefinidamente antes de pasar al siguiente reintento
+function fetchAmbTimeout(url, opcions, msTimeout){
+  opcions = opcions || {};
+  msTimeout = msTimeout || 12000;
+
+  const controlador = new AbortController();
+  const id = setTimeout(() => controlador.abort(), msTimeout);
+
+  return fetch(url, Object.assign({}, opcions, { signal: controlador.signal }))
+    .finally(() => clearTimeout(id));
+}
+
+// fetch con reintentos automáticos, para acciones de escritura (instalar,
+// subir cobertura, cambiar estado). Con nombres de archivo estables ya no
+// hay riesgo de duplicar si un intento anterior sí llegó a completarse.
+async function fetchAmbReintents(url, opcions, callbackProgres){
+
+  const intentosMax = 3;
+  let ultimoError;
+
+  for(let intento = 1; intento <= intentosMax; intento++){
+
+    if(intento > 1 && callbackProgres){
+      callbackProgres("Tallada la connexió, reintentant (" + intento + " de " + intentosMax + ")…");
     }
-    usuario = auth.usuario;
-    CacheService.getScriptCache().remove(CACHE_KEY_LISTADO);
-  }
 
-  if (!fila) {
-    return ContentService.createTextOutput("FILA INVALIDA");
-  }
-
-  if (accion === "retirar") {
-
-    // Si el pou està marcat "No instalar", no li toquem l'Estat (es manté
-    // "No instalar"): el retir es guarda a part, com una anotació que
-    // conviu amb l'estat actual, sense esborrar-lo
-    const estadoActual = hoja.getRange(fila, 14).getValue();
-
-    if (estadoActual === "No instalar") {
-
-      hoja.getRange(1, 21).setValue("Retirat per (mentre No instal·lar)");
-      hoja.getRange(1, 22).setValue("Data retirada (mentre No instal·lar)");
-
-      hoja.getRange(fila, 21).setValue(String(usuario));
-      hoja.getRange(fila, 22).setValue(Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss"));
-
-      registrarMovimiento(movimientos, codigo, deveui, usuario, "Retirat (mentre No instal·lar)");
-      return ContentService.createTextOutput("OK");
-    }
-
-    hoja.getRange(fila, 14).setValue("Retirado");
-    hoja.getRange(fila, 15).setValue(Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss"));
-    hoja.getRange(fila, 16).setValue(String(usuario));
-    registrarMovimiento(movimientos, codigo, deveui, usuario, "Retirado");
-    return ContentService.createTextOutput("OK");
-  }
-
-  if (accion === "instalado") {
-    // Se mantiene por compatibilidad, pero desde la web ahora se usa el
-    // flujo completo por POST (doPost) que además sube foto/cobertura
-    // y actualiza Progrés sondes.
-    hoja.getRange(fila, 14).setValue("Instalado");
-    hoja.getRange(fila, 15).setValue(Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss"));
-    hoja.getRange(fila, 16).setValue(String(usuario));
-    registrarMovimiento(movimientos, codigo, deveui, usuario, "Instalado");
-
-    try {
-      actualizarProgresSondes(codigo, null, null, usuario);
-    } catch (err) {
-      Logger.log("Error actualitzant Progrés sondes: " + err);
-    }
-
-    return ContentService.createTextOutput("OK");
-  }
-
-  if (accion === "noinstalar") {
-    hoja.getRange(fila, 14).setValue("No instalar");
-    hoja.getRange(fila, 15).setValue(Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss"));
-    hoja.getRange(fila, 16).setValue(String(usuario));
-    registrarMovimiento(movimientos, codigo, deveui, usuario, "No instalar");
-
-    try {
-      marcarNoInstalarProgres(codigo, params.observacions || "");
-    } catch (err) {
-      Logger.log("Error marcant No instal·lar a Progrés sondes: " + err);
-    }
-
-    return ContentService.createTextOutput("OK");
-  }
-
-  if (accion === "almacen") {
-    hoja.getRange(fila, 14).setValue("Almacén");
-    hoja.getRange(fila, 15).clearContent();
-    hoja.getRange(fila, 16).clearContent();
-    registrarMovimiento(movimientos, codigo, deveui, usuario, "Almacén");
-
-    // Al volver a Almacén, se desmarca Acabat y se limpia el rojo de
-    // "No instal·lar" en Progrés sondes, para que el mapa y la hoja
-    // vuelvan a su estado original
-    try {
-      actualizarAcabatProgres(codigo, "No");
-      limpiarColorProgres(codigo);
-    } catch (err) {
-      Logger.log("Error netejant Progrés sondes: " + err);
-    }
-
-    return ContentService.createTextOutput("OK");
-  }
-
-  if (accion === "serieSonda") {
-    const serie = params.serie || "";
-    hoja.getRange(fila, 17).setValue(serie);
-    return ContentService.createTextOutput("OK");
-  }
-
-  if (accion === "actualizarMetraje") {
-    // Columna D (índex 3) = "long cable" / metratge de la sonda. Es fa
-    // servir sobretot després d'una reubicació, quan la sonda instal·lada
-    // al pou nou no és la mateixa que la d'origen.
-    const metrajeNuevo = params.metraje;
-    if (metrajeNuevo === undefined || metrajeNuevo === null || String(metrajeNuevo).trim() === "") {
-      return ContentService.createTextOutput("ERROR: Falta el metratge");
-    }
-
-    // Columna fixa (Z = 26), igual que les altres columnes de seguiment
-    // que ja s'han anat reservant en aquesta fulla
-    hoja.getRange(1, 26).setValue("Metratge original");
-
-    // Es conserva el primer metratge de tots, només si encara no n'hi
-    // havia cap guardat — així mai es perd, encara que es canviï més d'una
-    // vegada
-    const metrajeActual = hoja.getRange(fila, 4).getValue();
-    const yaGuardado = String(hoja.getRange(fila, 26).getValue() || "").trim();
-
-    if (!yaGuardado && String(metrajeActual).trim() !== "") {
-      hoja.getRange(fila, 26).setValue(metrajeActual);
-    }
-
-    hoja.getRange(fila, 4).setValue(String(metrajeNuevo).trim().replace(",", "."));
-    return ContentService.createTextOutput("OK");
-  }
-
-  if (accion === "reubicar") {
-
-    const codigoDestino = String(params.codigoDestino || "").trim().toUpperCase();
-    const codigoOrigen = String(codigo || "").trim().toUpperCase();
-
-    if (!codigoDestino) {
-      return ContentService.createTextOutput("ERROR: Falta el codi de destí");
-    }
-    if (codigoDestino === codigoOrigen) {
-      return ContentService.createTextOutput("ERROR: El codi de destí no pot ser el mateix que l'origen");
-    }
-
-    // El codi nou POT coincidir amb el d'una altra fila (codi repetit
-    // a propòsit): com que cada fila es identifica per la seva fila i el
-    // que es renombra queda marcat amb el seu "Codi original", sempre es
-    // pot saber quin és quin. L'avís de repetit el mostra la web.
-
-    hoja.getRange(1, 23).setValue("Codi original");
-    hoja.getRange(1, 24).setValue("Reubicat per");
-    hoja.getRange(1, 25).setValue("Reubicat data");
-
-    const codiOriginalActual = String(hoja.getRange(fila, 23).getValue() || "").trim();
-    const esDesferReubicacio = codiOriginalActual && codiOriginalActual === codigoDestino;
-
-    if (esDesferReubicacio) {
-      // Es torna exactament al codi original: es considera "desfer" la
-      // reubicació — es netegen les columnes de seguiment en comptes
-      // d'actualitzar-les, ja que tornem al punt de partida
-      hoja.getRange(fila, 23).clearContent();
-      hoja.getRange(fila, 24).clearContent();
-      hoja.getRange(fila, 25).clearContent();
-    } else {
-      // El codi original es guarda NOMÉS si encara no n'hi havia cap — així,
-      // encara que es reubiqui més d'una vegada, sempre es conserva el
-      // primer codi de tots, no el darrer abans d'aquest canvi
-      if (!codiOriginalActual) {
-        hoja.getRange(fila, 23).setValue(codigoOrigen);
+    try{
+      const r = await fetchAmbTimeout(url, opcions, 20000);
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      return r;
+    }catch(error){
+      ultimoError = error;
+      if(intento < intentosMax){
+        await new Promise(res => setTimeout(res, intento * 1500));
       }
-      const ahora = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss");
-      hoja.getRange(fila, 24).setValue(String(usuario));
-      hoja.getRange(fila, 25).setValue(ahora);
     }
-
-    // Es renomena la pròpia fila al codi nou (columnes "CODI" i "Código
-    // pozo", que sempre porten el mateix valor duplicat) — res més
-    // d'aquesta fila es toca: ni l'Estat, ni el DEVICE_EUI, ni res
-    hoja.getRange(fila, 2).setValue(codigoDestino);
-    hoja.getRange(fila, 3).setValue(codigoDestino);
-
-    // Si algun instal·lador tenia assignat el codi antic, se li actualitza
-    // al nou, perquè no perdi l'accés a aquest pou pel canvi de nom
-    try {
-      const hojaInst = obtenerHojaInstaladors();
-      const datosInst = hojaInst.getDataRange().getValues();
-      for (let i = 1; i < datosInst.length; i++) {
-        const listaPozos = String(datosInst[i][2] || "")
-          .split(",")
-          .map(s => s.trim().toUpperCase())
-          .filter(Boolean);
-        const idx = listaPozos.indexOf(codigoOrigen);
-        if (idx !== -1) {
-          listaPozos[idx] = codigoDestino;
-          hojaInst.getRange(i + 1, 3).setValue(Array.from(new Set(listaPozos)).join(","));
-        }
-      }
-    } catch (err) {
-      Logger.log("No s'han pogut actualitzar les assignacions d'instal·ladors: " + err);
-    }
-
-    // I la fila corresponent a Progrés sondes també es renombra, si
-    // n'existia una — així progres.html segueix trobant-la correctament
-    // amb el codi nou, i no es queda "òrfena" amb el codi antic
-    try {
-      renombrarEnProgresSondes(codigoOrigen, codigoDestino, usuario, esDesferReubicacio);
-    } catch (err) {
-      Logger.log("No s'ha pogut renombrar a Progrés sondes: " + err);
-    }
-
-    registrarMovimiento(movimientos, codigoOrigen, deveui, usuario, esDesferReubicacio ? "Reubicació desfeta, torna a " + codigoDestino : "Renombrat a " + codigoDestino);
-
-    return ContentService.createTextOutput("OK");
   }
 
-  return ContentService.createTextOutput("ACCION DESCONOCIDA");
+  throw ultimoError;
 }
 
-// Comprueba si la petición está autorizada para tocar ese código de pozo:
-// o bien viene con la clave de administrador, o bien con un perfil de
-// instalador válido que tenga ese pozo concreto asignado. Devuelve el
-// "usuario" que debe quedar registrado (el nombre del admin escrito a mano,
-// o el perfil real del instalador — nunca texto libre en este segundo caso).
-function comprobarAutorizacion(params, codigo, fila) {
-
-  if (params.clave === CLAVE_VALIDA) {
-    return { autorizado: true, usuario: params.usuario || "Admin" };
-  }
-
-  if (params.perfil && params.contrasenya) {
-
-    const resultado = iniciarSessio(params.perfil, params.contrasenya);
-    if (!resultado.valido) {
-      return { autorizado: false, mensaje: resultado.mensaje || "Credencials incorrectes" };
-    }
-
-    // El admin (o un perfil marcat EsAdmin) sempre pot modificar-ho tot
-    if (resultado.esAdmin) {
-      return { autorizado: true, usuario: resultado.perfil };
-    }
-
-    if (resultado.pozos.indexOf(String(codigo).trim().toUpperCase()) === -1) {
-      return { autorizado: false, mensaje: "No tens aquest pou assignat" };
-    }
-
-    // Un cop un pou ja està Instalado, només qui el va instal·lar (o un
-    // admin, ja comprovat més amunt) el pot tornar a modificar — així dos
-    // instal·ladors que comparteixin l'accés a un pou no es trepitgen
-    if (fila) {
-      try {
-        const hojaInv = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Hoja1");
-        const estadoActual = hojaInv.getRange(fila, 14).getValue();
-        const usuarioActual = String(hojaInv.getRange(fila, 16).getValue() || "").trim();
-
-        if (estadoActual === "Instalado" && usuarioActual &&
-            usuarioActual.toLowerCase() !== resultado.perfil.toLowerCase()) {
-          return {
-            autorizado: false,
-            mensaje: "Aquest pou ja el va instal·lar " + usuarioActual + " — només ell o un administrador el pot modificar."
-          };
-        }
-      } catch (err) {
-        // Si falla esta comprovació per algun motiu tècnic, no bloquegem
-        // l'acció per això — es deixa passar com abans
-      }
-    }
-
-    return { autorizado: true, usuario: resultado.perfil };
-  }
-
-  return { autorizado: false, mensaje: "No autoritzat" };
-}
-
-// Admin: la clau mestra, o qualsevol perfil marcat com a EsAdmin (per a
-// accions que no són d'un pou concret: regenerar el mapa)
-function esAdminValido(params) {
-
-  if (params.clave === CLAVE_VALIDA) return true;
-
-  if (params.perfil && params.contrasenya) {
-    const resultado = iniciarSessio(params.perfil, params.contrasenya);
-    return resultado.valido === true && resultado.esAdmin === true;
-  }
-
-  return false;
-}
-
-// EXCLUSIVAMENT la clau mestra del sistema — cap perfil d'administrador
-// creat a mà compta aquí, encara que tingui EsAdmin marcat. Reservat per
-// gestionar els perfils (crear/editar/eliminar instal·ladors i admins).
-function esMestreValido(params) {
-
-  if (params.clave === CLAVE_VALIDA) return true;
-  if (params.contrasenya === CLAVE_VALIDA) return true;
-
-  return false;
-}
-
-// Admin, o qualsevol instal·lador amb credencials correctes (sense mirar
-// quins pous té assignats) — per a accions que no són d'un pou concret,
-// com pujar fitxers de cobertura
-function usuarioValido(params) {
-
-  if (params.clave === CLAVE_VALIDA) return true;
-
-  if (params.perfil && params.contrasenya) {
-    const resultado = iniciarSessio(params.perfil, params.contrasenya);
-    return resultado.valido === true;
-  }
-
-  return false;
-}
-
-// ============================================================
-// doPost — flujo completo de instalación: estado + foto + cobertura +
-// cable fins cota + observacions, todo en una sola llamada
-// ============================================================
-//
-// Espera un body JSON:
-// {
-//   accion: "instalado",
-//   clave, fila, codigo, deveui, usuario,
-//   cableFinsCota, observacions,
-//   fotoBase64, fotoNombre, fotoMime,
-//   coberturaBase64, coberturaNombre, coberturaMime
-// }
-
-function doPost(e) {
-
-  let body;
-
-  try {
-    body = JSON.parse(e.postData.contents);
-  } catch (err) {
-    return jsonOutput({ ok: false, mensaje: "Cos de la petició invàlid" });
-  }
-
-  if (body.accion === "mapa") {
-    if (!esAdminValido(body)) {
-      return jsonOutput({ ok: false, mensaje: "No autoritzat" });
-    }
-    return generarRespuestaMapa();
-  }
-
-  if (body.accion === "marcarVerificacio") {
-    if (!esAdminValido(body)) {
-      return jsonOutput({ ok: false, mensaje: "No autoritzat" });
-    }
-    return marcarVerificacio(body);
-  }
-
-  if (body.accion === "solicitarAcceso") {
-    return solicitarAccesoPou(body);
-  }
-
-  if (body.accion === "loginInstalador") {
-    return procesarLoginInstalador(body.perfil, body.contrasenya);
-  }
-
-  if (body.accion === "instaladors") {
-    if (!esMestreValido(body)) {
-      return jsonOutput({ ok: false, mensaje: "No autoritzat" });
-    }
-    return listarInstaladors();
-  }
-
-  if (body.accion === "cobertura") {
-    if (!usuarioValido(body)) {
-      return jsonOutput({ ok: false, mensaje: "No autoritzat" });
-    }
-    return subirCoberturaLote(body);
-  }
-
-  // Un archivo de cobertura por petición, mismo motivo que las fotos: con
-  // mala cobertura, varios archivos juntos en un solo envío pueden tardar
-  // varios minutos y colgar la petición entera
-  if (body.accion === "subirCoberturaArchivo") {
-    if (!usuarioValido(body)) {
-      return jsonOutput({ ok: false, mensaje: "No autoritzat" });
-    }
-    try {
-      const carpeta = DriveApp.getFolderById(CARPETA_COBERTURA_ID);
-      subirArchivoBase64(carpeta, body.nombre, body.base64, body.mime || "text/csv");
-      return jsonOutput({ ok: true });
-    } catch (err) {
-      return jsonOutput({ ok: false, mensaje: String(err) });
-    }
-  }
-
-  if (body.accion === "guardarInstalador") {
-    if (!esMestreValido({ clave: body.clave, contrasenya: body.sessioContrasenya })) {
-      return jsonOutput({ ok: false, mensaje: "No autoritzat" });
-    }
-    return guardarInstalador(body);
-  }
-
-  if (body.accion === "asignarPozosMultiple") {
-    if (!esMestreValido({ clave: body.clave, contrasenya: body.sessioContrasenya })) {
-      return jsonOutput({ ok: false, mensaje: "No autoritzat" });
-    }
-    return asignarPozosAVariosInstaladores(body);
-  }
-
-  if (body.accion === "actualizarConfiguracio") {
-    if (!esMestreValido({ clave: body.clave, contrasenya: body.sessioContrasenya })) {
-      return jsonOutput({ ok: false, mensaje: "No autoritzat" });
-    }
-    return actualizarConfiguracio(body);
-  }
-
-  if (body.accion === "eliminarInstalador") {
-    if (!esMestreValido({ clave: body.clave, contrasenya: body.sessioContrasenya })) {
-      return jsonOutput({ ok: false, mensaje: "No autoritzat" });
-    }
-    return eliminarInstalador(body.perfil);
-  }
-
-  // Acciones simples (retirar/no instalar/almacén/serie/reubicar) también
-  // por POST, para que la contrasenya no viaje en la URL
-  const accionesSimplesPost = ["retirar", "noinstalar", "almacen", "serieSonda", "reubicar", "actualizarMetraje"];
-  if (accionesSimplesPost.indexOf(body.accion) !== -1) {
-    return ejecutarAccion(body);
-  }
-
-  // Una foto por petición, en vez de varias juntas en un solo envío gigante:
-  // así, con mala cobertura, ninguna subida individual puede tardar tanto
-  // como para colgar la petición varios minutos
-  if (body.accion === "subirFoto") {
-
-    const auth = comprobarAutorizacion(body, body.codigo);
-    if (!auth.autorizado) {
-      return jsonOutput({ ok: false, mensaje: auth.mensaje || "No autoritzat" });
-    }
-
-    try {
-      const nombreInstalador = auth.usuario || "Sense instal·lador";
-      const carpetaInstalador = obtenerOCrearCarpeta(CARPETA_FOTOS_ID, nombreInstalador);
-      const carpetaPozo = obtenerOCrearCarpeta(carpetaInstalador.getId(), body.codigo);
-      const archivo = subirArchivoBase64(carpetaPozo, body.nombre, body.base64, body.mime || "image/jpeg");
-
-      // Se copia también a una carpeta plana por código de pozo, para poder
-      // encontrarla sin saber quién la montó. En tu Drive un mismo archivo
-      // no puede estar en dos carpetas a la vez, así que aquí sí se duplica
-      // (poco peso, ya van comprimidas) en vez de solo "añadir"
-      try {
-        const carpetaPozoPlana = obtenerOCrearCarpeta(CARPETA_FOTOS_ID, body.codigo);
-        if (carpetaPozoPlana.getId() !== carpetaPozo.getId()) {
-          const existentes = carpetaPozoPlana.getFilesByName(body.nombre);
-          if (!existentes.hasNext()) {
-            archivo.makeCopy(body.nombre, carpetaPozoPlana);
-          }
-        }
-      } catch (err2) {
-        Logger.log("No s'ha pogut copiar la foto a la carpeta plana per pou: " + err2);
-      }
-
-      return jsonOutput({ ok: true });
-    } catch (err) {
-      return jsonOutput({ ok: false, mensaje: String(err) });
-    }
-  }
-
-  if (body.accion !== "instalado") {
-    return jsonOutput({ ok: false, mensaje: "Acció desconeguda" });
-  }
-
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const hoja = ss.getSheetByName("Hoja1");
-  const movimientos = ss.getSheetByName("MOVIMIENTOS");
-
-  const fila = Number(body.fila);
-  if (!fila) {
-    return jsonOutput({ ok: false, mensaje: "Fila invàlida" });
-  }
-
-  const codigo = body.codigo || "";
-  const deveui = body.deveui || "";
-
-  const auth = comprobarAutorizacion(body, codigo, fila);
-  if (!auth.autorizado) {
-    return jsonOutput({ ok: false, mensaje: auth.mensaje || "No autoritzat" });
-  }
-  const usuario = auth.usuario;
-  CacheService.getScriptCache().remove(CACHE_KEY_LISTADO);
-
-  if (body.cableFinsCota) {
-    const bloquejActiu = PropertiesService.getScriptProperties().getProperty("bloquejarCableFinsCota") === "true";
-    if (bloquejActiu) {
-      const valorNum = parseFloat(String(body.cableFinsCota).replace(",", "."));
-      // Metratge de LA FILA concreta (no "el del codi"): amb codis repetits
-      // el mapa per codi podria donar el de l'altre registrador
-      const metrajeNum = parseFloat(hoja.getRange(fila, 4).getValue());
-      if (!isNaN(valorNum) && !isNaN(metrajeNum) && valorNum >= metrajeNum) {
-        return jsonOutput({
-          ok: false,
-          mensaje: "El cable fins a cota (" + valorNum + "m) no pot ser igual o major que el cable total de la sonda (" + metrajeNum + "m)."
-        });
-      }
-    }
-  }
-
-  const avisos = [];
-
-  // 1) Marcar instalado en el inventario
-  hoja.getRange(fila, 14).setValue("Instalado");
-  hoja.getRange(fila, 15).setValue(Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss"));
-  hoja.getRange(fila, 16).setValue(String(usuario));
-  registrarMovimiento(movimientos, codigo, deveui, usuario, "Instalado");
-
-  // 2) Fotos de montaje → carpeta con el código del pozo (se crea si no existe)
-  const listaFotos = [];
-
-  if (Array.isArray(body.fotos)) {
-    body.fotos.forEach(f => listaFotos.push(f));
-  }
-
-  if (body.fotoBase64) {
-    listaFotos.push({
-      base64: body.fotoBase64,
-      nombre: body.fotoNombre,
-      mime: body.fotoMime
-    });
-  }
-
-  if (listaFotos.length > 0) {
-    try {
-      const carpetaInstalador = obtenerOCrearCarpeta(CARPETA_FOTOS_ID, usuario || "Sense instal·lador");
-      const carpetaPozo = obtenerOCrearCarpeta(carpetaInstalador.getId(), codigo);
-      listaFotos.forEach((foto, idx) => {
-        subirArchivoBase64(
-          carpetaPozo,
-          foto.nombre || (codigo + "_" + Date.now() + "_" + idx + ".jpg"),
-          foto.base64,
-          foto.mime || "image/jpeg"
-        );
-      });
-    } catch (err) {
-      avisos.push("No s'han pogut pujar les fotos: " + err);
-    }
-  }
-
-  // 3) Cable fins cota + observacions + Acabat → hoja "Progrés sondes"
-  // Se llama siempre (no solo si hay cable/observacions) para que Acabat
-  // se marque en toda instalación.
-  try {
-    actualizarProgresSondes(codigo, body.cableFinsCota, body.observacions, usuario);
-  } catch (err) {
-    avisos.push("No s'ha pogut actualitzar Progrés sondes: " + err);
-  }
-
-  return jsonOutput({ ok: true, avisos: avisos });
-}
-
-// Sube varios archivos de cobertura de golpe a la carpeta de mediciones,
-// sin vincularlos a ninguna sonda concreta
-function subirCoberturaLote(body) {
-
-  if (!Array.isArray(body.archivos) || body.archivos.length === 0) {
-    return jsonOutput({ ok: false, mensaje: "Cap fitxer rebut" });
-  }
-
-  try {
-
-    const carpeta = DriveApp.getFolderById(CARPETA_COBERTURA_ID);
-
-    body.archivos.forEach((archivo, idx) => {
-      subirArchivoBase64(
-        carpeta,
-        archivo.nombre || ("cobertura_" + Date.now() + "_" + idx + ".csv"),
-        archivo.base64,
-        archivo.mime || "text/csv"
-      );
-    });
-
-    return jsonOutput({ ok: true, avisos: [] });
-
-  } catch (err) {
-    return jsonOutput({ ok: false, mensaje: String(err) });
+// Convierte una respuesta en JSON de forma segura: si el servidor devuelve
+// algo que no es JSON (p. ej. una página de error de Google por un corte de
+// red), no volcamos ese texto en crudo al usuario
+function parsearRespuestaJSON(texto){
+  try{
+    return JSON.parse(texto);
+  }catch(err){
+    return { ok: false, mensaje: "Resposta inesperada del servidor. Comprova la connexió i torna-ho a provar." };
   }
 }
 
-// Busca (sin crear) la carpeta de fotos de un pozo concreto y devuelve su
-// enlace de Drive, para el botón "📁 Fotos" de la ficha
-function obtenerCarpetaFotosURL(codigo) {
+// No usamos window.onload: ese evento espera a que TODO haya terminado de
+// cargar (fuentes de Google, la librería del escáner QR...), lo que en mala
+// cobertura puede tardar varios segundos por sí solo, antes siquiera de
+// empezar a pintar el inventario guardado. Este script va al final del
+// <body>, así que el HTML ya está listo — arrancamos ya mismo.
+iniciarApp();
 
-  const nombre = String(codigo || "").trim();
+async function iniciarApp(){
+  actualizarModoAdmin();
+  actualizarModoInstalador();
 
-  if (!nombre) {
-    return jsonOutput({ ok: false, mensaje: "Falta el codi de pou" });
+  // Se lanzan a la vez, no una detrás de otra: así sus tiempos de espera
+  // se solapan en vez de sumarse
+  const promesaPrincipal = instaladorActiu ? refrescarDadesInstalador() : cargarDatos();
+  cargarConfiguracio();
+
+  if(admin){
+    cargarPanellInstaladors();
   }
 
-  try {
+  await promesaPrincipal;
 
-    const padre = DriveApp.getFolderById(CARPETA_FOTOS_INVENTARI_ID);
-    const existentes = padre.getFoldersByName(nombre);
+  const codigo = location.hash.replace("#","").toUpperCase();
+  if(codigo){
+    document.getElementById("busqueda").value = codigo;
+    buscar();
+  }
+}
 
-    if (existentes.hasNext()) {
-      const carpeta = existentes.next();
-      // Por si es una carpeta antigua creada antes de hacerlas públicas
-      carpeta.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      return jsonOutput({ ok: true, url: carpeta.getUrl() });
+let bloquejarCableFinsCotaActiu = false;
+
+async function cargarConfiguracio(){
+  try{
+    const r = await fetchAmbTimeout(API + "?accion=configuracio");
+    const dades = await r.json();
+    if(dades.ok){
+      bloquejarCableFinsCotaActiu = !!dades.bloquejarCableFinsCota;
+    }
+  }catch(error){
+    console.error("No s'ha pogut carregar la configuració:", error);
+  }
+}
+
+async function cargarDatos(intent){
+
+  intent = intent || 1;
+
+  const card = document.getElementById("statsCard");
+  const stats = document.getElementById("stats");
+
+  const cache = localStorage.getItem("cacheEquipos");
+  const habiaCache = !!cache;
+
+  // Si ya hay algo guardado, se pinta al instante sin esperar a la red —
+  // la web se siente cargada desde el primer momento, y los datos frescos
+  // llegan y sustituyen esto en cuanto estén listos
+  if(intent === 1 && habiaCache && !equipos.length){
+    equipos = JSON.parse(cache);
+    actualizarStats();
+  }
+
+  // Solo se atenúa/bloquea la tarjeta si no hay nada que mostrar todavía.
+  // Si ya se ve el inventario (aunque sea de caché), el refresco de fondo
+  // no debe "apagar" ni bloquear algo que ya es usable
+  if(!habiaCache){
+    card.classList.add("cargando");
+  }
+
+  if(intent > 1 && !habiaCache){
+    stats.innerHTML = "Carregant… (intent " + intent + " de 4)";
+  }
+
+  try{
+
+    const r = await fetchAmbTimeout(API, undefined, 25000);
+    if(!r.ok) throw new Error("HTTP " + r.status);
+
+    equipos = await r.json();
+    actualizarStats();
+
+    // Si hay una ficha abierta (p. ej. la abriste mientras esta carga de
+    // fondo aún iba en marcha), se repinta ya con los datos frescos —
+    // así "Com arribar-hi" y demás aparecen sin esperar a un refresco manual
+    const equipoAbierto = equipoObert();
+    if(equipoAbierto) mostrarEquipo(equipoAbierto);
+
+    // Se guarda como copia local, para la próxima vez que se abra la web
+    // (y como red de seguridad si el siguiente intento falla)
+    try{
+      localStorage.setItem("cacheEquipos", JSON.stringify(equipos));
+      localStorage.setItem("cacheEquiposFecha", new Date().toISOString());
+    }catch(e){ /* si no cabe en localStorage, no pasa nada grave */ }
+
+  }catch(error){
+    console.error("Error carregant inventari (intent " + intent + "):", error);
+
+    if(intent < 4){
+      await new Promise(res => setTimeout(res, intent * 2000));
+      card.classList.remove("cargando");
+      return cargarDatos(intent + 1);
     }
 
-    return jsonOutput({ ok: false, mensaje: "Encara no hi ha fotos d'aquest pou" });
+    if(habiaCache){
+      // Ya se estaba mostrando la copia guardada: solo un aviso discreto,
+      // sin tapar los datos que ya se ven
+      const fecha = localStorage.getItem("cacheEquiposFecha");
+      const cuando = fecha ? new Date(fecha).toLocaleString() : "data desconeguda";
 
-  } catch (err) {
-    return jsonOutput({ ok: false, mensaje: String(err) });
-  }
-}
+      stats.innerHTML =
+        `⚠️ Sense connexió — mostrant dades guardades de ${escapeHtml(cuando)}. ` +
+        "<button class=\"btn btn-outline\" onclick=\"cargarDatos()\">Tornar a provar</button>" +
+        stats.innerHTML;
 
-function obtenerOCrearCarpeta(idCarpetaPadre, nombre) {
-  const padre = DriveApp.getFolderById(idCarpetaPadre);
-  const existentes = padre.getFoldersByName(nombre);
-  if (existentes.hasNext()) {
-    const carpeta = existentes.next();
-    carpeta.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return carpeta;
-  }
-  const nueva = padre.createFolder(nombre);
-  nueva.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  return nueva;
-}
-
-function subirArchivoBase64(carpeta, nombreArchivo, base64, mime) {
-
-  // Si el nombre ya existe en la carpeta, es casi seguro un reintento tras
-  // un error de red (el nombre incluye un hash del contenido, así que un
-  // archivo distinto nunca coincide) — no lo volvemos a crear
-  const existentes = carpeta.getFilesByName(nombreArchivo);
-  if (existentes.hasNext()) {
-    return existentes.next();
-  }
-
-  const bytes = Utilities.base64Decode(base64);
-  const blob = Utilities.newBlob(bytes, mime, nombreArchivo);
-  return carpeta.createFile(blob);
-}
-
-function indiceColumna(cabeceras, nombreBuscado) {
-  const objetivo = nombreBuscado.trim().toUpperCase();
-  for (let i = 0; i < cabeceras.length; i++) {
-    if (String(cabeceras[i] || "").trim().toUpperCase() === objetivo) {
-      return i;
+    }else{
+      stats.innerHTML =
+        "⚠️ No s'ha pogut carregar l'inventari. " +
+        "<button class=\"btn btn-outline\" onclick=\"cargarDatos()\">Reintentar</button>";
     }
-  }
-  return -1;
-}
-
-// Renombra en Progrés sondes la fila que coincidia amb el codi antic (si
-// n'hi ha), preservant el seu propi "Codi original" igual que a l'inventari
-// — mateix esperit: res es perd, només es marca com a substituït
-function renombrarEnProgresSondes(codigoOrigen, codigoDestino, usuario, esDesferReubicacio) {
-
-  const hojaProgres = SpreadsheetApp.openById(HOJA_PROGRES_ID).getSheetByName("Hoja1");
-  const datos = hojaProgres.getDataRange().getValues();
-  const cabeceras = datos[0];
-
-  const colCodi = indiceColumna(cabeceras, "CODI");
-  if (colCodi === -1) return;
-
-  let colCodiOriginal = indiceColumna(cabeceras, "Codi original");
-  let colReubicatPer = indiceColumna(cabeceras, "Reubicat per");
-  let colReubicatData = indiceColumna(cabeceras, "Reubicat data");
-
-  for (let i = 1; i < datos.length; i++) {
-
-    const codigoFila = String(datos[i][colCodi] || "").trim().toUpperCase();
-    if (codigoFila !== codigoOrigen) continue;
-
-    if (colCodiOriginal === -1) {
-      const nuevaColumna = hojaProgres.getLastColumn() + 1;
-      hojaProgres.getRange(1, nuevaColumna).setValue("Codi original");
-      colCodiOriginal = nuevaColumna - 1;
-    }
-    if (colReubicatPer === -1) {
-      const nuevaColumna = hojaProgres.getLastColumn() + 1;
-      hojaProgres.getRange(1, nuevaColumna).setValue("Reubicat per");
-      colReubicatPer = nuevaColumna - 1;
-    }
-    if (colReubicatData === -1) {
-      const nuevaColumna = hojaProgres.getLastColumn() + 1;
-      hojaProgres.getRange(1, nuevaColumna).setValue("Reubicat data");
-      colReubicatData = nuevaColumna - 1;
-    }
-
-    if (esDesferReubicacio) {
-      // Es torna al codi original: es netegen les columnes de seguiment
-      // en comptes d'actualitzar-les, igual que a l'inventari principal
-      hojaProgres.getRange(i + 1, colCodiOriginal + 1).clearContent();
-      hojaProgres.getRange(i + 1, colReubicatPer + 1).clearContent();
-      hojaProgres.getRange(i + 1, colReubicatData + 1).clearContent();
-    } else {
-      // Es conserva sempre el primer codi original, encara que aquesta
-      // fila ja s'hagués renombrat abans
-      const actual = String(hojaProgres.getRange(i + 1, colCodiOriginal + 1).getValue() || "").trim();
-      if (!actual) {
-        hojaProgres.getRange(i + 1, colCodiOriginal + 1).setValue(codigoOrigen);
-      }
-      hojaProgres.getRange(i + 1, colReubicatPer + 1).setValue(String(usuario || ""));
-      hojaProgres.getRange(i + 1, colReubicatData + 1)
-        .setValue(Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss"));
-    }
-
-    hojaProgres.getRange(i + 1, colCodi + 1).setValue(codigoDestino);
-
-    return; // ja s'ha trobat i actualitzat la fila, no cal seguir
-  }
-
-  // Si no hi havia cap fila amb el codi antic a Progrés sondes, no cal fer
-  // res — simplement encara no s'havia arribat a crear
-}
-
-function actualizarAcabatProgres(codigo, valor) {
-
-  const hojaProgres = SpreadsheetApp.openById(HOJA_PROGRES_ID).getSheetByName("Hoja1");
-  const datos = hojaProgres.getDataRange().getValues();
-  const cabeceras = datos[0];
-
-  const colCodi = indiceColumna(cabeceras, "CODI");
-  const colAcabat = indiceColumna(cabeceras, "Acabat");
-
-  if (colAcabat === -1) return;
-
-  for (let i = 1; i < datos.length; i++) {
-    const codigoFila = String(datos[i][colCodi] || "").trim().toUpperCase();
-    if (codigoFila === String(codigo).trim().toUpperCase()) {
-      hojaProgres.getRange(i + 1, colAcabat + 1).setValue(valor);
-      return;
-    }
+  }finally{
+    card.classList.remove("cargando");
   }
 }
 
-// Marca la fila de este pozo en rojo (no es apte per instal·lar) y guarda
-// el motiu a Observacions
-function marcarNoInstalarProgres(codigo, observacions) {
+async function actualizarDatos(){
 
-  const hojaProgres = SpreadsheetApp.openById(HOJA_PROGRES_ID).getSheetByName("Hoja1");
-  const datos = hojaProgres.getDataRange().getValues();
-  const cabeceras = datos[0];
+  const promesaPrincipal = instaladorActiu ? refrescarDadesInstalador() : cargarDatos();
 
-  const colCodi = indiceColumna(cabeceras, "CODI");
-  const colObs = indiceColumna(cabeceras, "Observacions");
-  const colAcabat = indiceColumna(cabeceras, "Acabat");
-
-  for (let i = 1; i < datos.length; i++) {
-
-    const codigoFila = String(datos[i][colCodi] || "").trim().toUpperCase();
-
-    if (codigoFila === String(codigo).trim().toUpperCase()) {
-
-      if (observacions && colObs !== -1) {
-        hojaProgres.getRange(i + 1, colObs + 1).setValue(observacions);
-      }
-
-      hojaProgres.getRange(i + 1, 1, 1, cabeceras.length).setBackground("#ff0000");
-
-      if (colObs !== -1) {
-        hojaProgres.getRange(i + 1, colObs + 1)
-          .setFontColor("#FFFFFF")
-          .setFontWeight("bold");
-      }
-
-      if (colAcabat !== -1) {
-        hojaProgres.getRange(i + 1, colAcabat + 1).setValue("No montar");
-      }
-
-      return;
-    }
+  if(admin){
+    cargarPanellInstaladors();
   }
+
+  await promesaPrincipal;
+
+  const equipo = equipoObert();
+  if(equipo){ mostrarEquipo(equipo); }
 }
 
-// Quita el color rojo de "No instal·lar" de la fila de este pozo (se llama
-// al pasar a Instalado o a Almacén)
-function limpiarColorProgres(codigo) {
-
-  const hojaProgres = SpreadsheetApp.openById(HOJA_PROGRES_ID).getSheetByName("Hoja1");
-  const datos = hojaProgres.getDataRange().getValues();
-  const cabeceras = datos[0];
-
-  const colCodi = indiceColumna(cabeceras, "CODI");
-  const colObs = indiceColumna(cabeceras, "Observacions");
-
-  for (let i = 1; i < datos.length; i++) {
-
-    const codigoFila = String(datos[i][colCodi] || "").trim().toUpperCase();
-
-    if (codigoFila === String(codigo).trim().toUpperCase()) {
-
-      hojaProgres.getRange(i + 1, 1, 1, cabeceras.length).setBackground(null);
-
-      if (colObs !== -1) {
-        hojaProgres.getRange(i + 1, colObs + 1)
-          .setFontColor(null)
-          .setFontWeight("normal");
-      }
-
-      return;
-    }
-  }
-}
-
-function actualizarProgresSondes(codigo, cableFinsCota, observacions, instalador, fechaMontaje) {
-
-  const hojaProgres = SpreadsheetApp.openById(HOJA_PROGRES_ID).getSheetByName("Hoja1");
-  const datos = hojaProgres.getDataRange().getValues();
-  const cabeceras = datos[0];
-
-  const colCodi = indiceColumna(cabeceras, "CODI");
-  const colCable = indiceColumna(cabeceras, "Cable fins cota (Metres)");
-  const colObs = indiceColumna(cabeceras, "Observacions");
-  const colAcabat = indiceColumna(cabeceras, "Acabat");
-  let colInstalador = indiceColumna(cabeceras, "Instal·lador");
-  let colDataMuntatge = indiceColumna(cabeceras, "Data de muntatge");
-  let colAlerta = indiceColumna(cabeceras, "Alerta");
-
-  // La columna todavía no existe: la creamos en R (estaba libre)
-  if (colInstalador === -1) {
-    hojaProgres.getRange(1, 18).setValue("Instal·lador");
-    colInstalador = 17; // índice 0-based de la columna R
-  }
-
-  // Igual para la fecha de montaje: la creamos en S (también estaba libre)
-  if (colDataMuntatge === -1) {
-    hojaProgres.getRange(1, 19).setValue("Data de muntatge");
-    colDataMuntatge = 18; // índice 0-based de la columna S
-  }
-
-  // Y para la columna de alertas
-  if (colAlerta === -1) {
-    const nuevaColumna = hojaProgres.getLastColumn() + 1;
-    hojaProgres.getRange(1, nuevaColumna).setValue("Alerta");
-    colAlerta = nuevaColumna - 1;
-  }
-
-  // Cable total de cada pozo (viene del inventario principal), para poder
-  // comparar contra el "cable fins cota" que se acaba de escribir
-  const metrajePorCodigo = obtenerMetrajePorCodigo();
-
-  for (let i = 1; i < datos.length; i++) {
-
-    const codigoFila = String(datos[i][colCodi] || "").trim().toUpperCase();
-
-    if (codigoFila === String(codigo).trim().toUpperCase()) {
-
-      if (cableFinsCota && colCable !== -1) {
-        // Se guarda como "45,5 m": coma decimal (no punto) + espacio + "m",
-        // y la celda en negrita
-        const valorConComa = String(cableFinsCota).trim().replace(".", ",");
-        hojaProgres.getRange(i + 1, colCable + 1)
-          .setValue(valorConComa + " m")
-          .setFontWeight("bold");
-      }
-
-      if (observacions && colObs !== -1) {
-        hojaProgres.getRange(i + 1, colObs + 1).setValue(observacions);
-      }
-
-      if (colAcabat !== -1) {
-        hojaProgres.getRange(i + 1, colAcabat + 1).setValue("Sí");
-      }
-
-      // Fila en verde al quedar "Sí" — y se limpia primero cualquier rojo o
-      // negrita blanca que arrastrara de un "No montar" anterior
-      hojaProgres.getRange(i + 1, 1, 1, cabeceras.length).setBackground("#d9ead3");
-      if (colObs !== -1) {
-        hojaProgres.getRange(i + 1, colObs + 1).setFontColor(null).setFontWeight("normal");
-      }
-
-      if (instalador) {
-        hojaProgres.getRange(i + 1, colInstalador + 1).setValue(instalador);
-      }
-
-      hojaProgres.getRange(i + 1, colDataMuntatge + 1)
-        .setValue(fechaMontaje || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss"));
-
-      // Comprobación: "cable fins cota" nunca puede ser igual o mayor que
-      // el cable total de la sonda — error típico de confundir ambos datos.
-      // Se comprueba sobre lo que quede en la celda (nuevo o ya existente),
-      // así se mantiene correcta aunque esta llamada no traiga un valor nuevo.
-      if (colAlerta !== -1 && colCable !== -1) {
-
-        const valorCelda = hojaProgres.getRange(i + 1, colCable + 1).getValue();
-        const valorNum = parseFloat(String(valorCelda).replace(" m", "").replace(",", ".").trim());
-        const metrajeNum = parseFloat(metrajePorCodigo[codigoFila]);
-
-        let mensajeAlerta = "";
-        if (!isNaN(valorNum) && !isNaN(metrajeNum) && valorNum >= metrajeNum) {
-          mensajeAlerta = "⚠️ Cable fins cota (" + valorNum + "m) ≥ cable total (" + metrajeNum + "m) — sembla confós, revisar";
-        }
-
-        hojaProgres.getRange(i + 1, colAlerta + 1).setValue(mensajeAlerta);
-      }
-
-      return;
-    }
-  }
-}
-
-// Mapa codigo -> metraje (columna D, "long cable") del inventario principal
-function obtenerMetrajePorCodigo() {
-  const hojaInventario = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Hoja1");
-  const datosInventario = hojaInventario.getDataRange().getValues();
-  const mapa = {};
-  for (let j = 1; j < datosInventario.length; j++) {
-    const c = String(datosInventario[j][2] || "").trim().toUpperCase();
-    if (c) mapa[c] = datosInventario[j][3];
-  }
-  return mapa;
-}
-
-// EJECUTA ESTO CUANDO HAGA FALTA (▶ Ejecutar, eligiendo esta función) para
-// revisar TODOS los pozos ya instalados y marcar la alerta de "cable fins
-// cota" en los que ya tuvieran el dato mal metido desde antes de esto.
-function detectarAlertasCableExistents() {
-
-  const hojaProgres = SpreadsheetApp.openById(HOJA_PROGRES_ID).getSheetByName("Hoja1");
-  const datos = hojaProgres.getDataRange().getValues();
-  const cabeceras = datos[0];
-
-  const colCodi = indiceColumna(cabeceras, "CODI");
-  const colCable = indiceColumna(cabeceras, "Cable fins cota (Metres)");
-  let colAlerta = indiceColumna(cabeceras, "Alerta");
-
-  if (colAlerta === -1) {
-    const nuevaColumna = hojaProgres.getLastColumn() + 1;
-    hojaProgres.getRange(1, nuevaColumna).setValue("Alerta");
-    colAlerta = nuevaColumna - 1;
-  }
-
-  const metrajePorCodigo = obtenerMetrajePorCodigo();
-  let contador = 0;
-
-  for (let i = 1; i < datos.length; i++) {
-
-    const codigo = String(datos[i][colCodi] || "").trim().toUpperCase();
-    if (!codigo) continue;
-
-    const valorCelda = datos[i][colCable];
-    const valorNum = parseFloat(String(valorCelda || "").replace(" m", "").replace(",", ".").trim());
-    const metrajeNum = parseFloat(metrajePorCodigo[codigo]);
-
-    let mensajeAlerta = "";
-    if (!isNaN(valorNum) && !isNaN(metrajeNum) && valorNum >= metrajeNum) {
-      mensajeAlerta = "⚠️ Cable fins cota (" + valorNum + "m) ≥ cable total (" + metrajeNum + "m) — sembla confós, revisar";
-      contador++;
-    }
-
-    hojaProgres.getRange(i + 1, colAlerta + 1).setValue(mensajeAlerta);
-  }
-
-  Logger.log("Pous amb alerta de cable: " + contador);
-}
-
-// ============================================================
-// GENERACIÓN DEL MAPA KML — reclasifica los pozos entre "Problematics",
-// "Acabats" y sus carpetas de tipo de sonda originales, según el estado
-// del inventario y de Progrés sondes. Genera un .kml listo para
-// reimportar en el proyecto de Google Earth.
-// ============================================================
-
-function generarRespuestaMapa() {
-  try {
-    const archivo = generarKML();
-    return jsonOutput({
-      ok: true,
-      url: "https://drive.google.com/uc?export=download&id=" + archivo.getId(),
-      nombre: archivo.getName()
-    });
-  } catch (err) {
-    return jsonOutput({ ok: false, mensaje: String(err) });
-  }
-}
-
-function generarKML() {
-
-  const kmlText = DriveApp.getFileById(KML_BASE_ID).getBlob().getDataAsString("UTF-8");
-
-  const inicioPrimeraCarpeta = kmlText.indexOf("<Folder ");
-  const cabecera = kmlText.substring(0, inicioPrimeraCarpeta);
-
-  const finUltimaCarpeta = kmlText.lastIndexOf("</Folder>") + "</Folder>".length;
-  const pie = kmlText.substring(finUltimaCarpeta);
-
-  const bloqueCarpetas = kmlText.substring(inicioPrimeraCarpeta, finUltimaCarpeta);
-
-  // Extraer cada carpeta de nivel superior
-  const folderRegex = /<Folder id="([^"]*)">([\s\S]*?)<\/Folder>/g;
-  const carpetasCrudas = [];
-  let m;
-  while ((m = folderRegex.exec(bloqueCarpetas)) !== null) {
-    carpetasCrudas.push({ id: m[1], contenido: m[2] });
-  }
-
-  // Para cada carpeta: cabecera (name/visibility/styleUrl) + placemarks
-  const estructuraCarpetas = carpetasCrudas.map(c => {
-
-    const cabeceraMatch = c.contenido.match(
-      /^\s*<name>([^<]*)<\/name>\s*(?:<visibility>(\d)<\/visibility>\s*)?<styleUrl>([^<]*)<\/styleUrl>/
-    );
-
-    const placemarks = [];
-    const placemarkRegex = /<Placemark id="([^"]*)">([\s\S]*?)<\/Placemark>/g;
-    let pm;
-    while ((pm = placemarkRegex.exec(c.contenido)) !== null) {
-      const nombreMatch = pm[2].match(/<name>([^<]*)<\/name>/);
-      placemarks.push({
-        id: pm[1],
-        contenidoCompleto: pm[2],
-        codigo: nombreMatch ? nombreMatch[1].trim().toUpperCase() : ""
-      });
-    }
-
-    return {
-      id: c.id,
-      nombreCarpeta: cabeceraMatch ? cabeceraMatch[1] : "",
-      visibility: cabeceraMatch && cabeceraMatch[2] !== undefined ? cabeceraMatch[2] : null,
-      styleUrl: cabeceraMatch ? cabeceraMatch[3] : "",
-      placemarks: placemarks
-    };
-  });
-
-  const estados = cargarEstadosInventario();
-  const acabats = cargarAcabatsProgres();
-
-  const carpetaProblematics = estructuraCarpetas.find(c => c.nombreCarpeta === "Problematics");
-  const carpetaAcabats = estructuraCarpetas.find(c => c.nombreCarpeta === "Acabats");
-
-  const movidosAProblematics = [];
-  const movidosAAcabats = [];
-
-  // 1) Sacar de las carpetas de tipo de sonda los que ya están instalados o no se pueden instalar
-  estructuraCarpetas.forEach(c => {
-    if (c.nombreCarpeta === "Problematics" || c.nombreCarpeta === "Acabats") return;
-
-    c.placemarks = c.placemarks.filter(p => {
-
-      const estado = estados[p.codigo];
-      const acabat = acabats[p.codigo];
-
-      if (estado === "No instalar") {
-        movidosAProblematics.push(actualizarStyleUrlPlacemark(p, STYLE_PROBLEMATIC));
-        return false;
-      }
-
-      if (estado === "Instalado" || acabat === true) {
-        movidosAAcabats.push(actualizarStyleUrlPlacemark(p, STYLE_ACABAT));
-        return false;
-      }
-
-      return true;
-    });
-  });
-
-  // 2) Revisar los que ya estaban en Problematics, por si han pasado a instalados
-  if (carpetaProblematics) {
-    carpetaProblematics.placemarks = carpetaProblematics.placemarks.filter(p => {
-      const estado = estados[p.codigo];
-      const acabat = acabats[p.codigo];
-      if (estado === "Instalado" || acabat === true) {
-        movidosAAcabats.push(actualizarStyleUrlPlacemark(p, STYLE_ACABAT));
-        return false;
-      }
-      return true;
-    });
-  }
-
-  // 3) Revisar los que ya estaban en Acabats, por si han pasado a "No instalar"
-  if (carpetaAcabats) {
-    carpetaAcabats.placemarks = carpetaAcabats.placemarks.filter(p => {
-      const estado = estados[p.codigo];
-      if (estado === "No instalar") {
-        movidosAProblematics.push(actualizarStyleUrlPlacemark(p, STYLE_PROBLEMATIC));
-        return false;
-      }
-      return true;
-    });
-  }
-
-  if (carpetaProblematics) carpetaProblematics.placemarks.push.apply(carpetaProblematics.placemarks, movidosAProblematics);
-  if (carpetaAcabats) carpetaAcabats.placemarks.push.apply(carpetaAcabats.placemarks, movidosAAcabats);
-
-  // Reconstruir el XML
-  let salida = cabecera;
-
-  estructuraCarpetas.forEach(c => {
-    salida += '<Folder id="' + c.id + '">\n';
-    salida += '<name>' + c.nombreCarpeta + '</name>\n';
-    if (c.visibility !== null) salida += '<visibility>' + c.visibility + '</visibility>\n';
-    salida += '<styleUrl>' + c.styleUrl + '</styleUrl>\n';
-    c.placemarks.forEach(p => {
-      salida += '<Placemark id="' + p.id + '">' + p.contenidoCompleto + '</Placemark>\n';
-    });
-    salida += '</Folder>\n';
-  });
-
-  salida += pie;
-
-  const carpetaGE = DriveApp.getFolderById(CARPETA_GOOGLE_EARTH_ID);
-  const existentes = carpetaGE.getFilesByName(KML_OUTPUT_NAME);
-  while (existentes.hasNext()) {
-    existentes.next().setTrashed(true);
-  }
-
-  const archivo = carpetaGE.createFile(KML_OUTPUT_NAME, salida, "application/vnd.google-earth.kml+xml");
-
-  // Cualquiera con el enlace puede verlo/descargarlo, sin pedir cuenta de Google
-  archivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-  return archivo;
-}
-
-function actualizarStyleUrlPlacemark(placemark, nuevoStyleId) {
-  const contenidoActualizado = placemark.contenidoCompleto.replace(
-    /<styleUrl>#[^<]*<\/styleUrl>/,
-    '<styleUrl>#' + nuevoStyleId + '</styleUrl>'
-  );
-  return Object.assign({}, placemark, { contenidoCompleto: contenidoActualizado });
-}
-
-function cargarEstadosInventario() {
-  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Hoja1");
-  const datos = hoja.getDataRange().getValues();
-  const mapa = {};
-  for (let i = 1; i < datos.length; i++) {
-    const codigo = String(datos[i][2] || "").trim().toUpperCase();
-    if (codigo) mapa[codigo] = datos[i][13]; // columna Estado
-  }
-  return mapa;
-}
-
-function cargarAcabatsProgres() {
-  const hojaProgres = SpreadsheetApp.openById(HOJA_PROGRES_ID).getSheetByName("Hoja1");
-  const datos = hojaProgres.getDataRange().getValues();
-  const cabeceras = datos[0];
-  const colCodi = indiceColumna(cabeceras, "CODI");
-  const colAcabat = indiceColumna(cabeceras, "Acabat");
-  const mapa = {};
-  for (let i = 1; i < datos.length; i++) {
-    const codigo = String(datos[i][colCodi] || "").trim().toUpperCase();
-    if (codigo) mapa[codigo] = (colAcabat !== -1) ? (String(datos[i][colAcabat] || "").trim() === "Sí") : false;
-  }
-  return mapa;
-}
-
-// ============================================================
-// EJECUTA ESTO UNA VEZ A MANO (▶ Ejecutar, eligiendo esta función) para
-// que el script se "toque" solo cada 10 minutos. No garantiza que Apps
-// Script no se enfríe nunca (Google no ofrece eso en el plan gratuito),
-// pero reduce cuántas veces te toca a ti el arranque en frío completo.
-// ============================================================
-function crearTriggerMantenirDespert() {
-
-  ScriptApp.getProjectTriggers().forEach(t => {
-    if (t.getHandlerFunction() === "mantenirDespert") {
-      ScriptApp.deleteTrigger(t);
-    }
-  });
-
-  ScriptApp.newTrigger("mantenirDespert")
-    .timeBased()
-    .everyMinutes(10)
-    .create();
-
-  Logger.log("Disparador creat: el script es tocarà sol cada 10 minuts.");
-}
-
-// Lectura mínima, solo para generar actividad — no hace falta que haga
-// nada útil, solo que se ejecute
-function mantenirDespert() {
-  SpreadsheetApp.getActiveSpreadsheet().getName();
-}
-
-// ============================================================
-// EJECUTA ESTO UNA VEZ A MANO (▶ Ejecutar, eligiendo esta función) para
-// que el mapa se regenere solo, cada hora, sin que nadie tenga que pulsar
-// el botón de la web. Solo hace falta ejecutarla una vez; queda instalada.
-// ============================================================
-function crearTriggerActualitzacioMapa() {
-
-  // Evita duplicar el disparador si ya existe uno para esta función
-  ScriptApp.getProjectTriggers().forEach(t => {
-    if (t.getHandlerFunction() === "generarKML") {
-      ScriptApp.deleteTrigger(t);
-    }
-  });
-
-  ScriptApp.newTrigger("generarKML")
-    .timeBased()
-    .everyHours(1)
-    .create();
-
-  Logger.log("Disparador creat: el mapa es regenerarà automàticament cada hora.");
-}
-
-// ============================================================
-// DATOS PARA EL VISOR EN NAVEGADOR (mapa.html) — usa directamente
-// las coordenadas ya guardadas en Hoja1 (importarCoordenadas), sin
-// tocar el KML. Pensado para un vistazo rápido, no sustituye al
-// proyecto completo de Google Earth.
-// ============================================================
-
-// Lee toda la hoja "Progrés sondes" (valores + color de fondo de cada fila,
-// para que la web pueda mostrar en rojo las mismas filas que en el Excel)
-function generarProgresSondesJSON() {
-
-  const hoja = SpreadsheetApp.openById(HOJA_PROGRES_ID).getSheetByName("Hoja1");
-  const rango = hoja.getDataRange();
-  const valores = rango.getValues();
-  const fondos = rango.getBackgrounds();
-
-  if (valores.length === 0) {
-    return jsonOutput({ ok: true, headers: [], filas: [] });
-  }
-
-  const headers = valores[0];
-  const filas = [];
-
-  for (let i = 1; i < valores.length; i++) {
-
-    const fila = valores[i];
-    const vacia = fila.every(v => v === "" || v === null || v === undefined);
-    if (vacia) continue;
-
-    filas.push({
-      valores: fila,
-      colorFondo: fondos[i][0] || null
-    });
-  }
-
-  return jsonOutput({ ok: true, headers: headers, filas: filas });
-}
-
-function generarMapaJSON() {
-
-  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Hoja1");
-  const datos = hoja.getDataRange().getValues();
-  const acabats = cargarAcabatsProgres();
-  const vigilants = cargarVigilantsProgres();
-
-  const puntos = [];
-
-  for (let i = 1; i < datos.length; i++) {
-
-    const codigo = String(datos[i][2] || "").trim().toUpperCase();
-    const lat = datos[i][17];
-    const lon = datos[i][18];
-
-    if (!codigo || !lat || !lon) continue;
-
-    const estado = datos[i][13] || "";
-    const tipoSonda = String(datos[i][5] || "").toLowerCase();
-    const remesa = String(datos[i][7] || "").trim();
-    const acabat = acabats[codigo] === true;
-
-    let categoria;
-    let color;
-
-    if (estado === "No instalar") {
-      categoria = "problematic";
-      color = "#d32f2f";
-    } else if (estado === "Instalado" || acabat) {
-      categoria = "acabat";
-      color = "#f9a825";
-    } else if (tipoSonda.indexOf("nitrat") !== -1) {
-      categoria = "nitrats";
-      color = "#f57c00";
-    } else if (remesa === "1") {
-      categoria = "nivell";
-      color = "#388e3c";
-    } else if (remesa === "2") {
-      categoria = "lila";
-      color = "#7b1fa2";
-    } else if (remesa === "3") {
-      categoria = "blaus";
-      color = "#1976d2";
-    } else {
-      categoria = "altres";
-      color = "#757575";
-    }
-
-    puntos.push({
-      codigo: codigo,
-      lat: lat,
-      lon: lon,
-      estado: estado,
-      categoria: categoria,
-      color: color,
-      vigilant: vigilants[codigo] || "",
-      tipoSonda: datos[i][5] || "",
-      metraje: datos[i][3] || "",
-      remesa: remesa,
-      instalador: datos[i][15] || ""
-    });
-  }
-
-  return jsonOutput({ ok: true, puntos: puntos });
-}
-
-// Un instalador pide acceso a un pozo que no tiene asignado — se avisa al
-// admin por email y Telegram, sin dar acceso automáticamente (eso lo sigues
-// haciendo tú a mano en admin.html, esto solo te avisa de que hace falta)
-// Genera el HTML del correo de solicitud de acceso. Todo en estilos en
-// línea (no <style> aparte) porque Gmail y la mayoría de clientes de
-// correo lo ignoran o lo recortan si no va inline.
-function generarHtmlSolicitudAcces(perfil, codigo, fecha, urlAprobacio) {
-  return `
-  <div style="background:#EEF2F1;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
-    <div style="max-width:480px;margin:0 auto;background:#FFFFFF;border:1px solid #DCE4E2;border-radius:10px;overflow:hidden;">
-
-      <div style="background:#10242B;padding:16px 24px;">
-        <span style="display:inline-block;background:#FFFFFF;color:#10242B;font-family:'Courier New',monospace;font-weight:bold;font-size:13px;letter-spacing:1px;padding:3px 8px;border-radius:5px;">JFA</span>
-        <span style="color:#B8C4C2;font-size:14px;font-weight:bold;margin-left:8px;">Instalacions</span>
+function actualizarStats(){
+
+  const almacen = equipos.filter(e=>e.estado==="Almacén").length;
+  const retirado = equipos.filter(e=>e.estado==="Retirado").length;
+  const instalado = equipos.filter(e=>e.estado==="Instalado").length;
+  const noInstalar = equipos.filter(e=>e.estado==="No instalar").length;
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stats-total">Total inventariat: <b>${equipos.length}</b></div>
+    <div class="stats-grid">
+
+      <div class="stat-tile tile-almacen" onclick="filtrarEstado('Almacén')">
+        <span class="n">${almacen}</span>
+        <span class="lbl"><span class="dot"></span>Magatzem</span>
       </div>
 
-      <div style="padding:28px 24px;">
-
-        <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#8B9A9D;font-weight:bold;">
-          Sol·licitud d'accés
-        </p>
-
-        <p style="margin:0 0 20px;font-size:15px;color:#10242B;line-height:1.5;">
-          <strong>${escaparHtmlCorreo(perfil)}</strong> ha demanat accés per gestionar el pou:
-        </p>
-
-        <div style="background:#EEF2F1;border-radius:8px;padding:16px 20px;margin-bottom:24px;text-align:center;">
-          <span style="font-family:'Courier New',monospace;font-size:22px;font-weight:bold;color:#0E7C86;letter-spacing:1px;">
-            ${escaparHtmlCorreo(codigo)}
-          </span>
-        </div>
-
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:26px;">
-          <tr>
-            <td style="text-align:center;">
-              <a href="${urlAprobacio}"
-                 style="display:inline-block;background:#0E7C86;color:#FFFFFF;text-decoration:none;
-                        font-size:15px;font-weight:bold;padding:14px 32px;border-radius:7px;">
-                ✅ Donar accés a ${escaparHtmlCorreo(perfil)}
-              </a>
-            </td>
-          </tr>
-        </table>
-
-        <p style="margin:0;font-size:12px;color:#8B9A9D;text-align:center;">
-          Sol·licitat el ${escaparHtmlCorreo(fecha)}
-        </p>
-
+      <div class="stat-tile tile-retirado" onclick="filtrarEstado('Retirado')">
+        <span class="n">${retirado}</span>
+        <span class="lbl"><span class="dot"></span>Retirat</span>
       </div>
 
-      <div style="background:#EEF2F1;padding:14px 24px;border-top:1px solid #DCE4E2;">
-        <p style="margin:0;font-size:11px;color:#8B9A9D;">
-          Si el botó no funciona, copia aquest enllaç: <br>
-          <a href="${urlAprobacio}" style="color:#0E7C86;word-break:break-all;">${urlAprobacio}</a>
-        </p>
+      <div class="stat-tile tile-instalado" onclick="filtrarEstado('Instalado')">
+        <span class="n">${instalado}</span>
+        <span class="lbl"><span class="dot"></span>Instal·lat</span>
+      </div>
+
+      <div class="stat-tile tile-averia" onclick="filtrarEstado('No instalar')">
+        <span class="n">${noInstalar}</span>
+        <span class="lbl"><span class="dot"></span>No instal·lar</span>
       </div>
 
     </div>
-  </div>
   `;
 }
 
-function escaparHtmlCorreo(valor) {
-  return String(valor ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+function claseEstado(estado){
+  if(estado==="Almacén") return "almacen";
+  if(estado==="Retirado") return "retirado";
+  if(estado==="Instalado") return "instalado";
+  if(estado==="No instalar") return "averia";
+  return "";
 }
 
-function solicitarAccesoPou(body) {
-
-  const codigo = String(body.codigo || "").trim().toUpperCase();
-  if (!codigo) {
-    return jsonOutput({ ok: false, mensaje: "Falta el codi de pou" });
-  }
-
-  // Cualquier instalador con credenciales válidas puede pedir acceso —
-  // precisamente porque no lo tiene, no comprobamos el pozo, solo que
-  // el perfil y la contrasenya sean reales
-  const resultado = iniciarSessio(body.perfil, body.contrasenya);
-  if (!resultado.valido) {
-    return jsonOutput({ ok: false, mensaje: resultado.mensaje || "Credencials incorrectes" });
-  }
-
-  const perfil = resultado.perfil;
-  const ahora = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm:ss");
-
-  const urlAprobacio = "https://inventari.instalacionsjfa.com/aprovar.html" +
-    "?codi=" + encodeURIComponent(codigo) +
-    "&perfil=" + encodeURIComponent(perfil);
-
-  const asunto = `Sol·licitud d'accés: ${perfil} vol el pou ${codigo}`;
-
-  // Telegram sigue en texto plano (los botones HTML no aplican igual ahí)
-  const mensajeTelegram = `${perfil} ha demanat accés al pou ${codigo}.\n\nData: ${ahora}\n\nDona-li accés en un toc: ${urlAprobacio}`;
-
-  const avisos = [];
-
-  try {
-    MailApp.sendEmail({
-      to: ADMIN_EMAIL,
-      subject: asunto,
-      body: mensajeTelegram, // alternativa en texto plano, por si el cliente de correo no admite HTML
-      htmlBody: generarHtmlSolicitudAcces(perfil, codigo, ahora, urlAprobacio)
-    });
-  } catch (err) {
-    avisos.push("Email: " + err);
-  }
-
-  try {
-    const url = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage";
-    UrlFetchApp.fetch(url, {
-      method: "post",
-      contentType: "application/json",
-      payload: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: mensajeTelegram }),
-      muteHttpExceptions: true
-    });
-  } catch (err) {
-    avisos.push("Telegram: " + err);
-  }
-
-  return jsonOutput({ ok: true, avisos: avisos });
+function colorEstado(estado){
+  if(estado==="Almacén") return "#1F8A4C";
+  if(estado==="Retirado") return "#B7791F";
+  if(estado==="Instalado") return "#2563AF";
+  if(estado==="No instalar") return "#B3261E";
+  return null;
 }
 
-// EJECUTA ESTO UNA VEZ A MANO, DESPUÉS de escribirle un mensaje cualquiera
-// a tu bot desde Telegram (búscalo por su nombre de usuario y mándale
-// "hola"). Al ejecutar esta función y mirar el registro (Ver → Registros),
-// verás un "chat":{"id":XXXXXXX} — ese número es tu TELEGRAM_CHAT_ID.
-function obtenerChatIdTelegram() {
-  const url = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/getUpdates";
-  const respuesta = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
-  Logger.log(respuesta.getContentText());
-}
-
-function cargarVigilantsProgres() {
-  const hojaProgres = SpreadsheetApp.openById(HOJA_PROGRES_ID).getSheetByName("Hoja1");
-  const datos = hojaProgres.getDataRange().getValues();
-  const cabeceras = datos[0];
-  const colCodi = indiceColumna(cabeceras, "CODI");
-  const colVigilant = indiceColumna(cabeceras, "Vigilant");
-  const mapa = {};
-  if (colVigilant === -1) return mapa;
-  for (let i = 1; i < datos.length; i++) {
-    const codigo = String(datos[i][colCodi] || "").trim().toUpperCase();
-    if (codigo) mapa[codigo] = String(datos[i][colVigilant] || "").trim();
+// Admin puede editar cualquier equipo. Un instalador solo puede editar
+// los que tiene asignados, aunque esté viendo el inventario completo.
+function puedeEditarEquipo(equipo){
+  if(admin) return true;
+  if(instaladorActiu){
+    if(!instaladorPozosAsignados.includes(String(equipo.codigo).toUpperCase())) return false;
+    // Ja instal·lat per un altre instal·lador: només ell (o l'admin) el pot tocar
+    if(equipo.estado === "Instalado" && equipo.usuario && equipo.usuario.toLowerCase() !== instaladorPerfil.toLowerCase()){
+      return false;
+    }
+    return true;
   }
-  return mapa;
+  return false;
 }
 
-// ============================================================
-// PERFILES DE INSTALADOR — hoja "Instaladors" (Perfil | Contrasenya | Pozos)
-// Los pozos se guardan como códigos separados por comas en una sola celda.
-// ============================================================
+function buscar(){
+  const valor = document.getElementById("busqueda").value.trim().toUpperCase();
+  if(!valor) return;
 
-function obtenerHojaInstaladors() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let hoja = ss.getSheetByName("Instaladors");
-  if (!hoja) {
-    hoja = ss.insertSheet("Instaladors");
-    hoja.getRange(1, 1, 1, 4).setValues([["Perfil", "Contrasenya", "Pozos", "EsAdmin"]]);
-  } else if (hoja.getLastColumn() < 4) {
-    hoja.getRange(1, 4).setValue("EsAdmin");
-  }
-  return hoja;
-}
-
-function corregirCableFinsCotaExistent() {
-
-  const hojaProgres = SpreadsheetApp.openById(HOJA_PROGRES_ID).getSheetByName("Hoja1");
-  const datos = hojaProgres.getDataRange().getValues();
-  const cabeceras = datos[0];
-
-  const colCable = indiceColumna(cabeceras, "Cable fins cota (Metres)");
-
-  if (colCable === -1) {
-    Logger.log("No s'ha trobat la columna 'Cable fins cota (Metres)'");
+  if(valor === "TODOS"){
+    renderLista(equipos, "Inventari complet");
     return;
   }
 
-  let corregits = 0;
+  // Es busca a la vegada pel codi actual, DevEUI, sèrie i codi original —
+  // així, si el mateix codi coincideix amb dues files diferents (per
+  // exemple, dos pous que s'han intercanviat el codi entre ells), surten
+  // les dues en comptes de mostrar-ne només una sense avisar
+  const coincidencias = equipos.filter(e =>
+    String(e.codigo || "").toUpperCase() === valor ||
+    String(e.deveui || "").toUpperCase() === valor ||
+    String(e.serieSonda || "").toUpperCase() === valor ||
+    String(e.codigoOriginal || "").toUpperCase() === valor ||
+    codiBase(e.codigo) === valor
+  );
 
-  for (let i = 1; i < datos.length; i++) {
-
-    const valorActual = datos[i][colCable];
-    if (valorActual === "" || valorActual === null || valorActual === undefined) continue;
-
-    const valorConComa = String(valorActual).replace(".", ",");
-
-    hojaProgres.getRange(i + 1, colCable + 1)
-      .setValue(valorConComa)
-      .setFontWeight("bold");
-
-    corregits++;
+  if(coincidencias.length === 1){
+    mostrarEquipo(coincidencias[0]);
+    return;
   }
-
-  Logger.log("Cel·les corregides: " + corregits);
-}
-
-function migrarColumnaAcabatATexto() {
-
-  const hojaProgres = SpreadsheetApp.openById(HOJA_PROGRES_ID).getSheetByName("Hoja1");
-  const datos = hojaProgres.getDataRange().getValues();
-  const cabeceras = datos[0];
-
-  const colCodi = indiceColumna(cabeceras, "CODI");
-  const colAcabat = indiceColumna(cabeceras, "Acabat");
-
-  if (colAcabat === -1) {
-    Logger.log("No s'ha trobat la columna 'Acabat'");
+  if(coincidencias.length > 1){
+    renderLista(coincidencias, `«${valor}» coincideix amb més d'un registre`);
     return;
   }
 
-  const numFilas = hojaProgres.getLastRow() - 1;
-  if (numFilas > 0) {
-    // Quita la validación de casilla de toda la columna, para que acepte texto
-    hojaProgres.getRange(2, colAcabat + 1, numFilas, 1).clearDataValidations();
+  const caja = Number(valor);
+  if(!isNaN(caja)){
+    const listaCaja = equipos.filter(e => Number(e.caja) === caja);
+    if(listaCaja.length){
+      renderLista(listaCaja, `📦 Caixa ${caja}`);
+      return;
+    }
   }
 
-  const hojaInventario = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Hoja1");
-  const datosInventario = hojaInventario.getDataRange().getValues();
-  const estadosPorCodigo = {};
+  document.getElementById("resultado").innerHTML =
+    `<div class="no-encontrado">No s'ha trobat cap resultat per «${escapeHtml(valor)}»</div>`;
+}
 
-  for (let i = 1; i < datosInventario.length; i++) {
-    const codigo = String(datosInventario[i][2] || "").trim().toUpperCase();
-    if (codigo) estadosPorCodigo[codigo] = datosInventario[i][13];
+function filtrarEstado(estado){
+  const lista = equipos.filter(e => e.estado === estado);
+  renderLista(lista, estado);
+}
+
+// Fila (única) de la fitxa que hi ha oberta ara mateix — amb codis
+// repetits, el codi sol ja no basta per saber de quin registrador parlem
+let filaAbierta = null;
+
+// Codi sense els asteriscs finals ("MA1122*" -> "MA1122"): els asteriscs
+// marquen que és un codi repetit/còpia, però el codi base és el mateix
+function codiBase(c){
+  return String(c || "").toUpperCase().replace(/\*+$/, "");
+}
+
+function equipoPerFila(fila){
+  return equipos.find(e => Number(e.fila) === Number(fila));
+}
+
+// Fitxa oberta ara mateix: per fila si en tenim, i si no pel codi del hash
+function equipoObert(){
+  if(filaAbierta !== null){
+    const e = equipoPerFila(filaAbierta);
+    if(e) return e;
   }
+  const codigo = location.hash.replace("#","").toUpperCase();
+  if(!codigo) return null;
+  return equipos.find(e => String(e.codigo||"").toUpperCase() === codigo) || null;
+}
 
-  let contador = 0;
+// Si el codi d'aquest registrador el comparteix amb un altre, retorna una
+// etiqueta que els diferencia: "original" (el que ja tenia el codi) o
+// "renombrat" (el que ha arribat a aquest codi després)
+function etiquetaDuplicat(e){
+  const base = codiBase(e.codigo);
+  const hiHaMes = equipos.some(x => x !== e && codiBase(x.codigo) === base);
+  if(!hiHaMes) return "";
+  return e.codigoOriginal
+    ? `<span class="tag-dup renombrat" title="Aquest registrador ha estat renombrat fins a aquest codi">renombrat</span>`
+    : `<span class="tag-dup original" title="Aquest és el registrador que ja tenia aquest codi">original</span>`;
+}
 
-  for (let i = 1; i < datos.length; i++) {
+function abrirEquipoFila(fila){
+  const equipo = equipoPerFila(fila);
+  if(equipo) mostrarEquipo(equipo);
+}
 
-    const codigo = String(datos[i][colCodi] || "").trim().toUpperCase();
-    if (!codigo) continue;
+// Obre per codi: si hi ha més d'un registrador amb aquest codi, els
+// mostra tots en un llistat en comptes d'obrir-ne un a l'atzar
+function abrirEquipo(codigo){
+  const coincidents = equipos.filter(e => String(e.codigo||"").toUpperCase() === String(codigo||"").toUpperCase());
+  if(coincidents.length === 1){
+    mostrarEquipo(coincidents[0]);
+  }else if(coincidents.length > 1){
+    renderLista(coincidents, `«${codigo}» el fan servir ${coincidents.length} registradors`);
+  }
+}
 
-    const estadoInventario = estadosPorCodigo[codigo];
-    const valorActual = datos[i][colAcabat];
+async function solicitarAcceso(codigo, boton){
 
-    let nuevoValor;
-    if (estadoInventario === "No instalar") {
-      nuevoValor = "No montar";
-    } else if (valorActual === true || String(valorActual).trim() === "Sí") {
-      nuevoValor = "Sí";
-    } else {
-      nuevoValor = "No";
+  const textoOriginal = boton.textContent;
+  boton.textContent = "Enviant…";
+  boton.disabled = true;
+
+  try{
+
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(Object.assign({
+        accion: "solicitarAcceso",
+        codigo: codigo
+      }, construirAuthPayload()))
+    });
+
+    const dades = parsearRespuestaJSON(await r.text());
+
+    if(dades.ok){
+      boton.textContent = "✅ Sol·licitud enviada";
+    }else{
+      alert("Error: " + (dades.mensaje || "no s'ha pogut enviar"));
+      boton.textContent = textoOriginal;
+      boton.disabled = false;
     }
 
-    hojaProgres.getRange(i + 1, colAcabat + 1).setValue(nuevoValor);
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació");
+    boton.textContent = textoOriginal;
+    boton.disabled = false;
+  }
+}
 
-    const filaCompleta = hojaProgres.getRange(i + 1, 1, 1, cabeceras.length);
-    if (nuevoValor === "Sí") {
-      filaCompleta.setBackground("#d9ead3");
-    } else if (nuevoValor === "No montar") {
-      filaCompleta.setBackground("#ff0000");
-    } else {
-      filaCompleta.setBackground(null);
+async function obrirCarpetaFotos(codigo, boton){
+
+  const textoOriginal = boton.textContent;
+  boton.textContent = "Cercant…";
+  boton.disabled = true;
+
+  try{
+
+    const r = await fetch(API + "?accion=carpetaFotos&codigo=" + encodeURIComponent(codigo));
+    const dades = await r.json();
+
+    if(dades.ok){
+      window.open(dades.url, "_blank");
+    }else{
+      alert(dades.mensaje || "No s'ha pogut obrir la carpeta");
     }
 
-    contador++;
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació");
+  }finally{
+    boton.textContent = textoOriginal;
+    boton.disabled = false;
   }
-
-  Logger.log("Files migrades: " + contador);
 }
 
-function escribirVigilantEnInventario() {
+async function cargarPanellInstaladors(){
 
-  const hojaProgres = SpreadsheetApp.openById(HOJA_PROGRES_ID).getSheetByName("Hoja1");
-  const datosProgres = hojaProgres.getDataRange().getValues();
-  const cabecerasProgres = datosProgres[0];
+  const card = document.getElementById("instaladorsCard");
+  const cont = document.getElementById("instaladorsCont");
 
-  const colCodiProgres = indiceColumna(cabecerasProgres, "CODI");
-  const colVigilant = indiceColumna(cabecerasProgres, "Vigilant");
+  card.style.display = "block";
+  cont.textContent = "Carregant…";
 
-  if (colVigilant === -1) {
-    Logger.log("No s'ha trobat la columna 'Vigilant' a Progrés sondes");
-    return;
-  }
+  try{
 
-  const vigilantPorCodigo = {};
-  for (let i = 1; i < datosProgres.length; i++) {
-    const codigo = String(datosProgres[i][colCodiProgres] || "").trim().toUpperCase();
-    if (codigo) vigilantPorCodigo[codigo] = datosProgres[i][colVigilant];
-  }
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(Object.assign({ accion: "instaladors" }, construirAuthPayload()))
+    });
+    const dades = await r.json();
 
-  const hojaInventario = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Hoja1");
-
-  hojaInventario.getRange(1, 20).setValue("Vigilant");
-
-  const datosInventario = hojaInventario.getDataRange().getValues();
-
-  let contador = 0;
-
-  for (let i = 1; i < datosInventario.length; i++) {
-
-    const codigo = String(datosInventario[i][2] || "").trim().toUpperCase();
-    if (!codigo || !(codigo in vigilantPorCodigo)) continue;
-
-    hojaInventario.getRange(i + 1, 20).setValue(vigilantPorCodigo[codigo]);
-    contador++;
-  }
-
-  Logger.log("Files escrites amb vigilant: " + contador);
-}
-
-function crearCarpetaTotsFotos() {
-
-  const carpetaRaiz = DriveApp.getFolderById(CARPETA_FOTOS_ID);
-  const carpetaTots = obtenerOCrearCarpeta(CARPETA_FOTOS_ID, "Tots");
-
-  let contador = 0;
-
-  const patronCodigoPou = /^[A-Z]{2}\d+$/i;
-
-  function recorrerCarpeta(carpeta) {
-
-    if (carpeta.getId() === carpetaTots.getId()) return;
-
-    const nombreCarpeta = carpeta.getName().trim();
-
-    if (patronCodigoPou.test(nombreCarpeta)) {
-
-      const carpetaDestino = obtenerOCrearCarpeta(carpetaTots.getId(), nombreCarpeta.toUpperCase());
-      const archivos = carpeta.getFiles();
-
-      while (archivos.hasNext()) {
-        const archivo = archivos.next();
-        const nombre = archivo.getName();
-
-        if (!carpetaDestino.getFilesByName(nombre).hasNext()) {
-          archivo.makeCopy(nombre, carpetaDestino);
-          contador++;
-        }
-      }
-
+    if(!dades.ok){
+      cont.innerHTML = '<div style="font-size:12.5px;color:var(--danger);">Error: ' + escapeHtml(dades.mensaje || "no autoritzat") + '</div>';
       return;
     }
 
-    const subcarpetas = carpeta.getFolders();
-    while (subcarpetas.hasNext()) {
-      recorrerCarpeta(subcarpetas.next());
-    }
-  }
-
-  recorrerCarpeta(carpetaRaiz);
-
-  Logger.log("Fotos copiades a 'Tots' (organitzades per pou): " + contador);
-}
-
-function clasificarFotosExistentsPerInstalador() {
-
-  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Hoja1");
-  const datos = hoja.getDataRange().getValues();
-
-  const instaladorPorCodigo = {};
-  for (let i = 1; i < datos.length; i++) {
-    const codigo = String(datos[i][2] || "").trim().toUpperCase();
-    const usuario = String(datos[i][15] || "").trim();
-    if (codigo && usuario) instaladorPorCodigo[codigo] = usuario;
-  }
-
-  const carpetaRaiz = DriveApp.getFolderById(CARPETA_FOTOS_ID);
-  const subcarpetas = carpetaRaiz.getFolders();
-
-  let contadorArchivos = 0;
-  let contadorCarpetas = 0;
-
-  while (subcarpetas.hasNext()) {
-
-    const carpetaPozo = subcarpetas.next();
-    const nombreCarpeta = carpetaPozo.getName().trim().toUpperCase();
-
-    const instalador = instaladorPorCodigo[nombreCarpeta];
-    if (!instalador) continue;
-
-    const carpetaInstalador = obtenerOCrearCarpeta(CARPETA_FOTOS_ID, instalador);
-    const carpetaPozoDentroInstalador = obtenerOCrearCarpeta(carpetaInstalador.getId(), nombreCarpeta);
-
-    const archivos = carpetaPozo.getFiles();
-    let algunArchivo = false;
-
-    while (archivos.hasNext()) {
-      const archivo = archivos.next();
-      carpetaPozoDentroInstalador.addFile(archivo);
-      contadorArchivos++;
-      algunArchivo = true;
+    if(!dades.perfils || !dades.perfils.length){
+      cont.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Encara no hi ha cap instal·lador creat.</div>';
+      return;
     }
 
-    if (algunArchivo) contadorCarpetas++;
-  }
+    cont.innerHTML = dades.perfils.map(p => {
 
-  Logger.log("Carpetes de pou classificades: " + contadorCarpetas + " — Arxius afegits: " + contadorArchivos);
+      const chips = p.pozos.map(codi => {
+        const equipo = equipos.find(e => String(e.codigo).toUpperCase() === codi);
+        const estado = equipo ? equipo.estado : null;
+        const color = colorEstado(estado);
+        return `
+          <span class="pou-chip" onclick="abrirEquipo('${escapeHtml(codi)}')">
+            ${color ? `<span class="dot" style="background:${color}"></span>` : ""}
+            ${escapeHtml(codi)}
+          </span>
+        `;
+      }).join("");
+
+      return `
+        <div class="instalador-grup">
+          <div class="instalador-nom">👷 ${escapeHtml(p.perfil)} <span class="count">(${p.pozos.length})</span></div>
+          <div class="instalador-pous">
+            ${chips || '<span style="font-size:12.5px;color:var(--ink-soft);">Sense pous assignats</span>'}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+  }catch(error){
+    console.error(error);
+    cont.innerHTML = '<div style="font-size:12.5px;color:var(--danger);">Error carregant els instal·ladors</div>';
+  }
 }
 
-function sincronizarCaixaProgres() {
-
-  const hojaInventario = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Hoja1");
-  const datosInventario = hojaInventario.getDataRange().getValues();
-
-  const cajaPorCodigo = {};
-  for (let i = 1; i < datosInventario.length; i++) {
-    const codigo = String(datosInventario[i][2] || "").trim().toUpperCase();
-    if (codigo) cajaPorCodigo[codigo] = datosInventario[i][12];
-  }
-
-  const hojaProgres = SpreadsheetApp.openById(HOJA_PROGRES_ID).getSheetByName("Hoja1");
-  const datos = hojaProgres.getDataRange().getValues();
-  const cabeceras = datos[0];
-
-  const colCodi = indiceColumna(cabeceras, "CODI");
-  let colCaixa = indiceColumna(cabeceras, "Caixa");
-
-  if (colCaixa === -1) {
-    const nuevaColumna = hojaProgres.getLastColumn() + 1;
-    hojaProgres.getRange(1, nuevaColumna).setValue("Caixa");
-    colCaixa = nuevaColumna - 1;
-  }
-
-  let contador = 0;
-
-  for (let i = 1; i < datos.length; i++) {
-
-    const codigo = String(datos[i][colCodi] || "").trim().toUpperCase();
-    if (!codigo || !(codigo in cajaPorCodigo)) continue;
-
-    hojaProgres.getRange(i + 1, colCaixa + 1).setValue(cajaPorCodigo[codigo]);
-    contador++;
-  }
-
-  Logger.log("Files sincronitzades amb la caixa: " + contador);
-}
-
-function marcarDonatDAlta() {
-
-  const codigosDadosDeAlta = [
-    "EI0001","EI0006","EI0028","EI0032","EI0033","EI0152","EI0155","EI0164","EI0173","EI0174",
-    "EI0196","EI0219","EI0235","EI0242","EI0301","EI0304","EI0305","EI0306","EI0307","EI0312",
-    "EI0328","EI0390","FO0006","FO0010","FO0018","FO0028","FO0031","FO0032","MA0001","MA0004",
-    "MA0007","MA0011","MA0015","MA0018","MA0037","MA0038","MA0044","MA0052","MA0054","MA0055",
-    "MA0056","MA0057","MA0058","MA0060","MA0062","MA0066","MA0068","MA0069","MA0070","MA0083",
-    "MA0125","MA0127","MA0129","MA0130","MA0132","MA0176","MA0269","MA0282","MA0283","MA0289",
-    "MA0290","MA0292","MA0293","MA0295","MA0304","MA0306","MA0321","MA0322","MA0362","MA0368",
-    "MA0370","MA0374","MA0376","MA0378","MA0387","MA0391","MA0392","MA0393","MA0409","MA0412",
-    "MA0413","MA0414","MA0419","MA0422","MA0423","MA0446","MA0454","MA0474","MA0481","MA0482",
-    "MA0484","MA0497","MA0530","MA0533","MA0537","MA0540","MA0541","MA0543","MA0546","MA0548",
-    "MA0549","MA0550","MA0551","MA0565","MA0577","MA0584","MA0593","MA0596","MA0598","MA0606",
-    "MA0608","MA0633","MA0644","MA0652","MA0657","MA0665","MA0668","MA0676","MA0681","MA0687",
-    "MA0689","MA0690","MA0692","MA0699","MA0702","MA0704","MA0706","MA0707","MA0710","MA0711",
-    "MA0712","MA0714","MA0715","MA0717","MA0725","MA0738","MA0739","MA0748","MA0780","MA0792",
-    "MA1086","MA1090","MA1099","MA1102","MA1115","MA1122","MA1134","MA1141","MA1155","MA1161",
-    "MA1185","MA1187","MA1195","MA1205","MA1215","MA1225","MA1287","MA1336","MA1361","MA1375",
-    "MA1389","MA1484","MA1489","MA1495","MA1584","MA1601","MA1610","MA1660","MA1694","MA1695",
-    "MA1700","MA1702","MA1704","MA1739","MA1744","MA1765","MA1770","MA1790","MA1849","MA1853",
-    "MA1856","MA1861","MA1865","MA1901","MA1925","MA1993","MA2110","MA2126","ME0039","ME0054",
-    "ME0078","ME0130","ME0181","ME0219","ME0234","ME0245","ME0263","ME0282","ME0319","ME0322",
-    "ME0325","ME0331","ME0349","ME0357","ME0367","ME0431","ME0437","ME0461","ME0467","ME0523"
-  ];
-
-  const setAlta = new Set(codigosDadosDeAlta);
-
-  const hojaProgres = SpreadsheetApp.openById(HOJA_PROGRES_ID).getSheetByName("Hoja1");
-  const datos = hojaProgres.getDataRange().getValues();
-  const cabeceras = datos[0];
-
-  const colCodi = indiceColumna(cabeceras, "CODI");
-  let colAlta = indiceColumna(cabeceras, "Donat d'alta");
-
-  if (colAlta === -1) {
-    const nuevaColumna = hojaProgres.getLastColumn() + 1;
-    hojaProgres.getRange(1, nuevaColumna).setValue("Donat d'alta");
-    colAlta = nuevaColumna - 1;
-  }
-
-  let contadorSi = 0;
-  let contadorNo = 0;
-
-  for (let i = 1; i < datos.length; i++) {
-
-    const codigo = String(datos[i][colCodi] || "").trim().toUpperCase();
-    if (!codigo) continue;
-
-    if (setAlta.has(codigo)) {
-      hojaProgres.getRange(i + 1, colAlta + 1).setValue("Sí");
-      contadorSi++;
-    } else {
-      hojaProgres.getRange(i + 1, colAlta + 1).setValue("No");
-      contadorNo++;
-    }
-  }
-
-  Logger.log("Marcats com a 'Sí': " + contadorSi + " — com a 'No': " + contadorNo);
-}
-
-function rellenarInstaladorExistent() {
-
-  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Hoja1");
-  const datos = hoja.getDataRange().getValues();
-
-  let contador = 0;
-
-  for (let i = 1; i < datos.length; i++) {
-
-    const codigo = String(datos[i][2] || "").trim();
-    const estado = datos[i][13];
-    const fecha = datos[i][14];
-    const usuario = datos[i][15];
-
-    if (!codigo || estado !== "Instalado" || !usuario) continue;
-
-    try {
-      actualizarProgresSondes(codigo, null, null, usuario, fecha || null);
-      contador++;
-    } catch (err) {
-      Logger.log("Error amb " + codigo + ": " + err);
-    }
-  }
-
-  Logger.log("Files omplertes amb instal·lador i data: " + contador);
-}
-
-function aplicarColorNoInstalarExistents() {
-
-  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Hoja1");
-  const datos = hoja.getDataRange().getValues();
-
-  let contador = 0;
-
-  for (let i = 1; i < datos.length; i++) {
-
-    const codigo = String(datos[i][2] || "").trim();
-    const estado = datos[i][13];
-
-    if (!codigo || estado !== "No instalar") continue;
-
-    try {
-      marcarNoInstalarProgres(codigo, "");
-      contador++;
-    } catch (err) {
-      Logger.log("Error amb " + codigo + ": " + err);
-    }
-  }
-
-  Logger.log("Files pintades en vermell: " + contador);
-}
-
-function crearFullInstaladors() {
-  obtenerHojaInstaladors();
-}
-
-function validarInstalador(perfil, contrasenya) {
-
-  const hoja = obtenerHojaInstaladors();
-  const datos = hoja.getDataRange().getValues();
-
-  const perfilBuscado = String(perfil || "").trim().toLowerCase();
-
-  for (let i = 1; i < datos.length; i++) {
-
-    const perfilFila = String(datos[i][0] || "").trim().toLowerCase();
-    if (!perfilFila || perfilFila !== perfilBuscado) continue;
-
-    if (String(datos[i][1] || "") !== String(contrasenya || "")) {
-      return { valido: false, mensaje: "Contrasenya incorrecta" };
-    }
-
-    const pozos = String(datos[i][2] || "")
-      .split(",")
-      .map(s => s.trim().toUpperCase())
-      .filter(Boolean);
-
-    const esAdmin = datos[i][3] === true || String(datos[i][3] || "").trim().toUpperCase() === "TRUE";
-
-    return { valido: true, perfil: datos[i][0], pozos: pozos, esAdmin: esAdmin };
-  }
-
-  return { valido: false, mensaje: "Perfil no trobat" };
-}
-
-function iniciarSessio(perfil, contrasenya) {
-
-  if (contrasenya === CLAVE_VALIDA) {
-    return { valido: true, perfil: perfil || "Admin", pozos: [], esAdmin: true };
-  }
-
-  return validarInstalador(perfil, contrasenya);
-}
-
-function procesarLoginInstalador(perfil, contrasenya) {
-
-  const resultado = iniciarSessio(perfil, contrasenya);
-
-  if (!resultado.valido) {
-    return jsonOutput({ ok: false, mensaje: resultado.mensaje });
-  }
-
-  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Hoja1");
-  const datos = hoja.getDataRange().getValues();
-  const equipos = [];
-
-  for (let i = 1; i < datos.length; i++) {
-
-    const codigo = String(datos[i][2] || "").trim().toUpperCase();
-    if (!resultado.esAdmin && resultado.pozos.indexOf(codigo) === -1) continue;
-
-    equipos.push({
-      fila: i + 1,
-      codigo: datos[i][2],
-      deveui: datos[i][8],
-      caja: datos[i][12],
-      tipoSonda: datos[i][5],
-      metraje: datos[i][3],
-      estado: datos[i][13],
-      fecha: datos[i][14],
-      usuario: datos[i][15],
-      serieSonda: datos[i][16],
-      numSerie: datos[i][11],
-      retiratPer: datos[i][20],
-      retiratData: datos[i][21],
-      codigoOriginal: datos[i][22],
-      reubicatPer: datos[i][23],
-      reubicatData: datos[i][24],
-        metrajeOriginal: datos[i][25]
-    });
-  }
-
-  return jsonOutput({ ok: true, perfil: resultado.perfil, esAdmin: !!resultado.esAdmin, equipos: equipos });
-}
-
-function listarInstaladors() {
-
-  const hoja = obtenerHojaInstaladors();
-  const datos = hoja.getDataRange().getValues();
-  const perfils = [];
-
-  for (let i = 1; i < datos.length; i++) {
-    if (!datos[i][0]) continue;
-
-    const pozos = String(datos[i][2] || "")
-      .split(",")
-      .map(s => s.trim().toUpperCase())
-      .filter(Boolean);
-
-    const esAdmin = datos[i][3] === true || String(datos[i][3] || "").trim().toUpperCase() === "TRUE";
-
-    perfils.push({ perfil: datos[i][0], pozos: pozos, esAdmin: esAdmin });
-  }
-
-  return jsonOutput({ ok: true, perfils: perfils });
-}
-
-function obtenerConfiguracio() {
-  const props = PropertiesService.getScriptProperties();
-  return jsonOutput({
-    ok: true,
-    bloquejarCableFinsCota: props.getProperty("bloquejarCableFinsCota") === "true"
+// Función única de listado (sustituye a las antiguas mostrarCaja / mostrarTodos / filtrarEstado)
+function renderLista(lista, titulo){
+
+  filaAbierta = null;
+
+  let html = `
+    <div class="lista-header">
+      <h3>${escapeHtml(titulo)}</h3>
+      <span class="count">${lista.length} equips</span>
+    </div>
+  `;
+
+  lista.forEach(e=>{
+    html += `
+      <div class="equipo-card" onclick="abrirEquipoFila(${e.fila})">
+        <div>
+          <div class="codigo">${e.codigoOriginal ? `${escapeHtml(e.codigoOriginal)} → ${escapeHtml(e.codigo)}` : escapeHtml(e.codigo)}${etiquetaDuplicat(e)}</div>
+          <div class="meta">
+            <span>${escapeHtml(e.deveui)}</span>
+            <span>🔧 ${escapeHtml(e.tipoSonda || "-")}</span>
+            <span>📏 ${escapeHtml(e.metraje || "-")} m</span>
+            ${e.usuario ? `<span>👤 ${escapeHtml(e.usuario)}</span>` : ""}
+            ${e.fecha ? `<span>📅 ${escapeHtml(e.fecha)}</span>` : ""}
+          </div>
+        </div>
+        <span class="pill pill-${claseEstado(e.estado)}"><span class="dot"></span>${escapeHtml(e.estado || "-")}</span>
+      </div>
+    `;
   });
+
+  document.getElementById("resultado").innerHTML = html;
 }
 
-function actualizarConfiguracio(body) {
-  const props = PropertiesService.getScriptProperties();
-  if (typeof body.bloquejarCableFinsCota !== "undefined") {
-    props.setProperty("bloquejarCableFinsCota", body.bloquejarCableFinsCota ? "true" : "false");
-  }
-  return obtenerConfiguracio();
+function mostrarEquipo(equipo){
+
+  filaAbierta = equipo.fila;
+  history.replaceState(null, null, "#" + equipo.codigo.toUpperCase());
+
+  // Altres registradors que ara mateix tenen exactament el mateix codi
+  const repetits = equipos.filter(e => e !== equipo && codiBase(e.codigo) === codiBase(equipo.codigo));
+
+  const puedeEditar = puedeEditarEquipo(equipo);
+
+  document.getElementById("resultado").innerHTML = `
+    <div class="ficha">
+
+      <div class="ficha-head">
+        <div>
+          <div class="codigo-grande">${escapeHtml(equipo.codigo)}${etiquetaDuplicat(equipo)}</div>
+          <div class="deveui">${escapeHtml(equipo.deveui)}</div>
+        </div>
+        <span class="pill pill-${claseEstado(equipo.estado)}"><span class="dot"></span>${escapeHtml(equipo.estado || "-")}</span>
+      </div>
+
+      <div class="ficha-caja">
+        📦 Caixa ${escapeHtml(equipo.caja)}
+        ${(equipo.lat && equipo.lon) ? `
+          <a class="btn btn-outline info" style="margin-left:8px;text-decoration:none;"
+             href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(equipo.lat)},${encodeURIComponent(equipo.lon)}"
+             target="_blank" rel="noopener">📍 Com arribar-hi</a>
+        ` : ""}
+        <button class="btn btn-outline" style="margin-left:8px;" onclick="obrirCarpetaFotos('${escapeHtml(equipo.codigo)}', this)">📁 Fotos</button>
+      </div>
+
+      ${equipo.retiratPer ? `
+        <div class="ficha-nota retirat">
+          🚫 Retirat (mentre "No instal·lar")
+          <div class="sub">per ${escapeHtml(equipo.retiratPer)} el ${escapeHtml(equipo.retiratData || "")}</div>
+        </div>
+      ` : ""}
+
+      ${repetits.length ? `
+        <div class="ficha-nota retirat">
+          ⚠️ Hi ha ${repetits.length === 1 ? "un altre registrador" : repetits.length + " altres registradors"} amb el mateix codi base
+          <div class="sub">
+            ${repetits.map(r => `<a href="#" onclick="abrirEquipoFila(${r.fila});return false;">${escapeHtml(r.codigoOriginal ? r.codigoOriginal + " → " + r.codigo : r.codigo)} (${escapeHtml(r.deveui)})</a>`).join(" · ")}
+          </div>
+        </div>
+      ` : ""}
+
+      ${equipo.codigoOriginal ? `
+        <div class="ficha-nota reubicacio">
+          🔀 Codi original: <strong>${escapeHtml(equipo.codigoOriginal)}</strong> — renombrat a ${escapeHtml(equipo.codigo)}
+          <div class="sub">per ${escapeHtml(equipo.reubicatPer || "")} el ${escapeHtml(equipo.reubicatData || "")}</div>
+          ${puedeEditar ? `
+            <div style="margin-top:8px;">
+              <button class="btn btn-outline" style="padding:6px 10px;font-size:12px;" onclick="desferReubicacio(${equipo.fila})">↩️ Desfer la reubicació</button>
+            </div>
+          ` : ""}
+        </div>
+      ` : ""}
+
+      <div class="ficha-body">
+        <div class="campo">
+          <div class="k">Tipus de sonda</div>
+          <div class="v">${escapeHtml(equipo.tipoSonda || "-")}</div>
+        </div>
+        <div class="campo">
+          <div class="k">Metratge</div>
+          <div class="v">${escapeHtml(equipo.metraje || "-")} m</div>
+          ${equipo.metrajeOriginal ? `<div style="font-size:11px;color:var(--ink-soft);margin-top:2px;">Original: ${escapeHtml(equipo.metrajeOriginal)} m</div>` : ""}
+        </div>
+        <div class="campo">
+          <div class="k">Sèrie sonda</div>
+          <div class="v">${escapeHtml(equipo.serieSonda || "No assignada")}</div>
+        </div>
+        <div class="campo">
+          <div class="k">Data</div>
+          <div class="v">${escapeHtml(equipo.fecha || "-")}</div>
+        </div>
+        <div class="campo">
+          <div class="k">Usuari</div>
+          <div class="v">${escapeHtml(equipo.usuario || "-")}</div>
+        </div>
+      </div>
+
+      ${(() => {
+        if(puedeEditar || !instaladorActiu) return "";
+
+        const teAsignado = instaladorPozosAsignados.includes(String(equipo.codigo).toUpperCase());
+
+        if(teAsignado && equipo.estado === "Instalado" && equipo.usuario){
+          return `
+            <div style="padding:0 18px 14px;font-size:12.5px;color:var(--ink-soft);">
+              🔒 Aquest pou ja el va instal·lar <strong>${escapeHtml(equipo.usuario)}</strong> — només ell o un administrador el pot modificar.
+            </div>
+          `;
+        }
+
+        return `
+          <div style="padding:0 18px 14px;font-size:12.5px;color:var(--ink-soft);">
+            Aquest pou no és teu — només pots consultar-lo.
+            <br><br>
+            <button class="btn btn-outline" onclick="solicitarAcceso('${equipo.codigo}', this)">🔓 Sol·licitar accés</button>
+          </div>
+        `;
+      })()}
+
+      ${puedeEditar ? `
+        <div class="ficha-acciones">
+          <button class="btn btn-outline warn" onclick="cambiarEstado(${equipo.fila},'retirar')">Retirar</button>
+          ${admin ? `<button class="btn btn-outline warn" onclick="cambiarEstado(${equipo.fila},'retirar','SAMPOL')">Retirar (SAMPOL)</button>` : ""}
+          <button class="btn btn-outline info" onclick="abrirModalInstalacion(${equipo.fila})">Instal·lar</button>
+          <button class="btn btn-outline danger" onclick="marcarNoInstalar(${equipo.fila})">🚫 No instal·lar</button>
+          <button class="btn btn-outline ok" onclick="cambiarEstado(${equipo.fila},'almacen')">Magatzem</button>
+          <button class="btn btn-ghost" onclick="marcarReubicacio(${equipo.fila})">🔀 Muntat a un altre pou</button>
+          <button class="btn btn-ghost" onclick="asignarSerieSonda(${equipo.fila})">✏️ Manual</button>
+          <button class="btn btn-primary" onclick="escanearSerieSonda(${equipo.fila})">📷 Escanejar</button>
+        </div>
+      ` : ""}
+
+    </div>
+  `;
 }
 
-function asignarPozosAVariosInstaladores(body) {
+async function gestionarSessio(){
 
-  const nombresPerfiles = Array.isArray(body.perfiles)
-    ? body.perfiles.map(p => String(p).trim()).filter(Boolean)
-    : [];
-
-  const pozosNuevos = Array.isArray(body.pozos)
-    ? body.pozos.map(p => String(p).trim().toUpperCase()).filter(Boolean)
-    : [];
-
-  if (!nombresPerfiles.length) {
-    return jsonOutput({ ok: false, mensaje: "Falta seleccionar algun instal·lador" });
-  }
-  if (!pozosNuevos.length) {
-    return jsonOutput({ ok: false, mensaje: "Falta seleccionar algun pou" });
+  if(admin){
+    if(!confirm("Tancar la sessió d'administrador?")) return;
+    admin = false;
+    localStorage.removeItem("admin");
+    actualizarModoAdmin();
+    document.getElementById("instaladorsCard").style.display = "none";
+    cargarDatos();
+    return;
   }
 
-  const hoja = obtenerHojaInstaladors();
-  const datos = hoja.getDataRange().getValues();
-
-  const nombresBuscados = nombresPerfiles.map(n => n.toLowerCase());
-  let actualizados = 0;
-
-  for (let i = 1; i < datos.length; i++) {
-
-    const perfilFila = String(datos[i][0] || "").trim();
-    if (!perfilFila || nombresBuscados.indexOf(perfilFila.toLowerCase()) === -1) continue;
-
-    const pozosActuales = String(datos[i][2] || "")
-      .split(",")
-      .map(s => s.trim().toUpperCase())
-      .filter(Boolean);
-
-    const pozosCombinados = Array.from(new Set(pozosActuales.concat(pozosNuevos)));
-
-    hoja.getRange(i + 1, 3).setValue(pozosCombinados.join(","));
-    actualizados++;
+  if(instaladorActiu){
+    if(!confirm("Tancar la sessió de " + instaladorPerfil + "?")) return;
+    tancarSessioInstalador();
+    actualizarModoInstalador();
+    await cargarDatos();
+    return;
   }
 
-  return jsonOutput({ ok: true, actualizados: actualizados });
+  location.href = "./login.html";
 }
 
-function guardarInstalador(body) {
+function tancarSessioInstalador(){
+  instaladorActiu = false;
+  instaladorPerfil = "";
+  instaladorContrasenya = "";
+  instaladorPozosAsignados = [];
+  instaladorVeureTots = false;
+  localStorage.removeItem("instaladorActiu");
+  localStorage.removeItem("instaladorPerfil");
+  localStorage.removeItem("instaladorContrasenya");
+  localStorage.removeItem("instaladorPozosAsignados");
+}
 
-  const hoja = obtenerHojaInstaladors();
-  const datos = hoja.getDataRange().getValues();
+async function refrescarDadesInstalador(intent){
 
-  const perfilOriginal = String(body.perfilOriginal || "").trim().toLowerCase();
-  const perfilNuevo = String(body.perfil || "").trim();
-  const contrasenya = body.contrasenya || "";
-  const esAdmin = body.esAdmin === true;
-  const pozos = Array.isArray(body.pozos)
-    ? body.pozos.map(p => String(p).trim().toUpperCase()).filter(Boolean)
-    : [];
+  intent = intent || 1;
 
-  if (!perfilNuevo) {
-    return jsonOutput({ ok: false, mensaje: "Falta el nom del perfil" });
+  const cache = localStorage.getItem("cacheEquiposInstalador_" + instaladorPerfil);
+  const habiaCache = !!cache;
+
+  if(intent === 1 && habiaCache && !equipos.length){
+    equipos = JSON.parse(cache);
+    actualizarStats();
   }
 
-  for (let i = 1; i < datos.length; i++) {
+  try{
 
-    const perfilFila = String(datos[i][0] || "").trim().toLowerCase();
+    const r = await fetchAmbTimeout(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        accion: "loginInstalador",
+        perfil: instaladorPerfil,
+        contrasenya: instaladorContrasenya
+      })
+    }, 25000);
 
-    if (perfilOriginal && perfilFila === perfilOriginal) {
-      hoja.getRange(i + 1, 1).setValue(perfilNuevo);
-      if (contrasenya) hoja.getRange(i + 1, 2).setValue(contrasenya);
-      hoja.getRange(i + 1, 3).setValue(pozos.join(","));
-      hoja.getRange(i + 1, 4).setValue(esAdmin);
-      return jsonOutput({ ok: true });
+    if(!r.ok) throw new Error("HTTP " + r.status);
+
+    const dades = await r.json();
+
+    if(!dades.ok){
+      // Credencials ja no vàlides (perfil eliminat/canviat) -> tancar sessió
+      tancarSessioInstalador();
+      actualizarModoInstalador();
+      await cargarDatos();
+      return;
     }
 
-    if (!perfilOriginal && perfilFila === perfilNuevo.toLowerCase()) {
-      return jsonOutput({ ok: false, mensaje: "Ja existeix un perfil amb aquest nom" });
+    instaladorPozosAsignados = dades.equipos.map(e => String(e.codigo).toUpperCase());
+    localStorage.setItem("instaladorPozosAsignados", JSON.stringify(instaladorPozosAsignados));
+
+    // Copia local por perfil, para poder seguir viendo sus pozos sin cobertura
+    try{
+      localStorage.setItem("cacheEquiposInstalador_" + instaladorPerfil, JSON.stringify(dades.equipos));
+      localStorage.setItem("cacheEquiposInstaladorFecha_" + instaladorPerfil, new Date().toISOString());
+    }catch(e){ /* sin espacio en localStorage, no es grave */ }
+
+    // Si estava veient "tots", torna a demanar la llista completa amb
+    // l'estat actualitzat; si no, es queda amb la llista restringida
+    if(instaladorVeureTots){
+      await cargarDatos();
+    }else{
+      equipos = dades.equipos;
+      actualizarStats();
+    }
+
+    // Si hay una ficha abierta, se repinta ya con los datos frescos
+    const equipoAbierto = equipoObert();
+    if(equipoAbierto) mostrarEquipo(equipoAbierto);
+
+  }catch(error){
+    console.error("Error carregant dades d'instal·lador (intent " + intent + "):", error);
+
+    if(intent < 4){
+      await new Promise(res => setTimeout(res, intent * 2000));
+      return refrescarDadesInstalador(intent + 1);
+    }
+
+    // Se acabaron los reintentos: usar la copia local de este perfil si existe
+    const stats = document.getElementById("stats");
+
+    if(cache){
+      if(!habiaCache){
+        equipos = JSON.parse(cache);
+        actualizarStats();
+      }
+
+      const fecha = localStorage.getItem("cacheEquiposInstaladorFecha_" + instaladorPerfil);
+      const cuando = fecha ? new Date(fecha).toLocaleString() : "data desconeguda";
+
+      stats.innerHTML =
+        `⚠️ Sense connexió — mostrant els teus pous de ${escapeHtml(cuando)}. ` +
+        "<button class=\"btn btn-outline\" onclick=\"refrescarDadesInstalador()\">Tornar a provar</button>" +
+        stats.innerHTML;
+    }else{
+      stats.innerHTML =
+        "⚠️ No s'han pogut carregar els teus pous. " +
+        "<button class=\"btn btn-outline\" onclick=\"refrescarDadesInstalador()\">Reintentar</button>";
     }
   }
+}
 
-  if (!contrasenya) {
-    return jsonOutput({ ok: false, mensaje: "Falta la contrasenya" });
+// Alterna entre ver solo los pozos asignados o el inventario completo
+// (en el segundo caso solo podrá modificar los que tenga asignados)
+async function alternarVistaInstalador(){
+
+  instaladorVeureTots = !instaladorVeureTots;
+
+  if(instaladorVeureTots){
+    await cargarDatos();
+  }else{
+    await refrescarDadesInstalador();
   }
 
-  hoja.appendRow([perfilNuevo, contrasenya, pozos.join(","), esAdmin]);
-  return jsonOutput({ ok: true });
+  actualizarModoInstalador();
 }
 
-function eliminarInstalador(perfil) {
+function actualizarModoInstalador(){
+  actualizarBotoSessio();
 
-  const hoja = obtenerHojaInstaladors();
-  const datos = hoja.getDataRange().getValues();
-  const objetivo = String(perfil || "").trim().toLowerCase();
+  const btnVista = document.getElementById("btnVistaInstalador");
+  btnVista.style.display = instaladorActiu ? "inline-flex" : "none";
+  btnVista.innerHTML = instaladorVeureTots ? "👷 Només els meus" : "🔍 Veure tots";
 
-  for (let i = 1; i < datos.length; i++) {
-    if (String(datos[i][0] || "").trim().toLowerCase() === objetivo) {
-      hoja.deleteRow(i + 1);
-      return jsonOutput({ ok: true });
-    }
+  actualizarVisibilidadCobertura();
+}
+
+// Devuelve el fragmento de query string de autenticación (admin o instalador
+// usan el mismo transporte: perfil + contrasenya reales de su sesión)
+function construirAuthQuery(){
+  if(admin || instaladorActiu){
+    return "&perfil=" + encodeURIComponent(instaladorPerfil) +
+           "&contrasenya=" + encodeURIComponent(instaladorContrasenya);
   }
-
-  return jsonOutput({ ok: false, mensaje: "Perfil no trobat" });
+  return "";
 }
 
-
-// ============================================================
-// VERIFICACIÓ — pous muntats que no funcionen bé
-// Porta les mateixes regles que https://nivell.instalacionsjfa.com/?vista=verificacio
-// (Progrés sondes + lectures de nivell) i guarda les revisions a la
-// pestanya "VERIFICACIO" de l'inventari. És un registre només d'afegir:
-// cada revisió és una fila nova, mai se'n sobreescriu cap.
-// ============================================================
-
-const NIVELL_API = "https://script.google.com/macros/s/AKfycbyIDk4Y362p88fHaRgPBYCLGqsQwoCo5lOUvFBg8bkDky92HTPabqE7fMY-8tzuTAuftw/exec";
-const NIVELL_TOKEN = "JFA2026";
-const CACHE_KEY_VERIFICACIO = "verificacio_v1";
-const CACHE_TTL_VERIFICACIO = 120; // segons
-const ESTATS_VERIFICACIO = ["verificat", "arreglat", "seguiment", "ignorat", "pendent"];
-const VERIF_CFG = { silentWarnH: 36, silentCritH: 168, errConstRatio: 0.5, batteryLow: 20, cableMin: 1, cableMax: 100 };
-const VERIF_C1 = 10.19716;
-const VERIF_IGNORAR_EUI = { "24e124847f420841": true }; // mesurador de cobertura
-const VERIF_ST = { o: "ok", p: "parcial", e: "error", i: "info", s: "sense_dades" };
-
-function verifFmt2(v) {
-  const r = Math.sign(v) * Math.round((Math.abs(v) + 1e-9) * 100) / 100;
-  return r.toFixed(2).replace(".", ",");
-}
-function verifNumCable(raw) {
-  if (raw == null) return null;
-  const m = String(raw).trim().match(/^(\d+(?:[.,]\d+)?)\s*m\.?$/i);
-  return m ? parseFloat(m[1].replace(",", ".")) : null;
-}
-function verifNumLong(raw) {
-  if (raw == null) return null;
-  const m = String(raw).match(/(\d+(?:[.,]\d+)?)/);
-  return m ? parseFloat(m[1].replace(",", ".")) : null;
-}
-function verifHexEui(raw) {
-  return String(raw || "").replace(/[^0-9a-fA-F]/g, "").toLowerCase();
+// Igual que construirAuthQuery pero como objeto, para incluir en un body JSON
+function construirAuthPayload(){
+  if(admin || instaladorActiu){
+    return { perfil: instaladorPerfil, contrasenya: instaladorContrasenya };
+  }
+  return {};
 }
 
-// Mateixa lògica que fD() de nivell. rows: [{pozo,eui,cable,cableRaw,longCable,acabat,date}]
-// devices: objecte {eui:{meta,hist}} de les lectures (o null si no s'han pogut llegir)
-function verifCalcular(rows, devices) {
-  const out = [], hasDev = !!devices;
-  let ref = null;
-  if (hasDev) {
-    Object.keys(devices).forEach(k => {
-      const d = devices[k];
-      const t = Date.parse(d && d.meta && d.meta.lastAny);
-      if (!isNaN(t) && (ref === null || t > ref)) ref = t;
+// El botón de cobertura lo puede usar cualquier sesión iniciada (admin o
+// instalador); el del mapa sigue siendo solo de admin.
+function actualizarVisibilidadCobertura(){
+  document.getElementById("btnCobertura").style.display = (admin || instaladorActiu) ? "inline-flex" : "none";
+}
+
+function actualizarModoAdmin(){
+  document.getElementById("linkAdminPanel").style.display = admin ? "inline-flex" : "none";
+  document.getElementById("btnMapa").style.display = admin ? "inline-flex" : "none";
+  const esGuillem = admin && usuarioActual.trim().toLowerCase() === "guillem";
+  document.getElementById("btnEscanejarRetirar").style.display = esGuillem ? "inline-flex" : "none";
+  actualizarBotoSessio();
+  actualizarVisibilidadCobertura();
+}
+
+function actualizarBotoSessio(){
+  const btn = document.getElementById("btnInstalador");
+  if(admin){
+    btn.innerHTML = "🔒 " + usuarioActual;
+  }else if(instaladorActiu){
+    btn.innerHTML = "👷 " + instaladorPerfil;
+  }else{
+    btn.innerHTML = "👤 Iniciar sessió";
+  }
+}
+
+function obtenerUsuario(){
+  if(instaladorActiu) return instaladorPerfil;
+  if(usuarioActual) return usuarioActual;
+  const nombre = prompt("Usuari:");
+  if(nombre && nombre.trim()){
+    usuarioActual = nombre.trim();
+    localStorage.setItem("usuarioActual", usuarioActual);
+  }
+  return usuarioActual;
+}
+
+async function asignarSerieSonda(fila){
+  const equipo = equipoPerFila(fila);
+  if(!equipo) return;
+
+  const serie = prompt("Número de sèrie de la sonda:", equipo.serieSonda || "");
+  if(serie === null || serie.trim() === "") return;
+
+  const payload = Object.assign({
+    accion: "serieSonda",
+    fila: equipo.fila,
+    serie: serie
+  }, construirAuthPayload());
+
+  try{
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
     });
-  }
-  const hrs = s => { const t = Date.parse(s); return (isNaN(t) || ref === null) ? null : (ref - t) / 36e5; };
-  const byEui = {};
-  rows.forEach(m => { if (m.eui) (byEui[m.eui] = byEui[m.eui] || []).push(m.pozo); });
+    const respuesta = await r.text();
 
-  rows.forEach(m => {
-    const iss = [], add = (sev, code, msg) => iss.push({ sev: sev, code: code, msg: msg });
-    const noMontar = /no\s*montar/i.test(m.acabat || "");
-    const muntat = !noMontar && (!!m.date || /^s[ií]$/i.test(m.acabat || ""));
-    const dev = (hasDev && m.eui) ? devices[m.eui] : null;
-    const x = dev ? dev.meta : null;
-    const hist = (dev && dev.hist) ? dev.hist : [];
-    const b = hist.map(h => ({ ts: h[0], status: VERIF_ST[h[1]] || "info", p: (h[2] == null ? undefined : h[2]) }))
-      .sort((a, c) => a.ts < c.ts ? -1 : a.ts > c.ts ? 1 : 0);
-    const w = !!(x && x.lastReal);
-
-    if (muntat && !m.eui) add(2, "NO_EUI", "Consta com a muntat però no té DevEUI al full.");
-    if (m.eui && byEui[m.eui].length > 1) add(2, "DUP_EUI", "El mateix DevEUI també surt a: " + byEui[m.eui].filter(k => k !== m.pozo).join(", ") + ".");
-    if (muntat && m.cable === null) add(2, "NO_CABLE", "Consta com a muntat però no té \"Cable fins cota\" vàlid" + (m.cableRaw ? " (diu: \"" + m.cableRaw + "\")" : "") + ".");
-    if (m.cable !== null) {
-      if (m.longCable !== null && m.cable >= m.longCable - .005) add(1, "CABLE_TOTAL", "Cable fins cota (" + verifFmt2(m.cable) + " m) és igual o més gran que el cable total (" + verifFmt2(m.longCable) + " m).");
-      const dec = String(m.cable).split(".")[1];
-      if (m.cable < VERIF_CFG.cableMin) add(1, "CABLE_RARE", "Cable fins cota molt curt (" + verifFmt2(m.cable) + " m).");
-      else if (m.cable > VERIF_CFG.cableMax) add(1, "CABLE_RARE", "Cable fins cota molt llarg (" + verifFmt2(m.cable) + " m).");
-      else if (dec && dec.length > 2) add(1, "CABLE_RARE", "Cable fins cota amb massa decimals (" + m.cable + " m).");
+    if(respuesta === "OK"){
+      equipo.serieSonda = serie;
+      mostrarEquipo(equipo);
+    }else{
+      alert("Error: " + respuesta);
     }
-    if (hasDev) {
-      if (w && !muntat && !noMontar) add(1, "NOT_MARKED", "Envia lectures reals però no té data de muntatge ni Acabat = Sí.");
-      if (noMontar && x && (w || x.lastAny)) {
-        const S = (w ? x.lastReal : x.lastAny).slice(0, 16).replace("T", " ");
-        add(2, "NO_MONTAR_COMM", "Al full consta com a \"No muntar\" però el registrador comunica (" + (w ? "última lectura real" : "últim missatge") + ": " + S + ").");
-      }
-      if (muntat && m.eui && !w) add(2, "NO_COMM", "Consta com a muntat però no hi ha cap lectura real al fitxer.");
-      if (w && muntat) {
-        const S = hrs(x.lastReal), ts = x.lastReal.slice(0, 16).replace("T", " ");
-        if (S !== null && S > VERIF_CFG.silentCritH) add(2, "SILENT", "Última lectura real fa " + Math.round(S / 24) + " dies (" + ts + ").");
-        else if (S !== null && S > VERIF_CFG.silentWarnH) add(1, "SILENT", "Última lectura real fa " + Math.round(S) + " h (" + ts + ").");
-      }
-      if (b.length) {
-        const S = b.filter(r => r.status === "ok" || r.status === "parcial" || r.status === "error");
-        const k = S.slice(-20);
-        const F = k.filter(r => r.status !== "ok"), R = S.filter(r => r.status !== "ok");
-        const U = x && x.errors && x.errors.length ? x.errors.join(", ") : "";
-        if (k.length >= 3 && F.length / k.length >= VERIF_CFG.errConstRatio) add(2, "ERR_CONST", "Errors en " + F.length + " de les últimes " + k.length + " lectures" + (U ? " (" + U + ")" : "") + ".");
-        else if (R.length) add(1, "ERR_ANY", R.length + " " + (R.length === 1 ? "lectura amb error" : "lectures amb error") + ", l'última el " + R[R.length - 1].ts.slice(0, 16).replace("T", " ") + (U ? " (" + U + ")" : "") + ".");
-      }
-      if (m.cable !== null && b.length) {
-        const P = b.filter(r => r.p !== undefined).slice(-20).map(r => r.p);
-        if (P.length >= 3) {
-          const s = P.slice().sort((a, c) => a - c), F = s[Math.floor(s.length / 2)], R = m.cable - F * VERIF_C1;
-          if (F < .005) add(1, "DRY", "La pressió és ~0 bar: la sonda pot estar fora de l'aigua.");
-          else if (R < 0) add(1, "NEG_LEVEL", "Amb aquest cable el nivell surt negatiu (" + verifFmt2(R) + " m): el cable fins cota potser és massa curt.");
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació");
+  }
+}
+
+async function escanearSerieSonda(fila){
+  const equipo = equipoPerFila(fila);
+  if(!equipo) return;
+
+  document.getElementById("scannerModal").style.display = "block";
+
+  if(!html5QrCode){
+    html5QrCode = new Html5Qrcode("scanner");
+  }
+
+  const cameraId = localStorage.getItem("cameraId");
+
+  try{
+    await html5QrCode.start(
+      cameraId || { facingMode:"environment" },
+      { fps:10, qrbox:250 },
+      async (decodedText)=>{
+        if(decodedText.length !== LONGITUD_SERIE_VALIDA) return;
+
+        const confirmar = confirm("Vols desar aquesta sèrie?\n\n" + decodedText);
+        if(!confirmar) return;
+
+        await html5QrCode.stop();
+        await html5QrCode.clear();
+        html5QrCode = null;
+        document.getElementById("scannerModal").style.display = "none";
+
+        const payload = Object.assign({
+          accion: "serieSonda",
+          fila: equipo.fila,
+          serie: decodedText
+        }, construirAuthPayload());
+
+        const r = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+        const respuesta = await r.text();
+
+        if(respuesta === "OK"){
+          equipo.serieSonda = decodedText;
+          mostrarEquipo(equipo);
+        }else{
+          alert("Error: " + respuesta);
         }
       }
-      if (x && x.battery != null && x.battery < VERIF_CFG.batteryLow) add(1, "BATTERY", "Bateria al " + x.battery + " %.");
+    );
+  }catch(error){
+    console.error(error);
+    alert("Error iniciant la càmera");
+  }
+}
+
+async function seleccionarCamara(){
+  try{
+    camarasDisponibles = await Html5Qrcode.getCameras();
+  }catch(error){
+    console.error(error);
+    alert("No s'ha pogut accedir a la llista de càmeres");
+    return;
+  }
+
+  const select = document.getElementById("cameraSelect");
+  select.innerHTML = "";
+  camarasDisponibles.forEach((c,i)=>{
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = c.label || ("Càmera " + (i+1));
+    select.appendChild(opt);
+  });
+
+  const guardada = localStorage.getItem("cameraId");
+  if(guardada) select.value = guardada;
+
+  document.getElementById("cameraSelectWrap").style.display = "inline-block";
+}
+
+function guardarCamaraSeleccionada(){
+  const select = document.getElementById("cameraSelect");
+  if(select.value){
+    localStorage.setItem("cameraId", select.value);
+  }
+}
+
+async function cerrarEscaner(){
+  try{
+    if(html5QrCode && html5QrCode.isScanning){
+      await html5QrCode.stop();
     }
-    out.push({ pozo: m.pozo, eui: m.eui, issues: iss, sev: iss.reduce((a, i) => Math.max(a, i.sev), 0) });
-  });
-  return out;
+    if(html5QrCode){
+      await html5QrCode.clear();
+      html5QrCode = null;
+    }
+  }catch(error){
+    console.log(error);
+  }
+  document.getElementById("scannerModal").style.display = "none";
 }
 
-// Llegeix Progrés sondes tal com es veu (valors mostrats, igual que el CSV
-// publicat que fa servir nivell) i hi afegeix coordenades/estat de l'inventari
-function verifCarregarFiles() {
-  const hojaP = SpreadsheetApp.openById(HOJA_PROGRES_ID).getSheetByName("Hoja1");
-  const T = hojaP.getDataRange().getDisplayValues();
-  if (!T.length) return [];
-  const H = T[0].map(h => String(h).trim());
-  const col = re => H.findIndex(h => re.test(h));
-  const cI = col(/^codi$/i), eI = col(/dev\s*eui/i), cabI = col(/cable\s*fins\s*cota/i),
-        lonI = col(/long\.?\s*cable/i), acI = col(/^acabat$/i), dI = col(/data\s*de\s*muntatge/i),
-        vI = col(/^vigilant$/i), insI = col(/^instal.?lador$/i);
+// ============================================================
+// Escaneig en lot amb lector físic de codis de barres/QR (funciona com un
+// teclat: escriu el codi i envia un Enter tot sol) — QR (DevEUI) o codi de
+// barres (Num. Sèrie) de la caixa → marca directament com a Retirat
+// (SAMPOL), un darrere l'altre, sense tocar res entre lectura i lectura.
+// ============================================================
 
-  // Inventari: coordenades, estat, vigilant (col T) i instal·lador (col P) per codi
-  const inv = {};
-  const datos = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Hoja1").getDataRange().getValues();
-  for (let i = 1; i < datos.length; i++) {
-    const c = String(datos[i][2] || "").trim().toUpperCase();
-    if (!c) continue;
-    const dup = inv[c];
-    // Si un codi surt dues vegades (còpia amb asterisc va a part), es queda amb la primera
-    if (!dup) inv[c] = {
-      fila: i + 1, lat: datos[i][17], lon: datos[i][18], estado: datos[i][13] || "",
-      vigilant: String(datos[i][19] || "").trim(), instalador: String(datos[i][15] || "").trim(),
-      tipusSonda: datos[i][5] || ""
-    };
+let comptadorEscaneigRetirar = 0;
+let comptadorLogEscaneig = 0;
+let codisProcessatsEscaneig = new Set(); // ja confirmats amb èxit en aquesta sessió
+let codisEnCursEscaneig = new Set();     // esperant resposta del servidor ara mateix
+
+function obrirEscaneigRetirar(){
+
+  document.getElementById("scannerRetirarModal").style.display = "block";
+  document.getElementById("scannerRetirarLog").innerHTML = "";
+  comptadorEscaneigRetirar = 0;
+  codisProcessatsEscaneig = new Set();
+  codisEnCursEscaneig = new Set();
+  document.getElementById("scannerRetirarComptador").textContent = "0 retirats en aquesta sessió";
+
+  const input = document.getElementById("inputEscaneigRetirar");
+  input.value = "";
+  input.focus();
+}
+
+function cerrarEscaneigRetirar(){
+  document.getElementById("scannerRetirarModal").style.display = "none";
+}
+
+function onKeydownEscaneigRetirar(event){
+
+  // El lector físic "escriu" el codi lletra a lletra i acaba amb un Enter
+  // (o Tab, segons com estigui configurat) — amb això n'hi ha prou, no cal
+  // cap càmera ni cap llibreria de lectura
+  if(event.key !== "Enter" && event.key !== "Tab") return;
+
+  event.preventDefault();
+
+  const input = document.getElementById("inputEscaneigRetirar");
+  const codigoEscaneado = input.value.trim().toUpperCase();
+  input.value = "";
+
+  if(!codigoEscaneado) return;
+
+  // Si ja s'està processant aquest mateix codi (resposta del servidor
+  // encara pendent) o ja s'ha retirat amb èxit en aquesta sessió, no es
+  // torna a enviar — evita duplicar per escanejos repetits sense esperar
+  if(codisEnCursEscaneig.has(codigoEscaneado)){
+    afegirLogEscaneigRetirar(codigoEscaneado, "espera", "Encara s'està processant, espera un moment…");
+    return;
+  }
+  if(codisProcessatsEscaneig.has(codigoEscaneado)){
+    afegirLogEscaneigRetirar(codigoEscaneado, "avis", "Ja retirat en aquesta sessió — no s'ha tornat a enviar");
+    return;
   }
 
-  const rows = [];
-  for (let k = 1; k < T.length; k++) {
-    const F = T[k];
-    if (!F || cI < 0 || !F[cI]) continue;
-    const raw = cabI >= 0 ? F[cabI] : "";
-    const codi = String(F[cI]).trim();
-    const info = inv[codi.toUpperCase()] || {};
-    rows.push({
-      pozo: codi,
-      eui: eI >= 0 ? verifHexEui(F[eI]) : "",
-      cable: verifNumCable(raw),
-      cableRaw: raw ? String(raw).trim() : "",
-      longCable: lonI >= 0 ? verifNumLong(F[lonI]) : null,
-      acabat: acI >= 0 ? String(F[acI] || "").trim() : "",
-      date: dI >= 0 ? String(F[dI] || "").trim() : "",
-      vigilant: (vI >= 0 ? String(F[vI] || "").trim() : "") || info.vigilant || "",
-      instalador: (insI >= 0 ? String(F[insI] || "").trim() : "") || info.instalador || "",
-      lat: info.lat || "", lon: info.lon || "", estado: info.estado || "", fila: info.fila || null
+  const equipo = equipos.find(e =>
+    String(e.deveui || "").toUpperCase() === codigoEscaneado ||
+    String(e.numSerie || "").toUpperCase() === codigoEscaneado
+  );
+
+  if(!equipo){
+    afegirLogEscaneigRetirar(codigoEscaneado, "error", "No trobat a l'inventari");
+    return;
+  }
+
+  // Feedback a l'instant: el registre apareix ja mateix ("Processant…"),
+  // sense esperar la resposta del servidor — així es veu de seguida que
+  // l'escaneig s'ha registrat i no cal tornar a passar el lector
+  const idLog = afegirLogEscaneigRetirar(equipo.codigo, "pendent", "Processant…");
+
+  codisEnCursEscaneig.add(codigoEscaneado);
+  retirarPerEscaneig(equipo, codigoEscaneado, idLog);
+}
+
+function iconEstatEscaneig(estat){
+  if(estat === "ok") return "✅";
+  if(estat === "error") return "❌";
+  if(estat === "avis") return "⚠️";
+  if(estat === "espera" || estat === "pendent") return "⏳";
+  return "•";
+}
+
+function afegirLogEscaneigRetirar(codigo, estat, missatge){
+  comptadorLogEscaneig++;
+  const id = "logscan-" + comptadorLogEscaneig;
+  const log = document.getElementById("scannerRetirarLog");
+  const item = document.createElement("div");
+  item.id = id;
+  item.className = "scan-log-item " + estat;
+  item.textContent = iconEstatEscaneig(estat) + " " + codigo + " — " + missatge;
+  log.insertBefore(item, log.firstChild);
+  return id;
+}
+
+function actualizarLogEscaneigRetirar(id, codigo, estat, missatge){
+  const item = document.getElementById(id);
+  if(!item) return;
+  item.className = "scan-log-item " + estat;
+  item.textContent = iconEstatEscaneig(estat) + " " + codigo + " — " + missatge;
+}
+
+// Marca directament un equip com a Retirat (SAMPOL) — respecta el mateix
+// cas especial que el botó normal: si ja estava "No instalar", no li
+// canvia l'estat, només anota qui i quan l'ha retirat
+async function retirarPerEscaneig(equipo, codigoEscaneado, idLog){
+
+  const usuario = "SAMPOL";
+
+  const estadoPrevio = {
+    estado: equipo.estado,
+    usuario: equipo.usuario,
+    fecha: equipo.fecha,
+    retiratPer: equipo.retiratPer,
+    retiratData: equipo.retiratData
+  };
+
+  const esRetirarMentreNoInstalar = equipo.estado === "No instalar";
+
+  if(esRetirarMentreNoInstalar){
+    equipo.retiratPer = usuario;
+    equipo.retiratData = new Date().toLocaleString();
+  }else{
+    equipo.estado = "Retirado";
+    equipo.usuario = usuario;
+    equipo.fecha = new Date().toLocaleString();
+  }
+
+  actualizarStats();
+
+  const payload = Object.assign({
+    accion: "retirar",
+    fila: equipo.fila,
+    codigo: equipo.codigo,
+    deveui: equipo.deveui,
+    usuario: usuario
+  }, construirAuthPayload());
+
+  try{
+
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
     });
+    const respuesta = await r.text();
+
+    if(respuesta === "OK"){
+      comptadorEscaneigRetirar++;
+      document.getElementById("scannerRetirarComptador").textContent = comptadorEscaneigRetirar + " retirats en aquesta sessió";
+      codisProcessatsEscaneig.add(codigoEscaneado);
+      actualizarLogEscaneigRetirar(idLog, equipo.codigo, "ok", esRetirarMentreNoInstalar ? "Retirat (mentre No instal·lar)" : "Retirat");
+    }else{
+      Object.assign(equipo, estadoPrevio);
+      actualizarStats();
+      actualizarLogEscaneigRetirar(idLog, equipo.codigo, "error", respuesta.trim().startsWith("<") ? "Resposta inesperada del servidor" : respuesta);
+    }
+
+  }catch(error){
+    console.error(error);
+    Object.assign(equipo, estadoPrevio);
+    actualizarStats();
+    actualizarLogEscaneigRetirar(idLog, equipo.codigo, "error", "Error de comunicació");
+  }finally{
+    codisEnCursEscaneig.delete(codigoEscaneado);
   }
-  return rows;
 }
 
-// Descarrega lectures + marques de nivell en paral·lel. Si falla, es calcula
-// només amb les regles del full (sense lectures) i s'avisa a la resposta.
-function verifCarregarNivell() {
-  const res = { devices: null, marksNivell: {}, error: "" };
-  try {
-    const resp = UrlFetchApp.fetchAll([
-      { url: NIVELL_API + "?action=readings&token=" + NIVELL_TOKEN, muteHttpExceptions: true, followRedirects: true },
-      { url: NIVELL_API + "?token=" + NIVELL_TOKEN, muteHttpExceptions: true, followRedirects: true }
-    ]);
-    try {
-      const j = JSON.parse(resp[0].getContentText());
-      if (j && j.devices) res.devices = j.devices; else res.error = "Sense lectures";
-    } catch (e) { res.error = "Lectures no llegibles"; }
-    try {
-      const j2 = JSON.parse(resp[1].getContentText());
-      if (j2 && j2.marks) res.marksNivell = j2.marks;
-    } catch (e) { /* marques de nivell opcionals */ }
-  } catch (err) {
-    res.error = String(err);
-  }
-  return res;
-}
+async function cambiarEstado(fila,accion,usuarioForzado){
+  const equipo = equipoPerFila(fila);
+  if(!equipo) return;
 
-function obtenerHojaVerificacio() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let hoja = ss.getSheetByName("VERIFICACIO");
-  if (!hoja) {
-    hoja = ss.insertSheet("VERIFICACIO");
-    hoja.getRange(1, 1, 1, 7).setValues([["Data", "Pou", "DevEUI", "Estat", "Nota", "Usuari", "Incidències"]]);
-    hoja.setFrozenRows(1);
-  }
-  return hoja;
-}
+  const usuario = usuarioForzado || obtenerUsuario();
+  if(!usuario) return;
 
-// Últim registre de cada pou + historial complet (ordre cronològic)
-function verifLlegirRegistre() {
-  const hoja = obtenerHojaVerificacio();
-  const datos = hoja.getDataRange().getValues();
-  const per = {};
-  for (let i = 1; i < datos.length; i++) {
-    const pou = String(datos[i][1] || "").trim().toUpperCase();
-    if (!pou) continue;
-    const d = datos[i][0];
-    const reg = {
-      data: d instanceof Date ? d.toISOString() : String(d),
-      estat: String(datos[i][3] || ""),
-      nota: String(datos[i][4] || ""),
-      usuari: String(datos[i][5] || ""),
-      issues: String(datos[i][6] || "").split(",").map(s => s.trim()).filter(Boolean)
-    };
-    (per[pou] = per[pou] || []).push(reg);
-  }
-  return per;
-}
+  // Se guarda el estado anterior por si hay que deshacer el cambio
+  const estadoPrevio = {
+    estado: equipo.estado,
+    usuario: equipo.usuario,
+    fecha: equipo.fecha,
+    retiratPer: equipo.retiratPer,
+    retiratData: equipo.retiratData
+  };
 
-function generarVerificacioJSON(forcar) {
-  const cache = CacheService.getScriptCache();
-  let base = null;
+  // Cas especial: retirar un pou que està marcat "No instalar" no li canvia
+  // l'estat (es manté "No instalar") — el retir es guarda com una anotació
+  // a part, perquè les dues coses quedin visibles a la vegada
+  const esRetirarMentreNoInstalar = accion === "retirar" && equipo.estado === "No instalar";
 
-  if (!forcar) {
-    const c = cache.get(CACHE_KEY_VERIFICACIO);
-    if (c) { try { base = JSON.parse(c); } catch (e) { base = null; } }
+  // Se actualiza la pantalla al instante, sin esperar al servidor
+  if(esRetirarMentreNoInstalar){
+    equipo.retiratPer = usuario;
+    equipo.retiratData = new Date().toLocaleString();
+  }else{
+    if(accion==="retirar") equipo.estado="Retirado";
+    if(accion==="instalado") equipo.estado="Instalado";
+    if(accion==="noinstalar") equipo.estado="No instalar";
+    if(accion==="almacen") equipo.estado="Almacén";
+
+    if(accion==="almacen"){
+      equipo.fecha="";
+      equipo.usuario="";
+    }else{
+      equipo.usuario=usuario;
+      equipo.fecha=new Date().toLocaleString();
+    }
   }
 
-  if (!base) {
-    const rows = verifCarregarFiles();
-    const niv = verifCarregarNivell();
-    const calc = verifCalcular(rows, niv.devices);
-    const meta = {};
-    rows.forEach(r => { meta[r.pozo] = r; });
-    const pous = calc.filter(o => o.issues.length).map(o => {
-      const r = meta[o.pozo] || {};
-      const mn = o.eui ? niv.marksNivell[o.eui] : null;
-      return {
-        pozo: o.pozo, eui: o.eui, sev: o.sev, issues: o.issues,
-        vigilant: r.vigilant || "", instalador: r.instalador || "",
-        lat: r.lat, lon: r.lon, estado: r.estado || "",
-        nivell: (mn && mn.status) ? { estat: String(mn.status), nota: mn.note || "", data: mn.updatedAt || "" } : null
-      };
+  actualizarStats();
+  mostrarEquipo(equipo);
+
+  const payload = Object.assign({
+    accion: accion,
+    fila: equipo.fila,
+    codigo: equipo.codigo,
+    deveui: equipo.deveui,
+    usuario: usuario
+  }, construirAuthPayload());
+
+  try{
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
     });
-    base = {
-      pous: pous,
-      totalFiles: rows.length,
-      senseLectures: !niv.devices,
-      errorLectures: niv.error,
-      generat: new Date().toISOString()
-    };
-    try { cache.put(CACHE_KEY_VERIFICACIO, JSON.stringify(base), CACHE_TTL_VERIFICACIO); } catch (e) { /* massa gran: sense caché */ }
+    const respuesta = await r.text();
+
+    if(respuesta!=="OK"){
+      // El servidor no lo aceptó: se deshace el cambio en pantalla
+      Object.assign(equipo, estadoPrevio);
+      actualizarStats();
+      mostrarEquipo(equipo);
+      alert("Error: " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
+    }
+  }catch(error){
+    console.error(error);
+    Object.assign(equipo, estadoPrevio);
+    actualizarStats();
+    mostrarEquipo(equipo);
+    alert("Error de comunicació. Torna-ho a provar.");
+  }
+}
+
+async function marcarNoInstalar(fila){
+
+  const equipo = equipoPerFila(fila);
+  if(!equipo) return;
+
+  const observacions = prompt("Motiu pel qual no es pot instal·lar (queda anotat a Progrés sondes):");
+  if(observacions === null) return; // ha cancel·lat
+
+  const usuario = obtenerUsuario();
+  if(!usuario) return;
+
+  const payload = Object.assign({
+    accion: "noinstalar",
+    fila: equipo.fila,
+    codigo: equipo.codigo,
+    deveui: equipo.deveui,
+    usuario: usuario,
+    observacions: observacions
+  }, construirAuthPayload());
+
+  const estadoPrevio = { estado: equipo.estado, usuario: equipo.usuario, fecha: equipo.fecha };
+
+  equipo.estado = "No instalar";
+  equipo.usuario = usuario;
+  equipo.fecha = new Date().toLocaleString();
+  actualizarStats();
+  mostrarEquipo(equipo);
+
+  try{
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+    const respuesta = await r.text();
+
+    if(respuesta!=="OK"){
+      Object.assign(equipo, estadoPrevio);
+      actualizarStats();
+      mostrarEquipo(equipo);
+      alert("Error: " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
+    }
+  }catch(error){
+    console.error(error);
+    Object.assign(equipo, estadoPrevio);
+    actualizarStats();
+    mostrarEquipo(equipo);
+    alert("Error de comunicació");
+  }
+}
+
+// Marca que este registrador se ha montado realmente en OTRO pou (ya
+// existente a l'inventari) — s'anota a les dues fitxes, sense tocar
+// l'estat ni cap altra dada de cap de les dues
+// Renombra un equipo a un código nuevo. Si ese código ya lo usa otro
+// registrador, pregunta si también quieres renombrar ese otro (y si
+// aceptas, se resuelve primero esa cadena antes de continuar). Devuelve
+// true si el renombrado (y los que hayan hecho falta por el camino) se
+// completaron con éxito.
+async function renombrarPou(equipo, codigoNuevoTexto, usuario){
+
+  let codigoNuevo = codigoNuevoTexto.trim().toUpperCase();
+
+  if(codigoNuevo === equipo.codigo.toUpperCase()){
+    alert("El codi nou no pot ser el mateix que l'actual (" + equipo.codigo + ").");
+    return false;
   }
 
-  // Les revisions es llegeixen sempre fresques (la hoja és petita)
-  const registre = verifLlegirRegistre();
-  base.pous.forEach(p => {
-    const log = registre[p.pozo.toUpperCase()] || [];
-    const ult = log.length ? log[log.length - 1] : null;
-    p.mark = ult;
-    p.historial = log.slice(-15);
-    const codis = p.issues.map(i => i.code);
-    const tractatEstat = ult && (ult.estat === "verificat" || ult.estat === "arreglat" || ult.estat === "ignorat");
-    const nous = ult ? codis.filter(c => ult.issues.indexOf(c) === -1) : [];
-    p.tractat = !!(tractatEstat && nous.length === 0);
-    p.reobert = !!(tractatEstat && nous.length > 0);
-    p.nousIssues = nous;
+  const conflictos = equipos.filter(e => e !== equipo && String(e.codigo).toUpperCase() === codigoNuevo);
+
+  if(conflictos.length){
+
+    const equipoConflicto = conflictos[0];
+    const descripcio = conflictos.length === 1
+      ? "(DevEUI " + equipoConflicto.deveui + ", caixa " + (equipoConflicto.caja || "-") + ", estat " + (equipoConflicto.estado || "-") + ")"
+      : "(" + conflictos.length + " registradors)";
+
+    // 1a opció: continuar igualment, afegint un asterisc al codi perquè
+    // quedi clar que és repetit/còpia. El que es renombra conserva el seu
+    // "codi original", així sempre se sap quin és quin
+    let codigoAmbAsterisc = codigoNuevo + "*";
+    while(equipos.some(e => e !== equipo && String(e.codigo).toUpperCase() === codigoAmbAsterisc)){
+      codigoAmbAsterisc += "*";
+    }
+
+    const deixarRepetit = confirm(
+      "El codi " + codigoNuevo + " ja el fa servir un altre registrador " + descripcio + ".\n\n" +
+      "Vols continuar igualment? Aquest registrador quedarà com a «" + codigoAmbAsterisc + "» (amb asterisc, per indicar que és repetit) i es guardarà el seu codi original (" + equipo.codigo + ").\n\n" +
+      "Acceptar = continuar amb «" + codigoAmbAsterisc + "»\n" +
+      "Cancel·lar = veure altres opcions"
+    );
+
+    if(deixarRepetit){
+      codigoNuevo = codigoAmbAsterisc;
+    }
+
+    if(!deixarRepetit){
+
+      // 2a opció: renombrar també l'altre per deixar el codi lliure
+      const volsRenombrarAltre = confirm(
+        "Vols renombrar l'altre registrador (actualment " + equipoConflicto.codigo + "), per deixar lliure el codi " + codigoNuevo + "?\n\n" +
+        "Cancel·lar = no fer res"
+      );
+
+      if(!volsRenombrarAltre) return false;
+
+      const nouCodiPerAltre = prompt("Nou codi per a l'altre registrador (actualment " + equipoConflicto.codigo + "):");
+      if(nouCodiPerAltre === null || !nouCodiPerAltre.trim()) return false;
+
+      // Es resol primer aquesta col·lisió (en cadena, per si també xoca amb
+      // un tercer) abans de continuar amb el renombrat original
+      const exitAltre = await renombrarPou(equipoConflicto, nouCodiPerAltre, usuario);
+      if(!exitAltre) return false;
+    }
+  }
+
+  const codigoAnterior = equipo.codigo;
+
+  const payload = Object.assign({
+    accion: "reubicar",
+    fila: equipo.fila,
+    codigo: equipo.codigo,
+    deveui: equipo.deveui,
+    usuario: usuario,
+    codigoDestino: codigoNuevo
+  }, construirAuthPayload());
+
+  try{
+
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+    const respuesta = await r.text();
+
+    if(respuesta !== "OK"){
+      alert("Error renombrant " + codigoAnterior + " a " + codigoNuevo + ": " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
+      return false;
+    }
+
+    // Si es torna exactament al codi original, es considera "desfer" la
+    // reubicació — es netegen les dades de seguiment en comptes
+    // d'actualitzar-les, igual que fa el servidor
+    const esDesfer = equipo.codigoOriginal && equipo.codigoOriginal.toUpperCase() === codigoNuevo;
+
+    if(esDesfer){
+      equipo.codigoOriginal = "";
+      equipo.reubicatPer = "";
+      equipo.reubicatData = "";
+    }else{
+      // El codi original es guarda només la primera vegada (si ja n'hi
+      // havia un, es conserva el de debò-original, no aquest darrer)
+      if(!equipo.codigoOriginal){
+        equipo.codigoOriginal = codigoAnterior;
+      }
+      equipo.reubicatPer = usuario;
+      equipo.reubicatData = new Date().toLocaleString();
+    }
+
+    equipo.codigo = codigoNuevo;
+
+    // Si un instal·lador tenia aquest pou assignat amb el codi antic,
+    // reflectim també el canvi a la sessió actual
+    const idxAsignado = instaladorPozosAsignados.indexOf(codigoAnterior.toUpperCase());
+    if(idxAsignado !== -1){
+      instaladorPozosAsignados[idxAsignado] = codigoNuevo;
+      localStorage.setItem("instaladorPozosAsignados", JSON.stringify(instaladorPozosAsignados));
+    }
+
+    return true;
+
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació renombrant " + codigoAnterior);
+    return false;
+  }
+}
+
+// Desfà del tot una reubicació anterior, tornant directament al codi
+// original — sense haver-lo d'escriure a mà. Reutilitza renombrarPou,
+// que ja sap detectar aquest cas i netejar les dades de seguiment.
+async function desferReubicacio(fila){
+
+  const equipo = equipoPerFila(fila);
+  if(!equipo || !equipo.codigoOriginal) return;
+
+  const confirmar = confirm(
+    "Vols desfer la reubicació d'aquest registrador?\n\n" +
+    "Tornarà a dir-se " + equipo.codigoOriginal + " (codi actual: " + equipo.codigo + "), i s'esborraran les dades de seguiment d'aquesta reubicació."
+  );
+  if(!confirmar) return;
+
+  const usuario = obtenerUsuario();
+  if(!usuario) return;
+
+  const exito = await renombrarPou(equipo, equipo.codigoOriginal, usuario);
+
+  if(exito){
+    mostrarEquipo(equipo);
+  }
+}
+
+async function marcarReubicacio(fila){
+
+  const equipo = equipoPerFila(fila);
+  if(!equipo) return;
+
+  const destino = prompt("Codi del pou on s'ha muntat realment aquest registrador.\n\nEl codi actual (" + equipo.codigo + ") es conservarà com a \"codi original\" — no es perd, només queda substituït com a codi actiu.");
+  if(destino === null || !destino.trim()) return;
+
+  const metratgeText = prompt(
+    "Metratge de la sonda que hi ha instal·lada ara en aquest pou (metres).\n\n" +
+    "Deixa el mateix valor si és la mateixa sonda d'abans; canvia'l si n'has posat una altra:",
+    equipo.metraje || ""
+  );
+  if(metratgeText === null) return; // ha cancel·lat
+
+  const usuario = obtenerUsuario();
+  if(!usuario) return;
+
+  const exito = await renombrarPou(equipo, destino, usuario);
+  if(!exito) return;
+
+  const metratgeNou = metratgeText.trim();
+  if(metratgeNou && metratgeNou !== String(equipo.metraje || "").trim()){
+    await actualizarMetratgeSonda(equipo, metratgeNou);
+  }
+
+  mostrarEquipo(equipo);
+}
+
+// Actualiza el metratge de la sonda (columna "long cable") — se usa sobre
+// todo después de una reubicació, cuando la sonda que queda instal·lada
+// en el pou nou no es la mateixa que la d'origen
+async function actualizarMetratgeSonda(equipo, nuevoMetraje){
+
+  const payload = Object.assign({
+    accion: "actualizarMetraje",
+    fila: equipo.fila,
+    metraje: nuevoMetraje
+  }, construirAuthPayload());
+
+  try{
+
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+    const respuesta = await r.text();
+
+    if(respuesta === "OK"){
+      // Es conserva el primer metratge de tots, només si encara no n'hi
+      // havia cap guardat
+      if(!equipo.metrajeOriginal && equipo.metraje){
+        equipo.metrajeOriginal = equipo.metraje;
+      }
+      equipo.metraje = nuevoMetraje;
+    }else{
+      alert("El codi s'ha canviat correctament, però no s'ha pogut actualitzar el metratge: " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
+    }
+
+  }catch(error){
+    console.error(error);
+    alert("El codi s'ha canviat correctament, però no s'ha pogut actualitzar el metratge (error de comunicació).");
+  }
+}
+
+// ============================================================
+// Instalación completa: foto + cobertura + cable fins cota + observacions
+// en un solo envío (sustituye a la llamada directa a cambiarEstado)
+// ============================================================
+
+let filaEnInstalacion = null;
+
+function abrirModalInstalacion(fila){
+
+  filaEnInstalacion = fila;
+  const equipoInst = equipoPerFila(fila);
+
+  document.getElementById("instalarTitulo").textContent = "Instal·lar " + (equipoInst ? equipoInst.codigo : "");
+  document.getElementById("inpFoto").value = "";
+  document.getElementById("inpCableFinsCota").value = "";
+  document.getElementById("inpObservacions").value = "";
+  document.getElementById("instalarEstado").textContent = "";
+  document.getElementById("avisCableFinsCota").style.display = "none";
+
+  document.getElementById("instalarModal").style.display = "block";
+}
+
+// Avisa si el valor escrito coincide con el largo total de la sonda —
+// error típico de confundir "cable fins cota" con el cable entero.
+// Devuelve true si el valor no es válido (para poder bloquear el envío).
+function comprovarCableFinsCota(){
+
+  const avisDiv = document.getElementById("avisCableFinsCota");
+  const equipo = equipoPerFila(filaEnInstalacion);
+  const valor = parseFloat(document.getElementById("inpCableFinsCota").value);
+  const metraje = equipo ? parseFloat(equipo.metraje) : NaN;
+
+  const esInvalid = !isNaN(valor) && !isNaN(metraje) && valor >= metraje;
+
+  if(esInvalid){
+    const prefijo = bloquejarCableFinsCotaActiu ? "🚫 No es pot guardar: " : "⚠️ Avís: ";
+    avisDiv.textContent = `${prefijo}aquest valor (${valor} m) és igual o més gran que el llarg total de la sonda (${metraje} m). Segurament has posat el cable sencer en comptes del tram fins la cota.`;
+    avisDiv.style.display = "block";
+  }else{
+    avisDiv.style.display = "none";
+  }
+
+  return esInvalid;
+}
+
+function cerrarModalInstalacion(){
+  document.getElementById("instalarModal").style.display = "none";
+  filaEnInstalacion = null;
+}
+
+// Convierte un File a base64 puro (sin el prefijo data:...;base64,)
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
-  return jsonOutput({ ok: true, pous: base.pous, totalFiles: base.totalFiles, senseLectures: base.senseLectures,
-                      errorLectures: base.errorLectures, generat: base.generat });
 }
 
-// body.items = [{pozo, eui, issues:[codis]}], body.estat, body.nota, body.usuari
-function marcarVerificacio(body) {
-  const estat = String(body.estat || "").toLowerCase();
-  if (ESTATS_VERIFICACIO.indexOf(estat) === -1) {
-    return jsonOutput({ ok: false, mensaje: "Estat no vàlid" });
-  }
-  const items = Array.isArray(body.items) ? body.items : [];
-  if (!items.length) return jsonOutput({ ok: false, mensaje: "Cap pou indicat" });
+// Hash rápido y estable del contenido (no criptográfico, solo para dar el
+// mismo nombre a un mismo archivo en reintentos y evitar duplicados).
+// Muestrea el principio y el final en vez de recorrer el base64 entero,
+// para que no penalice con fotos de varios MB.
+function hashContenido(base64){
+  let hash = 0;
+  const muestra = base64.length > 6000
+    ? base64.slice(0, 3000) + base64.slice(-3000)
+    : base64;
 
-  const lock = LockService.getScriptLock();
-  lock.waitLock(20000);
-  try {
-    const hoja = obtenerHojaVerificacio();
-    const ara = new Date();
-    const files = items.map(it => [
-      ara,
-      String(it.pozo || "").trim(),
-      String(it.eui || "").trim(),
-      estat,
-      String(body.nota || ""),
-      String(body.usuari || ""),
-      (Array.isArray(it.issues) ? it.issues : []).join(",")
-    ]);
-    hoja.getRange(hoja.getLastRow() + 1, 1, files.length, 7).setValues(files);
-    SpreadsheetApp.flush();
-  } finally {
-    lock.releaseLock();
+  for(let i = 0; i < muestra.length; i++){
+    hash = ((hash << 5) - hash) + muestra.charCodeAt(i);
+    hash |= 0;
   }
-  return jsonOutput({ ok: true, guardats: items.length, data: new Date().toISOString() });
+
+  return Math.abs(hash).toString(36) + base64.length.toString(36);
 }
+
+// Redimensiona y comprime una foto en el propio navegador antes de subirla,
+// para que la subida por móvil sea mucho más rápida. Devuelve un Blob JPEG.
+function comprimirImagen(file, maxAncho = 1600, calidad = 0.72){
+  return new Promise((resolve, reject) => {
+
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+
+      URL.revokeObjectURL(url);
+
+      let ancho = img.width;
+      let alto = img.height;
+
+      if(ancho > maxAncho){
+        alto = Math.round(alto * (maxAncho / ancho));
+        ancho = maxAncho;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = ancho;
+      canvas.height = alto;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, ancho, alto);
+
+      canvas.toBlob(
+        blob => blob ? resolve(blob) : reject(new Error("No s'ha pogut comprimir la imatge")),
+        "image/jpeg",
+        calidad
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("No s'ha pogut llegir la imatge"));
+    };
+
+    img.src = url;
+  });
+}
+
+async function confirmarInstalacion(){
+
+  const equipo = equipoPerFila(filaEnInstalacion);
+  if(!equipo) return;
+
+  const esInvalid = comprovarCableFinsCota();
+  if(esInvalid && bloquejarCableFinsCotaActiu){
+    document.getElementById("instalarEstado").textContent = "";
+    return; // el aviso en rojo ya explica el motivo, no se envía nada
+  }
+
+  const usuario = obtenerUsuario();
+  if(!usuario) return;
+
+  const estadoDiv = document.getElementById("instalarEstado");
+  estadoDiv.textContent = "Guardant…";
+
+  const ficherosFoto = Array.from(document.getElementById("inpFoto").files);
+  const cableFinsCota = document.getElementById("inpCableFinsCota").value.trim();
+  const observacions = document.getElementById("inpObservacions").value.trim();
+
+  // 1) Marcar instalado primero — una petición pequeña y rápida, sin fotos
+  // dentro, para que el estado quede guardado aunque luego alguna foto
+  // tarde mucho (o falle) por mala cobertura
+  const payload = Object.assign({
+    accion: "instalado",
+    fila: equipo.fila,
+    codigo: equipo.codigo,
+    deveui: equipo.deveui,
+    usuario: usuario,
+    cableFinsCota: cableFinsCota,
+    observacions: observacions
+  }, construirAuthPayload());
+
+  try{
+
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    }, (msg) => { estadoDiv.textContent = msg; });
+
+    const respuestaTexto = await r.text();
+    const respuesta = parsearRespuestaJSON(respuestaTexto);
+
+    if(!respuesta.ok){
+      estadoDiv.textContent = "Error: " + (respuesta.mensaje || respuestaTexto);
+      return;
+    }
+
+    equipo.estado = "Instalado";
+    equipo.usuario = usuario;
+    equipo.fecha = new Date().toLocaleString();
+    actualizarStats();
+
+    const avisos = Array.isArray(respuesta.avisos) ? respuesta.avisos.slice() : [];
+
+    // 2) Fotos, una a una — cada una en su propia petición pequeña. Si
+    // alguna falla, no arrastra a las demás ni al estado ya guardado
+    for(let i = 0; i < ficherosFoto.length; i++){
+
+      estadoDiv.textContent = `Comprimint i pujant foto ${i+1} de ${ficherosFoto.length}…`;
+
+      const fichero = ficherosFoto[i];
+
+      let blobFinal = fichero;
+      try{
+        blobFinal = await comprimirImagen(fichero);
+      }catch(err){
+        console.error("No s'ha pogut comprimir, es puja l'original:", err);
+      }
+
+      const base64Foto = await fileToBase64(blobFinal);
+
+      // Nombre estable a partir del contenido: si esta misma foto se
+      // reenvía por un reintento tras un error de red, genera el mismo
+      // nombre y el servidor no la duplica
+      const nombreFoto = equipo.codigo + "_" + hashContenido(base64Foto) + "_" + fichero.name.replace(/\.[^.]+$/, "") + ".jpg";
+
+      try{
+
+        const rFoto = await fetchAmbReintents(API, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(Object.assign({
+            accion: "subirFoto",
+            codigo: equipo.codigo,
+            nombre: nombreFoto,
+            base64: base64Foto,
+            mime: "image/jpeg"
+          }, construirAuthPayload()))
+        }, (msg) => { estadoDiv.textContent = `Foto ${i+1} de ${ficherosFoto.length}: ${msg}`; });
+
+        const dadesFoto = parsearRespuestaJSON(await rFoto.text());
+
+        if(!dadesFoto.ok){
+          avisos.push(`Foto ${i+1}: ${dadesFoto.mensaje || "no s'ha pogut pujar"}`);
+        }
+
+      }catch(errorFoto){
+        console.error("Error pujant foto " + (i+1) + ":", errorFoto);
+        avisos.push(`Foto ${i+1}: error de comunicació, no s'ha pujat`);
+      }
+    }
+
+    cerrarModalInstalacion();
+    mostrarEquipo(equipo);
+
+    if(avisos.length){
+      alert("Instal·lat, però amb avisos:\n\n" + avisos.join("\n"));
+    }
+
+  }catch(error){
+    console.error(error);
+    estadoDiv.textContent = "Error de comunicació. Torna-ho a provar.";
+  }
+
+}
+
+// ============================================================
+// Subida en lote de fitxers de cobertura (des d'un altre dispositiu,
+// sense vincular-los a cap sonda concreta)
+// ============================================================
+
+function abrirModalCobertura(){
+  document.getElementById("inpCoberturaLote").value = "";
+  document.getElementById("coberturaEstado").textContent = "";
+  document.getElementById("coberturaModal").style.display = "block";
+}
+
+function cerrarModalCobertura(){
+  document.getElementById("coberturaModal").style.display = "none";
+}
+
+async function confirmarCobertura(){
+
+  const ficheros = Array.from(document.getElementById("inpCoberturaLote").files);
+  const estadoDiv = document.getElementById("coberturaEstado");
+
+  if(!ficheros.length){
+    estadoDiv.textContent = "Selecciona almenys un fitxer.";
+    return;
+  }
+
+  const errores = [];
+
+  for(let i = 0; i < ficheros.length; i++){
+
+    estadoDiv.textContent = `Pujant fitxer ${i+1} de ${ficheros.length}…`;
+
+    const fichero = ficheros[i];
+
+    try{
+
+      const base64 = await fileToBase64(fichero);
+
+      const r = await fetchAmbReintents(API, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(Object.assign({
+          accion: "subirCoberturaArchivo",
+          nombre: fichero.name,
+          base64: base64,
+          mime: fichero.type || "text/csv"
+        }, construirAuthPayload()))
+      }, (msg) => { estadoDiv.textContent = `Fitxer ${i+1} de ${ficheros.length}: ${msg}`; });
+
+      const dades = parsearRespuestaJSON(await r.text());
+
+      if(!dades.ok){
+        errores.push(`${fichero.name}: ${dades.mensaje || "no s'ha pogut pujar"}`);
+      }
+
+    }catch(error){
+      console.error("Error pujant " + fichero.name + ":", error);
+      errores.push(`${fichero.name}: error de comunicació`);
+    }
+  }
+
+  if(errores.length){
+    estadoDiv.textContent = "";
+    alert("Alguns fitxers no s'han pogut pujar:\n\n" + errores.join("\n"));
+  }else{
+    estadoDiv.textContent = "";
+  }
+
+  cerrarModalCobertura();
+}
+
+// ============================================================
+// Generar/actualizar el mapa KML (pozos ya clasificados en
+// Problematics/Acabats según el estado del inventario)
+// ============================================================
+
+async function actualizarMapa(event){
+
+  const boton = event.target;
+  const textoOriginal = boton.textContent;
+  boton.textContent = "Generant…";
+  boton.disabled = true;
+
+  try{
+
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(Object.assign({ accion: "mapa" }, construirAuthPayload()))
+    });
+    const respuestaTexto = await r.text();
+
+    let respuesta;
+    try{
+      respuesta = JSON.parse(respuestaTexto);
+    }catch(err){
+      respuesta = { ok:false, mensaje: respuestaTexto };
+    }
+
+    if(respuesta.ok){
+      const obrir = confirm(
+        "Mapa actualitzat: " + respuesta.nombre +
+        "\n\n(Ara també es regenera sol cada hora, no cal tornar a prémer aquest botó cada dia.)" +
+        "\n\nVols descarregar-lo ara? (enllaç directe, no cal cap compte de Google)"
+      );
+      if(obrir){
+        window.open(respuesta.url, "_blank");
+      }
+    }else{
+      alert("Error generant el mapa: " + (respuesta.mensaje || respuestaTexto));
+    }
+
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació generant el mapa.");
+  }finally{
+    boton.textContent = textoOriginal;
+    boton.disabled = false;
+  }
+
+}
+
+window.addEventListener("hashchange", () => {
+  const codigo = location.hash.replace("#","").toUpperCase();
+  if(!codigo) return;
+
+  // Si la fitxa que ja hi ha oberta té aquest codi, no cal tocar res
+  // (amb codis repetits, obrir "el primer amb aquest codi" podria ser
+  // un altre registrador)
+  const actual = filaAbierta !== null ? equipoPerFila(filaAbierta) : null;
+  if(actual && String(actual.codigo||"").toUpperCase() === codigo) return;
+
+  abrirEquipo(codigo);
+});
+</script>
+
+</body>
+</html>
