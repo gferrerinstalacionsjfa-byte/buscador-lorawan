@@ -119,6 +119,7 @@ body{
 }
 .btn:hover{border-color:var(--ink-faint);}
 .btn-primary{background:var(--accent);color:#fff;border-color:transparent;}
+.btn.actiu{background:var(--danger);color:#fff;border-color:transparent;}
 .btn-primary:hover{background:var(--accent-dark);}
 
 main{
@@ -362,8 +363,10 @@ tbody tr.fila-acabada:hover td{background:#d3ecda;}
       <a class="app-tab" href="./">Inventari</a>
       <a class="app-tab" href="./mapa.html">Mapa</a>
       <a class="app-tab activa" href="./progres.html">Progrés sondes</a>
+      <a class="app-tab" href="./verificacio.html">Verificació</a>
     </nav>
     <button class="btn" onclick="carregarDades()">🔄 Actualitzar</button>
+    <button class="btn" id="botoAlertes" onclick="toggleNomesAlertes()">⚠️ Alertes</button>
     <button class="btn" onclick="exportarExcelColors()">🎨 Exportar Excel (amb colors)</button>
     <button class="btn btn-primary" onclick="exportarCSV()">⬇️ Exportar CSV</button>
   </div>
@@ -403,6 +406,7 @@ let filtresColumna = {};   // índice columna -> Set de valores marcados (vacío
 let ordreColumna = null;
 let ordreAscendent = true;
 let idxAcabat = -1; // índice de la columna "Acabat", para marcar las filas en verde
+let nomesAlertes = false;
 
 // Columnas que el usuario ha decidido ocultar a mano (por nombre, para que
 // se recuerde entre sesiones aunque cambie el orden de las columnas)
@@ -646,11 +650,23 @@ function actualizarEtiquetaBoto(indice, boto){
   boto.classList.toggle("actiu", n > 0);
 }
 
+function toggleNomesAlertes(){
+  nomesAlertes = !nomesAlertes;
+  document.getElementById("botoAlertes").classList.toggle("actiu", nomesAlertes);
+  aplicarFiltres();
+}
+
 function aplicarFiltres(){
 
   const cercaGlobal = document.getElementById("cercaGlobal").value.trim().toLowerCase();
+  const idxAlerta = headers.findIndex(h => String(h || "").trim().toLowerCase() === "alerta");
 
   filasFiltradas = filasCompletas.filter(f => {
+
+    if(nomesAlertes && idxAlerta !== -1){
+      const valorAlerta = String(f.valores[idxAlerta] ?? "").trim();
+      if(!valorAlerta) return false;
+    }
 
     for(const idx in filtresColumna){
       const seleccionats = filtresColumna[idx];

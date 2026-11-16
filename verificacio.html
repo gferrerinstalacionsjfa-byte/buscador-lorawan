@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verificació · Instalacions JFA</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+:root{
+  --bg:#EEF2F1; --surface:#FFFFFF; --ink:#10242B; --ink-soft:#56686D; --ink-faint:#8B9A9D;
+  --line:#DCE4E2; --accent:#0E7C86; --accent-dark:#0A5F67;
+  --ok:#1F8A4C; --warn:#B7791F; --danger:#B3261E; --info:#2563AF;
+  --radius:10px; --radius-sm:7px;
+  --shadow:0 1px 2px rgba(16,36,43,0.06),0 6px 16px rgba(16,36,43,0.06);
+  --mono:'IBM Plex Mono',ui-monospace,monospace; --sans:'IBM Plex Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box;}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);margin:0;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1000;}
+.topbar-inner{max-width:1200px;margin:auto;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.brand{display:flex;align-items:baseline;gap:8px;color:inherit;text-decoration:none;}
+.brand-mark{font-family:var(--mono);font-weight:600;font-size:14px;letter-spacing:.06em;background:var(--ink);color:#fff;padding:3px 7px;border-radius:5px;}
+.brand-name{font-weight:600;font-size:15px;color:var(--ink-soft);}
+.app-switch{display:flex;gap:4px;background:var(--bg);padding:3px;border-radius:9px;}
+.app-tab{padding:6px 12px;border-radius:7px;font-size:13px;font-weight:600;color:var(--ink-soft);text-decoration:none;}
+.app-tab.activa{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(16,36,43,.12);}
+.btn{font-family:var(--sans);font-size:13px;font-weight:600;padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;}
+.btn:hover{border-color:var(--accent);}
+.btn.actiu{background:var(--accent);color:#fff;border-color:var(--accent);}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.btn-primary:hover{background:var(--accent-dark);}
+.btn:disabled{opacity:.5;cursor:default;}
+main{max-width:1200px;margin:auto;padding:18px 20px 60px;}
+.resum{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.xip{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px;min-width:110px;cursor:pointer;}
+.xip b{display:block;font-size:22px;font-family:var(--mono);}
+.xip span{font-size:12px;color:var(--ink-soft);}
+.xip.actiu{outline:2px solid var(--accent);}
+.filtres{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+.filtres input,.filtres select{font-family:var(--sans);font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--bg);color:var(--ink);}
+.filtres input{min-width:200px;}
+.contador{margin-left:auto;font-size:13px;color:var(--ink-soft);}
+.avis{background:#FFF6E5;border:1px solid #F0D9A8;color:#7A5200;border-radius:var(--radius);padding:10px 14px;font-size:13px;margin-bottom:14px;}
+.grup{margin-bottom:18px;}
+.grup h3{margin:0 0 8px;font-size:14px;color:var(--ink-soft);display:flex;gap:8px;align-items:center;}
+.grup h3 .n{background:var(--ink);color:#fff;border-radius:99px;font-size:11px;padding:1px 8px;}
+.targeta{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--warn);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow);}
+.targeta.sev2{border-left-color:var(--danger);}
+.targeta.tractat{border-left-color:var(--ok);opacity:.78;}
+.targeta.seguiment{border-left-color:var(--info);}
+.targeta.flash{outline:3px solid var(--accent);}
+.cap{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.codi{font-family:var(--mono);font-weight:600;font-size:16px;}
+.meta{font-size:12px;color:var(--ink-soft);}
+.badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--bg);color:var(--ink-soft);}
+.badge.crit{background:#FBE4E2;color:var(--danger);}
+.badge.avis{background:#FFF0D6;color:var(--warn);}
+.badge.ok{background:#DDF3E5;color:var(--ok);}
+.badge.seg{background:#E0EBFA;color:var(--info);}
+.badge.reob{background:#FBE4E2;color:var(--danger);}
+.incidencies{margin:8px 0 6px;padding:0;list-style:none;font-size:13px;}
+.incidencies li{padding:2px 0;}
+.incidencies .s2::before{content:"● ";color:var(--danger);}
+.incidencies .s1::before{content:"● ";color:var(--warn);}
+.nota{font-size:13px;background:var(--bg);border-radius:var(--radius-sm);padding:6px 10px;margin:6px 0;}
+.accions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.accions .btn{padding:5px 10px;font-size:12px;}
+.sel{margin-right:2px;}
+.historial{font-size:12px;color:var(--ink-soft);margin-top:6px;border-top:1px dashed var(--line);padding-top:6px;}
+#mapa{height:calc(100vh - 230px);min-height:420px;border-radius:var(--radius);border:1px solid var(--line);}
+.barra-lot{position:fixed;left:0;right:0;bottom:0;background:var(--ink);color:#fff;padding:10px 20px;display:none;gap:10px;align-items:center;flex-wrap:wrap;z-index:1500;}
+.barra-lot.visible{display:flex;}
+.modal-fons{position:fixed;inset:0;background:rgba(16,36,43,.5);display:none;align-items:center;justify-content:center;z-index:3000;padding:16px;}
+.modal-fons.visible{display:flex;}
+.modal{background:var(--surface);border-radius:var(--radius);padding:20px;max-width:440px;width:100%;}
+.modal h3{margin:0 0 10px;}
+.modal textarea{width:100%;min-height:80px;font-family:var(--sans);font-size:14px;padding:8px;border:1px solid var(--line);border-radius:var(--radius-sm);}
+.modal .files{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;}
+.buit{text-align:center;color:var(--ink-soft);padding:40px 0;}
+.pop-btns{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;}
+.pop-btns button{font-size:11px;padding:3px 7px;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="./"><span class="brand-mark">JFA</span><span class="brand-name">Instalacions</span></a>
+    <nav class="app-switch">
+      <a class="app-tab" href="./">Inventari</a>
+      <a class="app-tab" href="./mapa.html">Mapa</a>
+      <a class="app-tab" href="./progres.html">Progrés sondes</a>
+      <a class="app-tab activa" href="./verificacio.html">Verificació</a>
+    </nav>
+    <button class="btn" id="btnLlista" onclick="canviarVista('llista')">📋 Llista</button>
+    <button class="btn" id="btnMapa" onclick="canviarVista('mapa')">🗺️ Mapa</button>
+    <button class="btn" onclick="carregar(true)">🔄 Actualitzar</button>
+    <button class="btn" onclick="exportarCSV()">⬇️ CSV</button>
+  </div>
+</header>
+
+<main>
+  <div id="avisos"></div>
+  <div class="resum" id="resum"></div>
+
+  <div class="filtres">
+    <input id="fCerca" placeholder="Cercar pou, DevEUI, nota…" oninput="aplicar()">
+    <select id="fVigilant" onchange="aplicar()"></select>
+    <select id="fInstalador" onchange="aplicar()"></select>
+    <select id="fEstat" onchange="aplicar()">
+      <option value="">Tots els estats</option>
+      <option value="pendent">Pendents</option>
+      <option value="reobert">Reoberts (nou problema)</option>
+      <option value="seguiment">En seguiment</option>
+      <option value="tractat">Tractats</option>
+    </select>
+    <select id="fSev" onchange="aplicar()">
+      <option value="">Totes les gravetats</option>
+      <option value="2">Només crítics</option>
+      <option value="1">Només avisos</option>
+    </select>
+    <select id="fTipus" onchange="aplicar()"></select>
+    <label style="font-size:13px;"><input type="checkbox" id="fAgrupar" checked onchange="aplicar()" style="min-width:0;"> Agrupar per vigilant</label>
+    <label style="font-size:13px;"><input type="checkbox" id="fOcultarTractats" onchange="aplicar()" style="min-width:0;"> Amagar tractats</label>
+    <span class="contador" id="contador"></span>
+  </div>
+
+  <div id="vistaLlista"></div>
+  <div id="vistaMapa" style="display:none;"><div id="mapa"></div></div>
+</main>
+
+<div class="barra-lot" id="barraLot">
+  <b id="lotN">0</b> seleccionats
+  <button class="btn" onclick="obrirMarca(null,'verificat')">✅ Verificat</button>
+  <button class="btn" onclick="obrirMarca(null,'arreglat')">🔧 Arreglat</button>
+  <button class="btn" onclick="obrirMarca(null,'seguiment')">👀 En seguiment</button>
+  <button class="btn" onclick="obrirMarca(null,'ignorat')">🚫 Ignorat</button>
+  <button class="btn" onclick="seleccionarTots()">Seleccionar visibles</button>
+  <button class="btn" onclick="netejarSeleccio()">Netejar</button>
+</div>
+
+<div class="modal-fons" id="modalMarca">
+  <div class="modal">
+    <h3 id="modalTitol">Marcar</h3>
+    <div class="meta" id="modalPous" style="margin-bottom:8px;"></div>
+    <textarea id="modalNota" placeholder="Nota (opcional): què s'ha trobat o fet"></textarea>
+    <div class="files">
+      <button class="btn" onclick="tancarMarca()">Cancel·lar</button>
+      <button class="btn btn-primary" id="modalOk" onclick="confirmarMarca()">Desar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbzz8jwBBYvxLJBdYlf6OrTzPBKK_ojTu4D5w2LZsxVMksLo3-WBk6EUFIFBEWTEVBKNzA/exec";
+const esAdmin = localStorage.getItem("admin") === "si";
+const perfil = localStorage.getItem("instaladorPerfil") || "";
+const contrasenya = localStorage.getItem("instaladorContrasenya") || "";
+const usuariActual = localStorage.getItem("usuarioActual") || perfil || "";
+
+const TIPUS = {
+  NO_EUI:"Muntat sense DevEUI", DUP_EUI:"DevEUI repetit", NO_CABLE:"Muntat sense cable vàlid",
+  CABLE_TOTAL:"Cable fins cota = cable total", CABLE_RARE:"Cable fins cota estrany",
+  NEG_LEVEL:"Nivell negatiu (cable curt?)", DRY:"Sonda possiblement fora de l'aigua",
+  NOT_MARKED:"Comunica però no consta com a muntat", NO_MONTAR_COMM:"Marcat NO muntar però comunica",
+  NO_COMM:"Muntat però no comunica", SILENT:"Sense lectures recents", ERR_CONST:"Errors constants",
+  ERR_ANY:"Ha enviat errors", BATTERY:"Bateria baixa"
+};
+const ESTAT_TXT = {verificat:"✅ Verificat", arreglat:"🔧 Arreglat", seguiment:"👀 En seguiment", ignorat:"🚫 Ignorat", pendent:"↩️ Reoberta"};
+
+let dades = [], filtrades = [], vista = "llista", seleccio = new Set(), filtreResum = "";
+let mapa = null, capaMarcadors = null, marcadors = {}, marcaPendent = null;
+
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function estatDe(p){
+  if (p.tractat) return "tractat";
+  if (p.reobert) return "reobert";
+  if (p.mark && p.mark.estat === "seguiment") return "seguiment";
+  return "pendent";
+}
+
+async function carregar(forcar){
+  const llista = document.getElementById("vistaLlista");
+  if (!esAdmin || !perfil || !contrasenya){
+    llista.innerHTML = '<div class="buit">Aquesta secció és només per a administradors.<br><br><a class="btn btn-primary" href="./login.html" style="text-decoration:none;">Iniciar sessió</a></div>';
+    return;
+  }
+  llista.innerHTML = '<div class="buit">Calculant incidències… (pot trigar uns segons)</div>';
+  try{
+    const url = API + "?accion=verificacio&perfil=" + encodeURIComponent(perfil) +
+      "&contrasenya=" + encodeURIComponent(contrasenya) + (forcar ? "&forcar=1" : "") + "&_=" + Date.now();
+    const r = await fetch(url);
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.mensaje || "Error");
+    dades = j.pous;
+    const av = document.getElementById("avisos");
+    av.innerHTML = j.senseLectures
+      ? '<div class="avis">⚠️ No s\'han pogut llegir les lectures de nivell (' + esc(j.errorLectures||"") + '). Només es mostren les incidències que surten del full; les de comunicació, errors i bateria no es poden calcular ara.</div>'
+      : "";
+    omplirFiltres();
+    aplicar();
+  }catch(err){
+    llista.innerHTML = '<div class="buit">No s\'ha pogut carregar: ' + esc(err.message || err) + '</div>';
+  }
+}
+
+function omplirSelect(id, primer, valors){
+  const s = document.getElementById(id), actual = s.value;
+  s.innerHTML = '<option value="">' + primer + '</option>' + valors.map(v => '<option value="' + esc(v.v) + '">' + esc(v.t) + '</option>').join("");
+  if (valors.some(v => v.v === actual)) s.value = actual;
+}
+
+function omplirFiltres(){
+  const comptar = f => { const m = {}; dades.forEach(p => { const k = f(p); m[k] = (m[k]||0)+1; }); return m; };
+  const vig = comptar(p => p.vigilant || "(sense vigilant)");
+  omplirSelect("fVigilant", "Tots els vigilants", Object.keys(vig).sort().map(k => ({v:k, t:k+" ("+vig[k]+")"})));
+  const ins = comptar(p => p.instalador || "(sense instal·lador)");
+  omplirSelect("fInstalador", "Tots els instal·ladors", Object.keys(ins).sort().map(k => ({v:k, t:k+" ("+ins[k]+")"})));
+  const tip = {}; dades.forEach(p => p.issues.forEach(i => { tip[i.code] = (tip[i.code]||0)+1; }));
+  omplirSelect("fTipus", "Tots els problemes", Object.keys(tip).sort((a,b)=>tip[b]-tip[a]).map(k => ({v:k, t:(TIPUS[k]||k)+" ("+tip[k]+")"})));
+}
+
+function aplicar(){
+  const q = document.getElementById("fCerca").value.trim().toLowerCase();
+  const fv = document.getElementById("fVigilant").value, fi = document.getElementById("fInstalador").value;
+  const fe = document.getElementById("fEstat").value, fs = document.getElementById("fSev").value;
+  const ft = document.getElementById("fTipus").value, amagar = document.getElementById("fOcultarTractats").checked;
+
+  filtrades = dades.filter(p => {
+    if (fv && (p.vigilant || "(sense vigilant)") !== fv) return false;
+    if (fi && (p.instalador || "(sense instal·lador)") !== fi) return false;
+    const e = estatDe(p);
+    if (fe && e !== fe) return false;
+    if (filtreResum && e !== filtreResum) return false;
+    if (amagar && e === "tractat") return false;
+    if (fs && String(p.sev) !== fs) return false;
+    if (ft && !p.issues.some(i => i.code === ft)) return false;
+    if (q){
+      const text = (p.pozo+" "+p.eui+" "+(p.mark?p.mark.nota:"")+" "+p.issues.map(i=>i.msg).join(" ")).toLowerCase();
+      if (text.indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+  filtrades.sort((a,b) => (estatDe(a)==="tractat") - (estatDe(b)==="tractat") || b.sev - a.sev || b.issues.length - a.issues.length || a.pozo.localeCompare(b.pozo));
+
+  pintarResum();
+  document.getElementById("contador").textContent = filtrades.length + " de " + dades.length + " pous";
+  if (vista === "llista") pintarLlista(); else pintarMapa();
+  actualitzarBarra();
+}
+
+function pintarResum(){
+  const c = {pendent:0, reobert:0, seguiment:0, tractat:0}; let crit = 0;
+  dades.forEach(p => { c[estatDe(p)]++; if (p.sev === 2 && estatDe(p) !== "tractat") crit++; });
+  const x = (k, n, t) => '<div class="xip ' + (filtreResum===k?"actiu":"") + '" onclick="triarResum(\'' + k + '\')"><b>' + n + '</b><span>' + t + '</span></div>';
+  document.getElementById("resum").innerHTML =
+    x("", dades.length, "Total amb incidències") + x("pendent", c.pendent + c.reobert, "Per revisar") +
+    x("seguiment", c.seguiment, "En seguiment") + x("tractat", c.tractat, "Tractats") +
+    '<div class="xip" style="cursor:default;"><b style="color:var(--danger)">' + crit + '</b><span>Crítics oberts</span></div>';
+}
+function triarResum(k){
+  filtreResum = (filtreResum === k) ? "" : k;
+  if (k === "pendent"){ document.getElementById("fEstat").value = ""; }
+  aplicar();
+}
+
+function targetaHTML(p){
+  const e = estatDe(p);
+  const cls = "targeta" + (p.sev===2?" sev2":"") + (e==="tractat"?" tractat":"") + (e==="seguiment"?" seguiment":"");
+  const badgeEstat = e==="tractat" ? '<span class="badge ok">' + esc(ESTAT_TXT[p.mark.estat]) + '</span>'
+    : e==="reobert" ? '<span class="badge reob">Reoberta: problema nou</span>'
+    : e==="seguiment" ? '<span class="badge seg">👀 En seguiment</span>'
+    : '<span class="badge">Pendent</span>';
+  const sev = p.sev===2 ? '<span class="badge crit">Crític</span>' : '<span class="badge avis">Avís</span>';
+  const inc = p.issues.slice().sort((a,b)=>b.sev-a.sev).map(i => '<li class="s' + i.sev + '">' + esc(i.msg) + (p.nousIssues && p.nousIssues.indexOf(i.code)!==-1 ? ' <b style="color:var(--danger)">(nou)</b>' : '') + '</li>').join("");
+  const nota = p.mark ? '<div class="nota"><b>' + esc(ESTAT_TXT[p.mark.estat]||p.mark.estat) + '</b> · ' + esc(p.mark.usuari||"?") + ' · ' + esc((p.mark.data||"").slice(0,16).replace("T"," ")) + (p.mark.nota ? '<br>' + esc(p.mark.nota) : '') + '</div>' : '';
+  const nivell = (!p.mark && p.nivell) ? '<div class="nota">A nivell consta com a <b>' + esc(p.nivell.estat) + '</b>' + (p.nivell.nota ? ' · ' + esc(p.nivell.nota) : '') + '</div>' : '';
+  const hist = (p.historial && p.historial.length > 1) ? '<details class="historial"><summary>Historial (' + p.historial.length + ')</summary>' +
+    p.historial.slice().reverse().map(h => '<div>' + esc(h.data.slice(0,16).replace("T"," ")) + ' · ' + esc(ESTAT_TXT[h.estat]||h.estat) + ' · ' + esc(h.usuari||"?") + (h.nota?' · '+esc(h.nota):'') + '</div>').join("") + '</details>' : '';
+  const ids = esc(p.pozo);
+  return '<div class="' + cls + '" id="t-' + ids + '"><div class="cap">' +
+    '<input type="checkbox" class="sel" ' + (seleccio.has(p.pozo)?"checked":"") + ' onchange="alternarSel(\'' + ids + '\',this.checked)">' +
+    '<span class="codi">' + ids + '</span>' + sev + badgeEstat +
+    '<span class="meta">' + (p.vigilant ? '👷 Vigilant: ' + esc(p.vigilant) : 'Sense vigilant') + (p.instalador ? ' · Instal·lador: ' + esc(p.instalador) : '') + (p.estado ? ' · ' + esc(p.estado) : '') + '</span></div>' +
+    '<ul class="incidencies">' + inc + '</ul>' + nota + nivell +
+    '<div class="accions">' +
+    '<button class="btn" onclick="obrirMarca([\'' + ids + '\'],\'verificat\')">✅ Verificat</button>' +
+    '<button class="btn" onclick="obrirMarca([\'' + ids + '\'],\'arreglat\')">🔧 Arreglat</button>' +
+    '<button class="btn" onclick="obrirMarca([\'' + ids + '\'],\'seguiment\')">👀 En seguiment</button>' +
+    '<button class="btn" onclick="obrirMarca([\'' + ids + '\'],\'ignorat\')">🚫 Ignorat</button>' +
+    (p.mark ? '<button class="btn" onclick="obrirMarca([\'' + ids + '\'],\'pendent\')">↩️ Reobrir</button>' : '') +
+    (p.lat && p.lon ? '<button class="btn" onclick="veureAlMapa(\'' + ids + '\')">🗺️ Mapa</button>' : '') +
+    '<a class="btn" style="text-decoration:none;" href="./#' + encodeURIComponent(p.pozo) + '">📦 Inventari</a>' +
+    '</div>' + hist + '</div>';
+}
+
+function pintarLlista(){
+  const cont = document.getElementById("vistaLlista");
+  if (!filtrades.length){ cont.innerHTML = '<div class="buit">Cap pou amb aquests filtres 🎉</div>'; return; }
+  if (!document.getElementById("fAgrupar").checked){ cont.innerHTML = filtrades.map(targetaHTML).join(""); return; }
+  const grups = {};
+  filtrades.forEach(p => { const k = p.vigilant || "(sense vigilant)"; (grups[k] = grups[k] || []).push(p); });
+  cont.innerHTML = Object.keys(grups).sort().map(k =>
+    '<div class="grup"><h3>👷 ' + esc(k) + ' <span class="n">' + grups[k].length + '</span></h3>' + grups[k].map(targetaHTML).join("") + '</div>').join("");
+}
+
+/* ---------- Mapa ---------- */
+function canviarVista(v){
+  vista = v;
+  document.getElementById("vistaLlista").style.display = v==="llista" ? "" : "none";
+  document.getElementById("vistaMapa").style.display = v==="mapa" ? "" : "none";
+  document.getElementById("btnLlista").classList.toggle("actiu", v==="llista");
+  document.getElementById("btnMapa").classList.toggle("actiu", v==="mapa");
+  if (v === "mapa"){ iniciarMapa(); setTimeout(() => { mapa.invalidateSize(); pintarMapa(); }, 50); } else pintarLlista();
+}
+function iniciarMapa(){
+  if (mapa) return;
+  mapa = L.map("mapa").setView([39.6, 2.9], 9);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19, attribution:"© OpenStreetMap"}).addTo(mapa);
+  capaMarcadors = L.layerGroup().addTo(mapa);
+}
+function colorPou(p){
+  const e = estatDe(p);
+  if (e === "tractat") return "#1F8A4C";
+  if (e === "seguiment") return "#2563AF";
+  return p.sev === 2 ? "#B3261E" : "#B7791F";
+}
+function pintarMapa(){
+  if (!mapa) return;
+  capaMarcadors.clearLayers(); marcadors = {};
+  const punts = [];
+  filtrades.forEach(p => {
+    const lat = parseFloat(p.lat), lon = parseFloat(p.lon);
+    if (isNaN(lat) || isNaN(lon)) return;
+    const m = L.circleMarker([lat, lon], {radius:8, color:"#fff", weight:2, fillColor:colorPou(p), fillOpacity:.95});
+    const ids = esc(p.pozo);
+    m.bindPopup('<b>' + ids + '</b> ' + (p.sev===2?'🔴':'🟠') + '<br>' + (p.vigilant ? '👷 ' + esc(p.vigilant) + '<br>' : '') +
+      p.issues.slice(0,3).map(i => esc(i.msg)).join('<br>') + (p.issues.length>3 ? '<br>… +' + (p.issues.length-3) : '') +
+      '<div class="pop-btns"><button onclick="obrirMarca([\'' + ids + '\'],\'verificat\')">✅</button>' +
+      '<button onclick="obrirMarca([\'' + ids + '\'],\'arreglat\')">🔧</button>' +
+      '<button onclick="obrirMarca([\'' + ids + '\'],\'seguiment\')">👀</button>' +
+      '<button onclick="obrirMarca([\'' + ids + '\'],\'ignorat\')">🚫</button></div>');
+    m.addTo(capaMarcadors); marcadors[p.pozo] = m; punts.push([lat, lon]);
+  });
+  const sense = filtrades.length - punts.length;
+  if (punts.length) mapa.fitBounds(punts, {padding:[30,30], maxZoom:14});
+  document.getElementById("contador").textContent = filtrades.length + " de " + dades.length + " pous" + (sense ? " · " + sense + " sense coordenades" : "");
+}
+function veureAlMapa(pozo){
+  canviarVista("mapa");
+  setTimeout(() => { const m = marcadors[pozo]; if (m){ mapa.setView(m.getLatLng(), 16); m.openPopup(); } }, 200);
+}
+
+/* ---------- Selecció i marcatge ---------- */
+function alternarSel(pozo, on){ if (on) seleccio.add(pozo); else seleccio.delete(pozo); actualitzarBarra(); }
+function seleccionarTots(){ filtrades.forEach(p => seleccio.add(p.pozo)); pintarLlista(); actualitzarBarra(); }
+function netejarSeleccio(){ seleccio.clear(); pintarLlista(); actualitzarBarra(); }
+function actualitzarBarra(){
+  document.getElementById("lotN").textContent = seleccio.size;
+  document.getElementById("barraLot").classList.toggle("visible", seleccio.size > 0);
+}
+
+function obrirMarca(pous, estat){
+  const llista = pous || Array.from(seleccio);
+  if (!llista.length) return;
+  marcaPendent = {pous: llista, estat: estat};
+  document.getElementById("modalTitol").textContent = (ESTAT_TXT[estat] || estat);
+  document.getElementById("modalPous").textContent = llista.length === 1 ? "Pou " + llista[0] : llista.length + " pous: " + llista.slice(0,8).join(", ") + (llista.length>8?"…":"");
+  document.getElementById("modalNota").value = "";
+  document.getElementById("modalMarca").classList.add("visible");
+  setTimeout(() => document.getElementById("modalNota").focus(), 50);
+}
+function tancarMarca(){ document.getElementById("modalMarca").classList.remove("visible"); marcaPendent = null; }
+
+async function confirmarMarca(){
+  if (!marcaPendent) return;
+  const {pous, estat} = marcaPendent;
+  const nota = document.getElementById("modalNota").value.trim();
+  const items = pous.map(c => { const p = dades.find(x => x.pozo === c); return {pozo:c, eui:p?p.eui:"", issues:p?p.issues.map(i=>i.code):[]}; });
+  const ara = new Date().toISOString();
+  const abans = new Map();
+
+  // Actualització optimista: es veu al moment i es desfà si el servidor falla
+  pous.forEach(c => {
+    const p = dades.find(x => x.pozo === c); if (!p) return;
+    abans.set(c, {mark:p.mark, tractat:p.tractat, reobert:p.reobert, nous:p.nousIssues, hist:p.historial});
+    const reg = {data:ara, estat:estat, nota:nota, usuari:usuariActual, issues:p.issues.map(i=>i.code)};
+    p.mark = reg; p.historial = (p.historial||[]).concat([reg]);
+    p.tractat = (estat==="verificat"||estat==="arreglat"||estat==="ignorat"); p.reobert = false; p.nousIssues = [];
+  });
+  tancarMarca(); seleccio.clear(); aplicar();
+
+  try{
+    const r = await fetch(API, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body: JSON.stringify({accion:"marcarVerificacio", perfil:perfil, contrasenya:contrasenya, estat:estat, nota:nota, usuari:usuariActual, items:items})});
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.mensaje || "Error");
+  }catch(err){
+    abans.forEach((v, c) => { const p = dades.find(x => x.pozo === c); if (p){ p.mark=v.mark; p.tractat=v.tractat; p.reobert=v.reobert; p.nousIssues=v.nous; p.historial=v.hist; } });
+    aplicar();
+    alert("No s'ha pogut desar la revisió. No s'ha canviat res.\n" + (err.message || err));
+  }
+}
+
+function exportarCSV(){
+  const files = [["Pou","DevEUI","Vigilant","Instal·lador","Gravetat","Estat","Nota","Revisat per","Data revisió","Problemes"]];
+  filtrades.forEach(p => files.push([p.pozo, p.eui, p.vigilant, p.instalador, p.sev===2?"Crític":"Avís", estatDe(p),
+    p.mark?p.mark.nota:"", p.mark?p.mark.usuari:"", p.mark?p.mark.data:"", p.issues.map(i=>i.msg).join(" | ")]));
+  const csv = files.map(f => f.map(v => '"' + String(v==null?"":v).replace(/"/g,'""') + '"').join(";")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["﻿" + csv], {type:"text/csv;charset=utf-8"}));
+  a.download = "verificacio-" + new Date().toISOString().slice(0,10) + ".csv";
+  a.click();
+}
+
+document.getElementById("btnLlista").classList.add("actiu");
+carregar(false);
+</script>
+</body>
+</html>

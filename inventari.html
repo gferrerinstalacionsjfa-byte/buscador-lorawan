@@ -1,0 +1,2679 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inventari LoRaWAN · Instalacions JFA</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
+
+<script src="https://unpkg.com/html5-qrcode" defer></script>
+
+<style>
+
+:root{
+  --bg:#EEF2F1;
+  --surface:#FFFFFF;
+  --ink:#10242B;
+  --ink-soft:#56686D;
+  --ink-faint:#8B9A9D;
+  --line:#DCE4E2;
+  --accent:#0E7C86;
+  --accent-dark:#0A5F67;
+  --accent-soft:#E1F1F1;
+  --ok:#1F8A4C;
+  --ok-soft:#E5F5EA;
+  --warn:#B7791F;
+  --warn-soft:#FBF0DE;
+  --info:#2563AF;
+  --info-soft:#E4EDF9;
+  --danger:#B3261E;
+  --danger-soft:#FBE7E5;
+  --radius:10px;
+  --radius-sm:7px;
+  --shadow:0 1px 2px rgba(16,36,43,0.06),0 6px 16px rgba(16,36,43,0.06);
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+}
+
+*{box-sizing:border-box;}
+
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--ink);
+  margin:0;
+  padding-bottom:60px;
+  -webkit-font-smoothing:antialiased;
+}
+
+a{color:inherit;}
+
+/* ---------- Barra superior ---------- */
+
+.topbar{
+  background:var(--surface);
+  border-bottom:1px solid var(--line);
+  position:sticky;
+  top:0;
+  z-index:50;
+}
+
+.topbar-inner{
+  max-width:960px;
+  margin:auto;
+  padding:12px 20px;
+  display:flex;
+  align-items:center;
+  gap:16px;
+  flex-wrap:wrap;
+}
+
+.brand{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  margin-right:auto;
+}
+
+.brand-mark{
+  font-family:var(--mono);
+  font-weight:600;
+  font-size:14px;
+  letter-spacing:0.06em;
+  background:var(--ink);
+  color:var(--surface);
+  padding:3px 7px;
+  border-radius:5px;
+}
+
+.brand-name{
+  font-weight:600;
+  font-size:15px;
+  color:var(--ink-soft);
+}
+
+.app-switch{
+  display:flex;
+  background:var(--bg);
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:3px;
+  gap:2px;
+}
+
+.app-tab{
+  text-decoration:none;
+  font-size:13px;
+  font-weight:600;
+  padding:7px 14px;
+  border-radius:999px;
+  color:var(--ink-soft);
+  transition:background .15s ease,color .15s ease;
+}
+
+.app-tab.activa{
+  background:var(--ink);
+  color:var(--surface);
+}
+
+.app-tab:not(.activa):hover{
+  background:var(--surface);
+}
+
+/* ---------- Botones ---------- */
+
+.btn{
+  font-family:var(--sans);
+  font-size:14px;
+  font-weight:600;
+  padding:10px 16px;
+  border-radius:var(--radius-sm);
+  border:1px solid transparent;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  line-height:1;
+}
+
+.btn-ghost{
+  background:transparent;
+  border-color:var(--line);
+  color:var(--ink-soft);
+}
+.btn-ghost:hover{background:var(--bg);}
+
+.btn-primary{
+  background:var(--accent);
+  color:#fff;
+}
+.btn-primary:hover{background:var(--accent-dark);}
+
+.btn-outline{
+  background:var(--surface);
+  border-color:var(--line);
+  color:var(--ink);
+}
+.btn-outline:hover{border-color:var(--ink-faint);}
+
+.btn-outline.ok{color:var(--ok);border-color:#BFE2CC;}
+.btn-outline.warn{color:var(--warn);border-color:#EED6A8;}
+.btn-outline.danger{color:var(--danger);border-color:#EFC3BF;}
+.btn-outline.info{color:var(--info);border-color:#C3D6F0;}
+
+.btn-block{width:100%;justify-content:center;}
+
+/* ---------- Contenido ---------- */
+
+main{
+  max-width:960px;
+  margin:auto;
+  padding:20px;
+}
+
+.toolbar-row{
+  display:flex;
+  gap:8px;
+  margin-bottom:16px;
+  flex-wrap:wrap;
+}
+
+.search-wrap{
+  position:relative;
+  flex:1 1 260px;
+}
+
+.search-wrap input{
+  width:100%;
+  padding:13px 14px;
+  font-size:16px;
+  font-family:var(--sans);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--surface);
+  color:var(--ink);
+}
+
+.search-wrap input:focus{
+  outline:2px solid var(--accent);
+  outline-offset:-1px;
+}
+
+/* ---------- Panel de estadísticas ---------- */
+
+.stats-card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:16px;
+  margin-bottom:18px;
+}
+
+.stats-card.cargando{opacity:.55;pointer-events:none;}
+
+.stats-total{
+  font-size:13px;
+  color:var(--ink-soft);
+  margin-bottom:12px;
+}
+
+.stats-total b{
+  color:var(--ink);
+  font-family:var(--mono);
+  font-size:15px;
+}
+
+.instalador-grup{
+  margin-bottom:14px;
+}
+
+.instalador-grup:last-child{
+  margin-bottom:0;
+}
+
+.instalador-nom{
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--ink);
+  margin-bottom:6px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.instalador-nom .count{
+  font-family:var(--mono);
+  font-weight:400;
+  color:var(--ink-soft);
+  font-size:11.5px;
+}
+
+.instalador-pous{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+
+.pou-chip{
+  font-family:var(--mono);
+  font-size:12px;
+  font-weight:600;
+  padding:4px 9px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:var(--bg);
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+}
+
+.pou-chip:hover{border-color:var(--ink-faint);}
+
+.stats-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:10px;
+}
+
+.stat-tile{
+  cursor:pointer;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:12px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  background:var(--bg);
+  transition:transform .1s ease,box-shadow .1s ease;
+}
+
+.stat-tile:hover{
+  transform:translateY(-1px);
+  box-shadow:var(--shadow);
+}
+
+.stat-tile .n{
+  font-family:var(--mono);
+  font-size:22px;
+  font-weight:600;
+}
+
+.stat-tile .lbl{
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--ink-soft);
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  display:inline-block;
+  flex:none;
+}
+
+.tile-almacen .dot,.pill-almacen .dot{background:var(--ok);}
+.tile-retirado .dot,.pill-retirado .dot{background:var(--warn);}
+.tile-instalado .dot,.pill-instalado .dot{background:var(--info);}
+.tile-averia .dot,.pill-averia .dot{background:var(--danger);}
+
+/* ---------- Selector de cámara ---------- */
+
+.controls-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-bottom:20px;
+}
+
+#cameraSelectWrap select{
+  padding:9px 10px;
+  font-size:14px;
+  font-family:var(--sans);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--surface);
+}
+
+/* ---------- Pills de estado ---------- */
+
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:12.5px;
+  font-weight:600;
+  padding:4px 10px;
+  border-radius:999px;
+  background:var(--bg);
+  border:1px solid var(--line);
+}
+
+.pill-almacen{color:var(--ok);background:var(--ok-soft);border-color:transparent;}
+.pill-retirado{color:var(--warn);background:var(--warn-soft);border-color:transparent;}
+.pill-instalado{color:var(--info);background:var(--info-soft);border-color:transparent;}
+.pill-averia{color:var(--danger);background:var(--danger-soft);border-color:transparent;}
+
+/* ---------- Listas de equipos ---------- */
+
+.lista-header{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  margin-bottom:10px;
+}
+
+.lista-header h3{
+  margin:0;
+  font-size:16px;
+}
+
+.lista-header .count{
+  font-size:12.5px;
+  color:var(--ink-soft);
+  font-family:var(--mono);
+}
+
+.equipo-card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:12px 14px;
+  margin-bottom:8px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.equipo-card:hover{border-color:var(--ink-faint);}
+
+.equipo-card .codigo{
+  font-family:var(--mono);
+  font-weight:600;
+  font-size:14px;
+}
+
+.equipo-card .meta{
+  font-size:12.5px;
+  color:var(--ink-soft);
+}
+
+.equipo-card .meta span{margin-right:10px;}
+
+/* ---------- Ficha de equipo ---------- */
+
+.ficha{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+
+.ficha-head{
+  padding:16px 18px;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.ficha-head .codigo-grande{
+  font-family:var(--mono);
+  font-size:20px;
+  font-weight:600;
+}
+
+.ficha-head .deveui{
+  font-family:var(--mono);
+  font-size:12.5px;
+  color:var(--ink-soft);
+  margin-top:2px;
+}
+
+.ficha-body{
+  padding:16px 18px;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:14px;
+}
+
+.campo .k{
+  font-size:11.5px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  color:var(--ink-faint);
+  font-weight:600;
+  margin-bottom:3px;
+}
+
+.campo .v{
+  font-size:14.5px;
+  font-family:var(--mono);
+}
+
+.ficha-caja{
+  font-size:13px;
+  color:var(--ink-soft);
+  padding:0 18px 4px;
+}
+
+.ficha-nota{
+  margin:0 18px 14px;
+  padding:9px 12px;
+  border-radius:8px;
+  font-size:12.5px;
+  font-weight:600;
+}
+
+.ficha-nota .sub{
+  font-size:11px;
+  font-weight:400;
+  margin-top:3px;
+  opacity:.85;
+}
+
+.ficha-nota.reubicacio{
+  background:var(--info-soft);
+  color:var(--info);
+}
+
+.tag-dup{
+  font-family:var(--sans);
+  font-size:10.5px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  padding:2px 7px;
+  border-radius:999px;
+  margin-left:8px;
+  vertical-align:middle;
+}
+.tag-dup.original{background:var(--ok-soft);color:var(--ok);}
+.tag-dup.renombrat{background:var(--info-soft);color:var(--info);}
+
+.ficha-nota.retirat{
+  background:var(--warn-soft);
+  color:var(--warn);
+}
+
+.ficha-acciones{
+  padding:14px 18px 18px;
+  border-top:1px solid var(--line);
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.no-encontrado{
+  text-align:center;
+  padding:40px 20px;
+  color:var(--ink-soft);
+}
+
+/* ---------- Modal escáner ---------- */
+
+#scannerModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(16,36,43,0.72);
+  z-index:9999;
+  padding:20px;
+}
+
+#scannerRetirarModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(16,36,43,0.72);
+  z-index:9999;
+  padding:20px;
+  overflow-y:auto;
+}
+
+.scan-log-item{
+  padding:6px 8px;
+  border-radius:6px;
+  margin-bottom:4px;
+  font-family:var(--mono);
+}
+.scan-log-item.ok{background:var(--ok-soft);color:var(--ok);}
+.scan-log-item.error{background:var(--danger-soft);color:var(--danger);}
+.scan-log-item.pendent,.scan-log-item.espera{background:var(--bg);color:var(--ink-soft);}
+.scan-log-item.avis{background:var(--warn-soft);color:var(--warn);}
+
+.scanner-box{
+  max-width:440px;
+  margin:40px auto;
+  background:var(--surface);
+  padding:20px;
+  border-radius:var(--radius);
+  text-align:center;
+}
+
+.scanner-box h3{margin-top:0;}
+
+#scanner{
+  border-radius:var(--radius-sm);
+  overflow:hidden;
+}
+
+/* ---------- Modal de instalación ---------- */
+
+#instalarModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(16,36,43,0.72);
+  z-index:9999;
+  padding:20px;
+  overflow-y:auto;
+}
+
+#coberturaModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(16,36,43,0.72);
+  z-index:9999;
+  padding:20px;
+  overflow-y:auto;
+}
+
+.instalar-box{
+  max-width:440px;
+  margin:30px auto;
+  background:var(--surface);
+  padding:20px;
+  border-radius:var(--radius);
+}
+
+.instalar-box h3{margin-top:0;}
+
+.campo-form{
+  margin-bottom:14px;
+  text-align:left;
+}
+
+.campo-form label{
+  display:block;
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--ink-soft);
+  margin-bottom:5px;
+}
+
+.campo-form input,
+.campo-form textarea{
+  width:100%;
+  padding:10px;
+  font-family:var(--sans);
+  font-size:14px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--bg);
+  color:var(--ink);
+  box-sizing:border-box;
+}
+
+.campo-form textarea{resize:vertical;}
+
+.instalar-estado{
+  font-size:13px;
+  color:var(--ink-soft);
+  min-height:18px;
+  margin-bottom:8px;
+}
+
+.instalar-acciones{
+  display:flex;
+  gap:8px;
+  justify-content:flex-end;
+}
+
+@media (max-width:520px){
+  .topbar-inner{padding:10px 14px;}
+  main{padding:14px;}
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="./" style="text-decoration:none;">
+      <span class="brand-mark">JFA</span>
+      <span class="brand-name">Instalacions</span>
+    </a>
+
+    <nav class="app-switch">
+      <a class="app-tab activa" href="https://inventari.instalacionsjfa.com">Inventari</a>
+      <a class="app-tab" href="./mapa.html">Mapa</a>
+      <a class="app-tab" href="./progres.html">Progrés sondes</a>
+      <a class="app-tab" href="./verificacio.html">Verificació</a>
+    </nav>
+
+    <a id="linkAdminPanel" class="btn btn-ghost" href="./admin.html" style="display:none;text-decoration:none;">⚙️ Instal·ladors</a>
+    <button id="btnVistaInstalador" class="btn btn-ghost" onclick="alternarVistaInstalador()" style="display:none;">🔍 Veure tots</button>
+    <button id="btnInstalador" class="btn btn-ghost" onclick="gestionarSessio()">👤 Iniciar sessió</button>
+  </div>
+</header>
+
+<main>
+
+  <div class="toolbar-row">
+    <div class="search-wrap">
+      <input
+        id="busqueda"
+        placeholder="Codi, DevEUI o número de caixa"
+        onkeydown="if(event.key==='Enter') buscar()"
+      >
+    </div>
+    <button class="btn btn-primary" onclick="buscar()">Cercar</button>
+    <button class="btn btn-outline" onclick="actualizarDatos()">🔄 Actualitzar</button>
+    <button id="btnCobertura" class="btn btn-outline" onclick="abrirModalCobertura()" style="display:none;">📶 Pujar cobertura</button>
+    <button id="btnMapa" class="btn btn-outline" onclick="actualizarMapa(event)" style="display:none;">🗺️ Actualitzar mapa</button>
+    <button id="btnEscanejarRetirar" class="btn btn-outline warn" onclick="obrirEscaneigRetirar()" style="display:none;">🔫 Retirar amb lector (SAMPOL)</button>
+  </div>
+
+  <div id="statsCard" class="stats-card">
+    <div id="stats">Carregant inventari…</div>
+  </div>
+
+  <div id="instaladorsCard" class="stats-card" style="display:none;">
+    <div class="stats-total" style="margin-bottom:10px;">👷 Pous per instal·lador</div>
+    <div id="instaladorsCont">Carregant…</div>
+  </div>
+
+  <div class="controls-row">
+    <button class="btn btn-outline" onclick="seleccionarCamara()">⚙️ Seleccionar càmera</button>
+    <div id="cameraSelectWrap" style="display:none;">
+      <select id="cameraSelect" onchange="guardarCamaraSeleccionada()"></select>
+    </div>
+  </div>
+
+  <div id="resultado"></div>
+
+</main>
+
+<div id="scannerModal">
+  <div class="scanner-box">
+    <h3>Escanejar codi</h3>
+    <div id="scanner"></div>
+    <br>
+    <button class="btn btn-outline" onclick="cerrarEscaner()">❌ Tancar</button>
+  </div>
+</div>
+
+<div id="scannerRetirarModal" onclick="document.getElementById('inputEscaneigRetirar').focus()">
+  <div class="scanner-box" style="max-width:480px;">
+    <h3>🔫 Retirar amb lector de codis (SAMPOL)</h3>
+    <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-8px;">
+      Passa el lector pel QR (DevEUI) o pel codi de barres (Num. Sèrie) de cada caixa — es marca com a retirat (SAMPOL) sol, un darrere l'altre, sense haver de tocar res.
+    </p>
+    <input type="text" id="inputEscaneigRetirar" autocomplete="off" placeholder="Esperant lectura…"
+      style="width:100%;padding:12px;font-family:var(--mono);font-size:15px;text-align:center;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--bg);box-sizing:border-box;"
+      onkeydown="onKeydownEscaneigRetirar(event)">
+    <div id="scannerRetirarComptador" style="margin-top:10px;font-family:var(--mono);font-size:13px;color:var(--ink-soft);">0 retirats en aquesta sessió</div>
+    <div id="scannerRetirarLog" style="margin-top:8px;max-height:180px;overflow-y:auto;text-align:left;font-size:12.5px;"></div>
+    <br>
+    <button class="btn btn-outline" onclick="cerrarEscaneigRetirar()">❌ Tancar</button>
+  </div>
+</div>
+
+<div id="instalarModal">
+  <div class="instalar-box">
+    <h3 id="instalarTitulo">Instal·lar sonda</h3>
+
+    <div class="campo-form">
+      <label for="inpFoto">📷 Fotos del muntatge (pots seleccionar-ne diverses)</label>
+      <input type="file" id="inpFoto" accept="image/*" multiple>
+    </div>
+
+    <div class="campo-form">
+      <label for="inpCableFinsCota">📏 Cable fins cota (metres)</label>
+      <div style="font-size:11.5px;color:var(--ink-soft);margin:-4px 0 6px;">
+        És la longitud de cable que queda fora del tub, des de la boca fins a la marca on el vigilant pren la mesura.
+      </div>
+      <input type="number" id="inpCableFinsCota" step="0.01" inputmode="decimal" oninput="comprovarCableFinsCota()">
+      <div id="avisCableFinsCota" style="display:none;margin-top:6px;padding:8px 10px;background:#FBE7E5;color:#B3261E;border-radius:7px;font-size:12.5px;font-weight:600;"></div>
+    </div>
+
+    <div class="campo-form">
+      <label for="inpObservacions">📝 Observacions (opcional)</label>
+      <textarea id="inpObservacions" rows="3"></textarea>
+    </div>
+
+    <div id="instalarEstado" class="instalar-estado"></div>
+
+    <div class="instalar-acciones">
+      <button class="btn btn-outline" onclick="cerrarModalInstalacion()">Cancel·lar</button>
+      <button class="btn btn-primary" onclick="confirmarInstalacion()">Guardar i marcar instal·lat</button>
+    </div>
+  </div>
+</div>
+
+<div id="coberturaModal">
+  <div class="instalar-box">
+    <h3>Pujar fitxers de cobertura</h3>
+
+    <div class="campo-form">
+      <label for="inpCoberturaLote">📶 Selecciona un o més CSV del medidor</label>
+      <input type="file" id="inpCoberturaLote" accept=".csv,text/csv" multiple>
+    </div>
+
+    <div id="coberturaEstado" class="instalar-estado"></div>
+
+    <div class="instalar-acciones">
+      <button class="btn btn-outline" onclick="cerrarModalCobertura()">Cancel·lar</button>
+      <button class="btn btn-primary" onclick="confirmarCobertura()">Pujar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+const API =
+"https://script.google.com/macros/s/AKfycbzz8jwBBYvxLJBdYlf6OrTzPBKK_ojTu4D5w2LZsxVMksLo3-WBk6EUFIFBEWTEVBKNzA/exec";
+
+// Longitud que debe tener una serie de sonda válida al escanearla por QR
+const LONGITUD_SERIE_VALIDA = 7;
+
+let equipos = [];
+let html5QrCode = null;
+let admin = localStorage.getItem("admin") === "si";
+let usuarioActual = localStorage.getItem("usuarioActual") || "";
+let camarasDisponibles = [];
+
+let instaladorActiu = localStorage.getItem("instaladorActiu") === "si";
+let instaladorPerfil = localStorage.getItem("instaladorPerfil") || "";
+let instaladorContrasenya = localStorage.getItem("instaladorContrasenya") || "";
+let instaladorPozosAsignados = JSON.parse(localStorage.getItem("instaladorPozosAsignados") || "[]");
+let instaladorVeureTots = false;
+
+function escapeHtml(valor){
+  return String(valor ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#39;");
+}
+
+// fetch con límite de tiempo: en cobertura muy mala, evita quedarse
+// esperando indefinidamente antes de pasar al siguiente reintento
+function fetchAmbTimeout(url, opcions, msTimeout){
+  opcions = opcions || {};
+  msTimeout = msTimeout || 12000;
+
+  const controlador = new AbortController();
+  const id = setTimeout(() => controlador.abort(), msTimeout);
+
+  return fetch(url, Object.assign({}, opcions, { signal: controlador.signal }))
+    .finally(() => clearTimeout(id));
+}
+
+// fetch con reintentos automáticos, para acciones de escritura (instalar,
+// subir cobertura, cambiar estado). Con nombres de archivo estables ya no
+// hay riesgo de duplicar si un intento anterior sí llegó a completarse.
+async function fetchAmbReintents(url, opcions, callbackProgres){
+
+  const intentosMax = 3;
+  let ultimoError;
+
+  for(let intento = 1; intento <= intentosMax; intento++){
+
+    if(intento > 1 && callbackProgres){
+      callbackProgres("Tallada la connexió, reintentant (" + intento + " de " + intentosMax + ")…");
+    }
+
+    try{
+      const r = await fetchAmbTimeout(url, opcions, 20000);
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      return r;
+    }catch(error){
+      ultimoError = error;
+      if(intento < intentosMax){
+        await new Promise(res => setTimeout(res, intento * 1500));
+      }
+    }
+  }
+
+  throw ultimoError;
+}
+
+// Convierte una respuesta en JSON de forma segura: si el servidor devuelve
+// algo que no es JSON (p. ej. una página de error de Google por un corte de
+// red), no volcamos ese texto en crudo al usuario
+function parsearRespuestaJSON(texto){
+  try{
+    return JSON.parse(texto);
+  }catch(err){
+    return { ok: false, mensaje: "Resposta inesperada del servidor. Comprova la connexió i torna-ho a provar." };
+  }
+}
+
+// No usamos window.onload: ese evento espera a que TODO haya terminado de
+// cargar (fuentes de Google, la librería del escáner QR...), lo que en mala
+// cobertura puede tardar varios segundos por sí solo, antes siquiera de
+// empezar a pintar el inventario guardado. Este script va al final del
+// <body>, así que el HTML ya está listo — arrancamos ya mismo.
+iniciarApp();
+
+async function iniciarApp(){
+  actualizarModoAdmin();
+  actualizarModoInstalador();
+
+  // Se lanzan a la vez, no una detrás de otra: así sus tiempos de espera
+  // se solapan en vez de sumarse
+  const promesaPrincipal = instaladorActiu ? refrescarDadesInstalador() : cargarDatos();
+  cargarConfiguracio();
+
+  if(admin){
+    cargarPanellInstaladors();
+  }
+
+  await promesaPrincipal;
+
+  const codigo = location.hash.replace("#","").toUpperCase();
+  if(codigo){
+    document.getElementById("busqueda").value = codigo;
+    buscar();
+  }
+}
+
+let bloquejarCableFinsCotaActiu = false;
+
+async function cargarConfiguracio(){
+  try{
+    const r = await fetchAmbTimeout(API + "?accion=configuracio");
+    const dades = await r.json();
+    if(dades.ok){
+      bloquejarCableFinsCotaActiu = !!dades.bloquejarCableFinsCota;
+    }
+  }catch(error){
+    console.error("No s'ha pogut carregar la configuració:", error);
+  }
+}
+
+async function cargarDatos(intent){
+
+  intent = intent || 1;
+
+  const card = document.getElementById("statsCard");
+  const stats = document.getElementById("stats");
+
+  const cache = localStorage.getItem("cacheEquipos");
+  const habiaCache = !!cache;
+
+  // Si ya hay algo guardado, se pinta al instante sin esperar a la red —
+  // la web se siente cargada desde el primer momento, y los datos frescos
+  // llegan y sustituyen esto en cuanto estén listos
+  if(intent === 1 && habiaCache && !equipos.length){
+    equipos = JSON.parse(cache);
+    actualizarStats();
+  }
+
+  // Solo se atenúa/bloquea la tarjeta si no hay nada que mostrar todavía.
+  // Si ya se ve el inventario (aunque sea de caché), el refresco de fondo
+  // no debe "apagar" ni bloquear algo que ya es usable
+  if(!habiaCache){
+    card.classList.add("cargando");
+  }
+
+  if(intent > 1 && !habiaCache){
+    stats.innerHTML = "Carregant… (intent " + intent + " de 4)";
+  }
+
+  try{
+
+    const r = await fetchAmbTimeout(API, undefined, 25000);
+    if(!r.ok) throw new Error("HTTP " + r.status);
+
+    equipos = await r.json();
+    actualizarStats();
+
+    // Si hay una ficha abierta (p. ej. la abriste mientras esta carga de
+    // fondo aún iba en marcha), se repinta ya con los datos frescos —
+    // así "Com arribar-hi" y demás aparecen sin esperar a un refresco manual
+    const equipoAbierto = equipoObert();
+    if(equipoAbierto) mostrarEquipo(equipoAbierto);
+
+    // Se guarda como copia local, para la próxima vez que se abra la web
+    // (y como red de seguridad si el siguiente intento falla)
+    try{
+      localStorage.setItem("cacheEquipos", JSON.stringify(equipos));
+      localStorage.setItem("cacheEquiposFecha", new Date().toISOString());
+    }catch(e){ /* si no cabe en localStorage, no pasa nada grave */ }
+
+  }catch(error){
+    console.error("Error carregant inventari (intent " + intent + "):", error);
+
+    if(intent < 4){
+      await new Promise(res => setTimeout(res, intent * 2000));
+      card.classList.remove("cargando");
+      return cargarDatos(intent + 1);
+    }
+
+    if(habiaCache){
+      // Ya se estaba mostrando la copia guardada: solo un aviso discreto,
+      // sin tapar los datos que ya se ven
+      const fecha = localStorage.getItem("cacheEquiposFecha");
+      const cuando = fecha ? new Date(fecha).toLocaleString() : "data desconeguda";
+
+      stats.innerHTML =
+        `⚠️ Sense connexió — mostrant dades guardades de ${escapeHtml(cuando)}. ` +
+        "<button class=\"btn btn-outline\" onclick=\"cargarDatos()\">Tornar a provar</button>" +
+        stats.innerHTML;
+
+    }else{
+      stats.innerHTML =
+        "⚠️ No s'ha pogut carregar l'inventari. " +
+        "<button class=\"btn btn-outline\" onclick=\"cargarDatos()\">Reintentar</button>";
+    }
+  }finally{
+    card.classList.remove("cargando");
+  }
+}
+
+async function actualizarDatos(){
+
+  const promesaPrincipal = instaladorActiu ? refrescarDadesInstalador() : cargarDatos();
+
+  if(admin){
+    cargarPanellInstaladors();
+  }
+
+  await promesaPrincipal;
+
+  const equipo = equipoObert();
+  if(equipo){ mostrarEquipo(equipo); }
+}
+
+function actualizarStats(){
+
+  const almacen = equipos.filter(e=>e.estado==="Almacén").length;
+  const retirado = equipos.filter(e=>e.estado==="Retirado").length;
+  const instalado = equipos.filter(e=>e.estado==="Instalado").length;
+  const noInstalar = equipos.filter(e=>e.estado==="No instalar").length;
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stats-total">Total inventariat: <b>${equipos.length}</b></div>
+    <div class="stats-grid">
+
+      <div class="stat-tile tile-almacen" onclick="filtrarEstado('Almacén')">
+        <span class="n">${almacen}</span>
+        <span class="lbl"><span class="dot"></span>Magatzem</span>
+      </div>
+
+      <div class="stat-tile tile-retirado" onclick="filtrarEstado('Retirado')">
+        <span class="n">${retirado}</span>
+        <span class="lbl"><span class="dot"></span>Retirat</span>
+      </div>
+
+      <div class="stat-tile tile-instalado" onclick="filtrarEstado('Instalado')">
+        <span class="n">${instalado}</span>
+        <span class="lbl"><span class="dot"></span>Instal·lat</span>
+      </div>
+
+      <div class="stat-tile tile-averia" onclick="filtrarEstado('No instalar')">
+        <span class="n">${noInstalar}</span>
+        <span class="lbl"><span class="dot"></span>No instal·lar</span>
+      </div>
+
+    </div>
+  `;
+}
+
+function claseEstado(estado){
+  if(estado==="Almacén") return "almacen";
+  if(estado==="Retirado") return "retirado";
+  if(estado==="Instalado") return "instalado";
+  if(estado==="No instalar") return "averia";
+  return "";
+}
+
+function colorEstado(estado){
+  if(estado==="Almacén") return "#1F8A4C";
+  if(estado==="Retirado") return "#B7791F";
+  if(estado==="Instalado") return "#2563AF";
+  if(estado==="No instalar") return "#B3261E";
+  return null;
+}
+
+// Admin puede editar cualquier equipo. Un instalador solo puede editar
+// los que tiene asignados, aunque esté viendo el inventario completo.
+function puedeEditarEquipo(equipo){
+  if(admin) return true;
+  if(instaladorActiu){
+    if(!instaladorPozosAsignados.includes(String(equipo.codigo).toUpperCase())) return false;
+    // Ja instal·lat per un altre instal·lador: només ell (o l'admin) el pot tocar
+    if(equipo.estado === "Instalado" && equipo.usuario && equipo.usuario.toLowerCase() !== instaladorPerfil.toLowerCase()){
+      return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+function buscar(){
+  const valor = document.getElementById("busqueda").value.trim().toUpperCase();
+  if(!valor) return;
+
+  if(valor === "TODOS"){
+    renderLista(equipos, "Inventari complet");
+    return;
+  }
+
+  // Es busca a la vegada pel codi actual, DevEUI, sèrie i codi original —
+  // així, si el mateix codi coincideix amb dues files diferents (per
+  // exemple, dos pous que s'han intercanviat el codi entre ells), surten
+  // les dues en comptes de mostrar-ne només una sense avisar
+  const coincidencias = equipos.filter(e =>
+    String(e.codigo || "").toUpperCase() === valor ||
+    String(e.deveui || "").toUpperCase() === valor ||
+    String(e.serieSonda || "").toUpperCase() === valor ||
+    String(e.codigoOriginal || "").toUpperCase() === valor ||
+    codiBase(e.codigo) === valor
+  );
+
+  if(coincidencias.length === 1){
+    mostrarEquipo(coincidencias[0]);
+    return;
+  }
+  if(coincidencias.length > 1){
+    renderLista(coincidencias, `«${valor}» coincideix amb més d'un registre`);
+    return;
+  }
+
+  const caja = Number(valor);
+  if(!isNaN(caja)){
+    const listaCaja = equipos.filter(e => Number(e.caja) === caja);
+    if(listaCaja.length){
+      renderLista(listaCaja, `📦 Caixa ${caja}`);
+      return;
+    }
+  }
+
+  document.getElementById("resultado").innerHTML =
+    `<div class="no-encontrado">No s'ha trobat cap resultat per «${escapeHtml(valor)}»</div>`;
+}
+
+function filtrarEstado(estado){
+  const lista = equipos.filter(e => e.estado === estado);
+  renderLista(lista, estado);
+}
+
+// Fila (única) de la fitxa que hi ha oberta ara mateix — amb codis
+// repetits, el codi sol ja no basta per saber de quin registrador parlem
+let filaAbierta = null;
+
+// Codi sense els asteriscs finals ("MA1122*" -> "MA1122"): els asteriscs
+// marquen que és un codi repetit/còpia, però el codi base és el mateix
+function codiBase(c){
+  return String(c || "").toUpperCase().replace(/\*+$/, "");
+}
+
+function equipoPerFila(fila){
+  return equipos.find(e => Number(e.fila) === Number(fila));
+}
+
+// Fitxa oberta ara mateix: per fila si en tenim, i si no pel codi del hash
+function equipoObert(){
+  if(filaAbierta !== null){
+    const e = equipoPerFila(filaAbierta);
+    if(e) return e;
+  }
+  const codigo = location.hash.replace("#","").toUpperCase();
+  if(!codigo) return null;
+  return equipos.find(e => String(e.codigo||"").toUpperCase() === codigo) || null;
+}
+
+// Si el codi d'aquest registrador el comparteix amb un altre, retorna una
+// etiqueta que els diferencia: "original" (el que ja tenia el codi) o
+// "renombrat" (el que ha arribat a aquest codi després)
+function etiquetaDuplicat(e){
+  const base = codiBase(e.codigo);
+  const hiHaMes = equipos.some(x => x !== e && codiBase(x.codigo) === base);
+  if(!hiHaMes) return "";
+  return e.codigoOriginal
+    ? `<span class="tag-dup renombrat" title="Aquest registrador ha estat renombrat fins a aquest codi">renombrat</span>`
+    : `<span class="tag-dup original" title="Aquest és el registrador que ja tenia aquest codi">original</span>`;
+}
+
+function abrirEquipoFila(fila){
+  const equipo = equipoPerFila(fila);
+  if(equipo) mostrarEquipo(equipo);
+}
+
+// Obre per codi: si hi ha més d'un registrador amb aquest codi, els
+// mostra tots en un llistat en comptes d'obrir-ne un a l'atzar
+function abrirEquipo(codigo){
+  const coincidents = equipos.filter(e => String(e.codigo||"").toUpperCase() === String(codigo||"").toUpperCase());
+  if(coincidents.length === 1){
+    mostrarEquipo(coincidents[0]);
+  }else if(coincidents.length > 1){
+    renderLista(coincidents, `«${codigo}» el fan servir ${coincidents.length} registradors`);
+  }
+}
+
+async function solicitarAcceso(codigo, boton){
+
+  const textoOriginal = boton.textContent;
+  boton.textContent = "Enviant…";
+  boton.disabled = true;
+
+  try{
+
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(Object.assign({
+        accion: "solicitarAcceso",
+        codigo: codigo
+      }, construirAuthPayload()))
+    });
+
+    const dades = parsearRespuestaJSON(await r.text());
+
+    if(dades.ok){
+      boton.textContent = "✅ Sol·licitud enviada";
+    }else{
+      alert("Error: " + (dades.mensaje || "no s'ha pogut enviar"));
+      boton.textContent = textoOriginal;
+      boton.disabled = false;
+    }
+
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació");
+    boton.textContent = textoOriginal;
+    boton.disabled = false;
+  }
+}
+
+async function obrirCarpetaFotos(codigo, boton){
+
+  const textoOriginal = boton.textContent;
+  boton.textContent = "Cercant…";
+  boton.disabled = true;
+
+  try{
+
+    const r = await fetch(API + "?accion=carpetaFotos&codigo=" + encodeURIComponent(codigo));
+    const dades = await r.json();
+
+    if(dades.ok){
+      window.open(dades.url, "_blank");
+    }else{
+      alert(dades.mensaje || "No s'ha pogut obrir la carpeta");
+    }
+
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació");
+  }finally{
+    boton.textContent = textoOriginal;
+    boton.disabled = false;
+  }
+}
+
+async function cargarPanellInstaladors(){
+
+  const card = document.getElementById("instaladorsCard");
+  const cont = document.getElementById("instaladorsCont");
+
+  card.style.display = "block";
+  cont.textContent = "Carregant…";
+
+  try{
+
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(Object.assign({ accion: "instaladors" }, construirAuthPayload()))
+    });
+    const dades = await r.json();
+
+    if(!dades.ok){
+      cont.innerHTML = '<div style="font-size:12.5px;color:var(--danger);">Error: ' + escapeHtml(dades.mensaje || "no autoritzat") + '</div>';
+      return;
+    }
+
+    if(!dades.perfils || !dades.perfils.length){
+      cont.innerHTML = '<div style="font-size:12.5px;color:var(--ink-soft);">Encara no hi ha cap instal·lador creat.</div>';
+      return;
+    }
+
+    cont.innerHTML = dades.perfils.map(p => {
+
+      const chips = p.pozos.map(codi => {
+        const equipo = equipos.find(e => String(e.codigo).toUpperCase() === codi);
+        const estado = equipo ? equipo.estado : null;
+        const color = colorEstado(estado);
+        return `
+          <span class="pou-chip" onclick="abrirEquipo('${escapeHtml(codi)}')">
+            ${color ? `<span class="dot" style="background:${color}"></span>` : ""}
+            ${escapeHtml(codi)}
+          </span>
+        `;
+      }).join("");
+
+      return `
+        <div class="instalador-grup">
+          <div class="instalador-nom">👷 ${escapeHtml(p.perfil)} <span class="count">(${p.pozos.length})</span></div>
+          <div class="instalador-pous">
+            ${chips || '<span style="font-size:12.5px;color:var(--ink-soft);">Sense pous assignats</span>'}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+  }catch(error){
+    console.error(error);
+    cont.innerHTML = '<div style="font-size:12.5px;color:var(--danger);">Error carregant els instal·ladors</div>';
+  }
+}
+
+// Función única de listado (sustituye a las antiguas mostrarCaja / mostrarTodos / filtrarEstado)
+function renderLista(lista, titulo){
+
+  filaAbierta = null;
+
+  let html = `
+    <div class="lista-header">
+      <h3>${escapeHtml(titulo)}</h3>
+      <span class="count">${lista.length} equips</span>
+    </div>
+  `;
+
+  lista.forEach(e=>{
+    html += `
+      <div class="equipo-card" onclick="abrirEquipoFila(${e.fila})">
+        <div>
+          <div class="codigo">${e.codigoOriginal ? `${escapeHtml(e.codigoOriginal)} → ${escapeHtml(e.codigo)}` : escapeHtml(e.codigo)}${etiquetaDuplicat(e)}</div>
+          <div class="meta">
+            <span>${escapeHtml(e.deveui)}</span>
+            <span>🔧 ${escapeHtml(e.tipoSonda || "-")}</span>
+            <span>📏 ${escapeHtml(e.metraje || "-")} m</span>
+            ${e.usuario ? `<span>👤 ${escapeHtml(e.usuario)}</span>` : ""}
+            ${e.fecha ? `<span>📅 ${escapeHtml(e.fecha)}</span>` : ""}
+          </div>
+        </div>
+        <span class="pill pill-${claseEstado(e.estado)}"><span class="dot"></span>${escapeHtml(e.estado || "-")}</span>
+      </div>
+    `;
+  });
+
+  document.getElementById("resultado").innerHTML = html;
+}
+
+function mostrarEquipo(equipo){
+
+  filaAbierta = equipo.fila;
+  history.replaceState(null, null, "#" + equipo.codigo.toUpperCase());
+
+  // Altres registradors que ara mateix tenen exactament el mateix codi
+  const repetits = equipos.filter(e => e !== equipo && codiBase(e.codigo) === codiBase(equipo.codigo));
+
+  const puedeEditar = puedeEditarEquipo(equipo);
+
+  document.getElementById("resultado").innerHTML = `
+    <div class="ficha">
+
+      <div class="ficha-head">
+        <div>
+          <div class="codigo-grande">${escapeHtml(equipo.codigo)}${etiquetaDuplicat(equipo)}</div>
+          <div class="deveui">${escapeHtml(equipo.deveui)}</div>
+        </div>
+        <span class="pill pill-${claseEstado(equipo.estado)}"><span class="dot"></span>${escapeHtml(equipo.estado || "-")}</span>
+      </div>
+
+      <div class="ficha-caja">
+        📦 Caixa ${escapeHtml(equipo.caja)}
+        ${(equipo.lat && equipo.lon) ? `
+          <a class="btn btn-outline info" style="margin-left:8px;text-decoration:none;"
+             href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(equipo.lat)},${encodeURIComponent(equipo.lon)}"
+             target="_blank" rel="noopener">📍 Com arribar-hi</a>
+        ` : ""}
+        <button class="btn btn-outline" style="margin-left:8px;" onclick="obrirCarpetaFotos('${escapeHtml(equipo.codigo)}', this)">📁 Fotos</button>
+      </div>
+
+      ${equipo.retiratPer ? `
+        <div class="ficha-nota retirat">
+          🚫 Retirat (mentre "No instal·lar")
+          <div class="sub">per ${escapeHtml(equipo.retiratPer)} el ${escapeHtml(equipo.retiratData || "")}</div>
+        </div>
+      ` : ""}
+
+      ${repetits.length ? `
+        <div class="ficha-nota retirat">
+          ⚠️ Hi ha ${repetits.length === 1 ? "un altre registrador" : repetits.length + " altres registradors"} amb el mateix codi base
+          <div class="sub">
+            ${repetits.map(r => `<a href="#" onclick="abrirEquipoFila(${r.fila});return false;">${escapeHtml(r.codigoOriginal ? r.codigoOriginal + " → " + r.codigo : r.codigo)} (${escapeHtml(r.deveui)})</a>`).join(" · ")}
+          </div>
+        </div>
+      ` : ""}
+
+      ${equipo.codigoOriginal ? `
+        <div class="ficha-nota reubicacio">
+          🔀 Codi original: <strong>${escapeHtml(equipo.codigoOriginal)}</strong> — renombrat a ${escapeHtml(equipo.codigo)}
+          <div class="sub">per ${escapeHtml(equipo.reubicatPer || "")} el ${escapeHtml(equipo.reubicatData || "")}</div>
+          ${puedeEditar ? `
+            <div style="margin-top:8px;">
+              <button class="btn btn-outline" style="padding:6px 10px;font-size:12px;" onclick="desferReubicacio(${equipo.fila})">↩️ Desfer la reubicació</button>
+            </div>
+          ` : ""}
+        </div>
+      ` : ""}
+
+      <div class="ficha-body">
+        <div class="campo">
+          <div class="k">Tipus de sonda</div>
+          <div class="v">${escapeHtml(equipo.tipoSonda || "-")}</div>
+        </div>
+        <div class="campo">
+          <div class="k">Metratge</div>
+          <div class="v">${escapeHtml(equipo.metraje || "-")} m</div>
+          ${equipo.metrajeOriginal ? `<div style="font-size:11px;color:var(--ink-soft);margin-top:2px;">Original: ${escapeHtml(equipo.metrajeOriginal)} m</div>` : ""}
+        </div>
+        <div class="campo">
+          <div class="k">Sèrie sonda</div>
+          <div class="v">${escapeHtml(equipo.serieSonda || "No assignada")}</div>
+        </div>
+        <div class="campo">
+          <div class="k">Data</div>
+          <div class="v">${escapeHtml(equipo.fecha || "-")}</div>
+        </div>
+        <div class="campo">
+          <div class="k">Usuari</div>
+          <div class="v">${escapeHtml(equipo.usuario || "-")}</div>
+        </div>
+      </div>
+
+      ${(() => {
+        if(puedeEditar || !instaladorActiu) return "";
+
+        const teAsignado = instaladorPozosAsignados.includes(String(equipo.codigo).toUpperCase());
+
+        if(teAsignado && equipo.estado === "Instalado" && equipo.usuario){
+          return `
+            <div style="padding:0 18px 14px;font-size:12.5px;color:var(--ink-soft);">
+              🔒 Aquest pou ja el va instal·lar <strong>${escapeHtml(equipo.usuario)}</strong> — només ell o un administrador el pot modificar.
+            </div>
+          `;
+        }
+
+        return `
+          <div style="padding:0 18px 14px;font-size:12.5px;color:var(--ink-soft);">
+            Aquest pou no és teu — només pots consultar-lo.
+            <br><br>
+            <button class="btn btn-outline" onclick="solicitarAcceso('${equipo.codigo}', this)">🔓 Sol·licitar accés</button>
+          </div>
+        `;
+      })()}
+
+      ${puedeEditar ? `
+        <div class="ficha-acciones">
+          <button class="btn btn-outline warn" onclick="cambiarEstado(${equipo.fila},'retirar')">Retirar</button>
+          ${admin ? `<button class="btn btn-outline warn" onclick="cambiarEstado(${equipo.fila},'retirar','SAMPOL')">Retirar (SAMPOL)</button>` : ""}
+          <button class="btn btn-outline info" onclick="abrirModalInstalacion(${equipo.fila})">Instal·lar</button>
+          <button class="btn btn-outline danger" onclick="marcarNoInstalar(${equipo.fila})">🚫 No instal·lar</button>
+          <button class="btn btn-outline ok" onclick="cambiarEstado(${equipo.fila},'almacen')">Magatzem</button>
+          <button class="btn btn-ghost" onclick="marcarReubicacio(${equipo.fila})">🔀 Muntat a un altre pou</button>
+          <button class="btn btn-ghost" onclick="asignarSerieSonda(${equipo.fila})">✏️ Manual</button>
+          <button class="btn btn-primary" onclick="escanearSerieSonda(${equipo.fila})">📷 Escanejar</button>
+        </div>
+      ` : ""}
+
+    </div>
+  `;
+}
+
+async function gestionarSessio(){
+
+  if(admin){
+    if(!confirm("Tancar la sessió d'administrador?")) return;
+    admin = false;
+    localStorage.removeItem("admin");
+    actualizarModoAdmin();
+    document.getElementById("instaladorsCard").style.display = "none";
+    cargarDatos();
+    return;
+  }
+
+  if(instaladorActiu){
+    if(!confirm("Tancar la sessió de " + instaladorPerfil + "?")) return;
+    tancarSessioInstalador();
+    actualizarModoInstalador();
+    await cargarDatos();
+    return;
+  }
+
+  location.href = "./login.html";
+}
+
+function tancarSessioInstalador(){
+  instaladorActiu = false;
+  instaladorPerfil = "";
+  instaladorContrasenya = "";
+  instaladorPozosAsignados = [];
+  instaladorVeureTots = false;
+  localStorage.removeItem("instaladorActiu");
+  localStorage.removeItem("instaladorPerfil");
+  localStorage.removeItem("instaladorContrasenya");
+  localStorage.removeItem("instaladorPozosAsignados");
+}
+
+async function refrescarDadesInstalador(intent){
+
+  intent = intent || 1;
+
+  const cache = localStorage.getItem("cacheEquiposInstalador_" + instaladorPerfil);
+  const habiaCache = !!cache;
+
+  if(intent === 1 && habiaCache && !equipos.length){
+    equipos = JSON.parse(cache);
+    actualizarStats();
+  }
+
+  try{
+
+    const r = await fetchAmbTimeout(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        accion: "loginInstalador",
+        perfil: instaladorPerfil,
+        contrasenya: instaladorContrasenya
+      })
+    }, 25000);
+
+    if(!r.ok) throw new Error("HTTP " + r.status);
+
+    const dades = await r.json();
+
+    if(!dades.ok){
+      // Credencials ja no vàlides (perfil eliminat/canviat) -> tancar sessió
+      tancarSessioInstalador();
+      actualizarModoInstalador();
+      await cargarDatos();
+      return;
+    }
+
+    instaladorPozosAsignados = dades.equipos.map(e => String(e.codigo).toUpperCase());
+    localStorage.setItem("instaladorPozosAsignados", JSON.stringify(instaladorPozosAsignados));
+
+    // Copia local por perfil, para poder seguir viendo sus pozos sin cobertura
+    try{
+      localStorage.setItem("cacheEquiposInstalador_" + instaladorPerfil, JSON.stringify(dades.equipos));
+      localStorage.setItem("cacheEquiposInstaladorFecha_" + instaladorPerfil, new Date().toISOString());
+    }catch(e){ /* sin espacio en localStorage, no es grave */ }
+
+    // Si estava veient "tots", torna a demanar la llista completa amb
+    // l'estat actualitzat; si no, es queda amb la llista restringida
+    if(instaladorVeureTots){
+      await cargarDatos();
+    }else{
+      equipos = dades.equipos;
+      actualizarStats();
+    }
+
+    // Si hay una ficha abierta, se repinta ya con los datos frescos
+    const equipoAbierto = equipoObert();
+    if(equipoAbierto) mostrarEquipo(equipoAbierto);
+
+  }catch(error){
+    console.error("Error carregant dades d'instal·lador (intent " + intent + "):", error);
+
+    if(intent < 4){
+      await new Promise(res => setTimeout(res, intent * 2000));
+      return refrescarDadesInstalador(intent + 1);
+    }
+
+    // Se acabaron los reintentos: usar la copia local de este perfil si existe
+    const stats = document.getElementById("stats");
+
+    if(cache){
+      if(!habiaCache){
+        equipos = JSON.parse(cache);
+        actualizarStats();
+      }
+
+      const fecha = localStorage.getItem("cacheEquiposInstaladorFecha_" + instaladorPerfil);
+      const cuando = fecha ? new Date(fecha).toLocaleString() : "data desconeguda";
+
+      stats.innerHTML =
+        `⚠️ Sense connexió — mostrant els teus pous de ${escapeHtml(cuando)}. ` +
+        "<button class=\"btn btn-outline\" onclick=\"refrescarDadesInstalador()\">Tornar a provar</button>" +
+        stats.innerHTML;
+    }else{
+      stats.innerHTML =
+        "⚠️ No s'han pogut carregar els teus pous. " +
+        "<button class=\"btn btn-outline\" onclick=\"refrescarDadesInstalador()\">Reintentar</button>";
+    }
+  }
+}
+
+// Alterna entre ver solo los pozos asignados o el inventario completo
+// (en el segundo caso solo podrá modificar los que tenga asignados)
+async function alternarVistaInstalador(){
+
+  instaladorVeureTots = !instaladorVeureTots;
+
+  if(instaladorVeureTots){
+    await cargarDatos();
+  }else{
+    await refrescarDadesInstalador();
+  }
+
+  actualizarModoInstalador();
+}
+
+function actualizarModoInstalador(){
+  actualizarBotoSessio();
+
+  const btnVista = document.getElementById("btnVistaInstalador");
+  btnVista.style.display = instaladorActiu ? "inline-flex" : "none";
+  btnVista.innerHTML = instaladorVeureTots ? "👷 Només els meus" : "🔍 Veure tots";
+
+  actualizarVisibilidadCobertura();
+}
+
+// Devuelve el fragmento de query string de autenticación (admin o instalador
+// usan el mismo transporte: perfil + contrasenya reales de su sesión)
+function construirAuthQuery(){
+  if(admin || instaladorActiu){
+    return "&perfil=" + encodeURIComponent(instaladorPerfil) +
+           "&contrasenya=" + encodeURIComponent(instaladorContrasenya);
+  }
+  return "";
+}
+
+// Igual que construirAuthQuery pero como objeto, para incluir en un body JSON
+function construirAuthPayload(){
+  if(admin || instaladorActiu){
+    return { perfil: instaladorPerfil, contrasenya: instaladorContrasenya };
+  }
+  return {};
+}
+
+// El botón de cobertura lo puede usar cualquier sesión iniciada (admin o
+// instalador); el del mapa sigue siendo solo de admin.
+function actualizarVisibilidadCobertura(){
+  document.getElementById("btnCobertura").style.display = (admin || instaladorActiu) ? "inline-flex" : "none";
+}
+
+function actualizarModoAdmin(){
+  document.getElementById("linkAdminPanel").style.display = admin ? "inline-flex" : "none";
+  document.getElementById("btnMapa").style.display = admin ? "inline-flex" : "none";
+  const esGuillem = admin && usuarioActual.trim().toLowerCase() === "guillem";
+  document.getElementById("btnEscanejarRetirar").style.display = esGuillem ? "inline-flex" : "none";
+  actualizarBotoSessio();
+  actualizarVisibilidadCobertura();
+}
+
+function actualizarBotoSessio(){
+  const btn = document.getElementById("btnInstalador");
+  if(admin){
+    btn.innerHTML = "🔒 " + usuarioActual;
+  }else if(instaladorActiu){
+    btn.innerHTML = "👷 " + instaladorPerfil;
+  }else{
+    btn.innerHTML = "👤 Iniciar sessió";
+  }
+}
+
+function obtenerUsuario(){
+  if(instaladorActiu) return instaladorPerfil;
+  if(usuarioActual) return usuarioActual;
+  const nombre = prompt("Usuari:");
+  if(nombre && nombre.trim()){
+    usuarioActual = nombre.trim();
+    localStorage.setItem("usuarioActual", usuarioActual);
+  }
+  return usuarioActual;
+}
+
+async function asignarSerieSonda(fila){
+  const equipo = equipoPerFila(fila);
+  if(!equipo) return;
+
+  const serie = prompt("Número de sèrie de la sonda:", equipo.serieSonda || "");
+  if(serie === null || serie.trim() === "") return;
+
+  const payload = Object.assign({
+    accion: "serieSonda",
+    fila: equipo.fila,
+    serie: serie
+  }, construirAuthPayload());
+
+  try{
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+    const respuesta = await r.text();
+
+    if(respuesta === "OK"){
+      equipo.serieSonda = serie;
+      mostrarEquipo(equipo);
+    }else{
+      alert("Error: " + respuesta);
+    }
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació");
+  }
+}
+
+async function escanearSerieSonda(fila){
+  const equipo = equipoPerFila(fila);
+  if(!equipo) return;
+
+  document.getElementById("scannerModal").style.display = "block";
+
+  if(!html5QrCode){
+    html5QrCode = new Html5Qrcode("scanner");
+  }
+
+  const cameraId = localStorage.getItem("cameraId");
+
+  try{
+    await html5QrCode.start(
+      cameraId || { facingMode:"environment" },
+      { fps:10, qrbox:250 },
+      async (decodedText)=>{
+        if(decodedText.length !== LONGITUD_SERIE_VALIDA) return;
+
+        const confirmar = confirm("Vols desar aquesta sèrie?\n\n" + decodedText);
+        if(!confirmar) return;
+
+        await html5QrCode.stop();
+        await html5QrCode.clear();
+        html5QrCode = null;
+        document.getElementById("scannerModal").style.display = "none";
+
+        const payload = Object.assign({
+          accion: "serieSonda",
+          fila: equipo.fila,
+          serie: decodedText
+        }, construirAuthPayload());
+
+        const r = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+        const respuesta = await r.text();
+
+        if(respuesta === "OK"){
+          equipo.serieSonda = decodedText;
+          mostrarEquipo(equipo);
+        }else{
+          alert("Error: " + respuesta);
+        }
+      }
+    );
+  }catch(error){
+    console.error(error);
+    alert("Error iniciant la càmera");
+  }
+}
+
+async function seleccionarCamara(){
+  try{
+    camarasDisponibles = await Html5Qrcode.getCameras();
+  }catch(error){
+    console.error(error);
+    alert("No s'ha pogut accedir a la llista de càmeres");
+    return;
+  }
+
+  const select = document.getElementById("cameraSelect");
+  select.innerHTML = "";
+  camarasDisponibles.forEach((c,i)=>{
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = c.label || ("Càmera " + (i+1));
+    select.appendChild(opt);
+  });
+
+  const guardada = localStorage.getItem("cameraId");
+  if(guardada) select.value = guardada;
+
+  document.getElementById("cameraSelectWrap").style.display = "inline-block";
+}
+
+function guardarCamaraSeleccionada(){
+  const select = document.getElementById("cameraSelect");
+  if(select.value){
+    localStorage.setItem("cameraId", select.value);
+  }
+}
+
+async function cerrarEscaner(){
+  try{
+    if(html5QrCode && html5QrCode.isScanning){
+      await html5QrCode.stop();
+    }
+    if(html5QrCode){
+      await html5QrCode.clear();
+      html5QrCode = null;
+    }
+  }catch(error){
+    console.log(error);
+  }
+  document.getElementById("scannerModal").style.display = "none";
+}
+
+// ============================================================
+// Escaneig en lot amb lector físic de codis de barres/QR (funciona com un
+// teclat: escriu el codi i envia un Enter tot sol) — QR (DevEUI) o codi de
+// barres (Num. Sèrie) de la caixa → marca directament com a Retirat
+// (SAMPOL), un darrere l'altre, sense tocar res entre lectura i lectura.
+// ============================================================
+
+let comptadorEscaneigRetirar = 0;
+let comptadorLogEscaneig = 0;
+let codisProcessatsEscaneig = new Set(); // ja confirmats amb èxit en aquesta sessió
+let codisEnCursEscaneig = new Set();     // esperant resposta del servidor ara mateix
+
+function obrirEscaneigRetirar(){
+
+  document.getElementById("scannerRetirarModal").style.display = "block";
+  document.getElementById("scannerRetirarLog").innerHTML = "";
+  comptadorEscaneigRetirar = 0;
+  codisProcessatsEscaneig = new Set();
+  codisEnCursEscaneig = new Set();
+  document.getElementById("scannerRetirarComptador").textContent = "0 retirats en aquesta sessió";
+
+  const input = document.getElementById("inputEscaneigRetirar");
+  input.value = "";
+  input.focus();
+}
+
+function cerrarEscaneigRetirar(){
+  document.getElementById("scannerRetirarModal").style.display = "none";
+}
+
+function onKeydownEscaneigRetirar(event){
+
+  // El lector físic "escriu" el codi lletra a lletra i acaba amb un Enter
+  // (o Tab, segons com estigui configurat) — amb això n'hi ha prou, no cal
+  // cap càmera ni cap llibreria de lectura
+  if(event.key !== "Enter" && event.key !== "Tab") return;
+
+  event.preventDefault();
+
+  const input = document.getElementById("inputEscaneigRetirar");
+  const codigoEscaneado = input.value.trim().toUpperCase();
+  input.value = "";
+
+  if(!codigoEscaneado) return;
+
+  // Si ja s'està processant aquest mateix codi (resposta del servidor
+  // encara pendent) o ja s'ha retirat amb èxit en aquesta sessió, no es
+  // torna a enviar — evita duplicar per escanejos repetits sense esperar
+  if(codisEnCursEscaneig.has(codigoEscaneado)){
+    afegirLogEscaneigRetirar(codigoEscaneado, "espera", "Encara s'està processant, espera un moment…");
+    return;
+  }
+  if(codisProcessatsEscaneig.has(codigoEscaneado)){
+    afegirLogEscaneigRetirar(codigoEscaneado, "avis", "Ja retirat en aquesta sessió — no s'ha tornat a enviar");
+    return;
+  }
+
+  const equipo = equipos.find(e =>
+    String(e.deveui || "").toUpperCase() === codigoEscaneado ||
+    String(e.numSerie || "").toUpperCase() === codigoEscaneado
+  );
+
+  if(!equipo){
+    afegirLogEscaneigRetirar(codigoEscaneado, "error", "No trobat a l'inventari");
+    return;
+  }
+
+  // Feedback a l'instant: el registre apareix ja mateix ("Processant…"),
+  // sense esperar la resposta del servidor — així es veu de seguida que
+  // l'escaneig s'ha registrat i no cal tornar a passar el lector
+  const idLog = afegirLogEscaneigRetirar(equipo.codigo, "pendent", "Processant…");
+
+  codisEnCursEscaneig.add(codigoEscaneado);
+  retirarPerEscaneig(equipo, codigoEscaneado, idLog);
+}
+
+function iconEstatEscaneig(estat){
+  if(estat === "ok") return "✅";
+  if(estat === "error") return "❌";
+  if(estat === "avis") return "⚠️";
+  if(estat === "espera" || estat === "pendent") return "⏳";
+  return "•";
+}
+
+function afegirLogEscaneigRetirar(codigo, estat, missatge){
+  comptadorLogEscaneig++;
+  const id = "logscan-" + comptadorLogEscaneig;
+  const log = document.getElementById("scannerRetirarLog");
+  const item = document.createElement("div");
+  item.id = id;
+  item.className = "scan-log-item " + estat;
+  item.textContent = iconEstatEscaneig(estat) + " " + codigo + " — " + missatge;
+  log.insertBefore(item, log.firstChild);
+  return id;
+}
+
+function actualizarLogEscaneigRetirar(id, codigo, estat, missatge){
+  const item = document.getElementById(id);
+  if(!item) return;
+  item.className = "scan-log-item " + estat;
+  item.textContent = iconEstatEscaneig(estat) + " " + codigo + " — " + missatge;
+}
+
+// Marca directament un equip com a Retirat (SAMPOL) — respecta el mateix
+// cas especial que el botó normal: si ja estava "No instalar", no li
+// canvia l'estat, només anota qui i quan l'ha retirat
+async function retirarPerEscaneig(equipo, codigoEscaneado, idLog){
+
+  const usuario = "SAMPOL";
+
+  const estadoPrevio = {
+    estado: equipo.estado,
+    usuario: equipo.usuario,
+    fecha: equipo.fecha,
+    retiratPer: equipo.retiratPer,
+    retiratData: equipo.retiratData
+  };
+
+  const esRetirarMentreNoInstalar = equipo.estado === "No instalar";
+
+  if(esRetirarMentreNoInstalar){
+    equipo.retiratPer = usuario;
+    equipo.retiratData = new Date().toLocaleString();
+  }else{
+    equipo.estado = "Retirado";
+    equipo.usuario = usuario;
+    equipo.fecha = new Date().toLocaleString();
+  }
+
+  actualizarStats();
+
+  const payload = Object.assign({
+    accion: "retirar",
+    fila: equipo.fila,
+    codigo: equipo.codigo,
+    deveui: equipo.deveui,
+    usuario: usuario
+  }, construirAuthPayload());
+
+  try{
+
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+    const respuesta = await r.text();
+
+    if(respuesta === "OK"){
+      comptadorEscaneigRetirar++;
+      document.getElementById("scannerRetirarComptador").textContent = comptadorEscaneigRetirar + " retirats en aquesta sessió";
+      codisProcessatsEscaneig.add(codigoEscaneado);
+      actualizarLogEscaneigRetirar(idLog, equipo.codigo, "ok", esRetirarMentreNoInstalar ? "Retirat (mentre No instal·lar)" : "Retirat");
+    }else{
+      Object.assign(equipo, estadoPrevio);
+      actualizarStats();
+      actualizarLogEscaneigRetirar(idLog, equipo.codigo, "error", respuesta.trim().startsWith("<") ? "Resposta inesperada del servidor" : respuesta);
+    }
+
+  }catch(error){
+    console.error(error);
+    Object.assign(equipo, estadoPrevio);
+    actualizarStats();
+    actualizarLogEscaneigRetirar(idLog, equipo.codigo, "error", "Error de comunicació");
+  }finally{
+    codisEnCursEscaneig.delete(codigoEscaneado);
+  }
+}
+
+async function cambiarEstado(fila,accion,usuarioForzado){
+  const equipo = equipoPerFila(fila);
+  if(!equipo) return;
+
+  const usuario = usuarioForzado || obtenerUsuario();
+  if(!usuario) return;
+
+  // Se guarda el estado anterior por si hay que deshacer el cambio
+  const estadoPrevio = {
+    estado: equipo.estado,
+    usuario: equipo.usuario,
+    fecha: equipo.fecha,
+    retiratPer: equipo.retiratPer,
+    retiratData: equipo.retiratData
+  };
+
+  // Cas especial: retirar un pou que està marcat "No instalar" no li canvia
+  // l'estat (es manté "No instalar") — el retir es guarda com una anotació
+  // a part, perquè les dues coses quedin visibles a la vegada
+  const esRetirarMentreNoInstalar = accion === "retirar" && equipo.estado === "No instalar";
+
+  // Se actualiza la pantalla al instante, sin esperar al servidor
+  if(esRetirarMentreNoInstalar){
+    equipo.retiratPer = usuario;
+    equipo.retiratData = new Date().toLocaleString();
+  }else{
+    if(accion==="retirar") equipo.estado="Retirado";
+    if(accion==="instalado") equipo.estado="Instalado";
+    if(accion==="noinstalar") equipo.estado="No instalar";
+    if(accion==="almacen") equipo.estado="Almacén";
+
+    if(accion==="almacen"){
+      equipo.fecha="";
+      equipo.usuario="";
+    }else{
+      equipo.usuario=usuario;
+      equipo.fecha=new Date().toLocaleString();
+    }
+  }
+
+  actualizarStats();
+  mostrarEquipo(equipo);
+
+  const payload = Object.assign({
+    accion: accion,
+    fila: equipo.fila,
+    codigo: equipo.codigo,
+    deveui: equipo.deveui,
+    usuario: usuario
+  }, construirAuthPayload());
+
+  try{
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+    const respuesta = await r.text();
+
+    if(respuesta!=="OK"){
+      // El servidor no lo aceptó: se deshace el cambio en pantalla
+      Object.assign(equipo, estadoPrevio);
+      actualizarStats();
+      mostrarEquipo(equipo);
+      alert("Error: " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
+    }
+  }catch(error){
+    console.error(error);
+    Object.assign(equipo, estadoPrevio);
+    actualizarStats();
+    mostrarEquipo(equipo);
+    alert("Error de comunicació. Torna-ho a provar.");
+  }
+}
+
+async function marcarNoInstalar(fila){
+
+  const equipo = equipoPerFila(fila);
+  if(!equipo) return;
+
+  const observacions = prompt("Motiu pel qual no es pot instal·lar (queda anotat a Progrés sondes):");
+  if(observacions === null) return; // ha cancel·lat
+
+  const usuario = obtenerUsuario();
+  if(!usuario) return;
+
+  const payload = Object.assign({
+    accion: "noinstalar",
+    fila: equipo.fila,
+    codigo: equipo.codigo,
+    deveui: equipo.deveui,
+    usuario: usuario,
+    observacions: observacions
+  }, construirAuthPayload());
+
+  const estadoPrevio = { estado: equipo.estado, usuario: equipo.usuario, fecha: equipo.fecha };
+
+  equipo.estado = "No instalar";
+  equipo.usuario = usuario;
+  equipo.fecha = new Date().toLocaleString();
+  actualizarStats();
+  mostrarEquipo(equipo);
+
+  try{
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+    const respuesta = await r.text();
+
+    if(respuesta!=="OK"){
+      Object.assign(equipo, estadoPrevio);
+      actualizarStats();
+      mostrarEquipo(equipo);
+      alert("Error: " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
+    }
+  }catch(error){
+    console.error(error);
+    Object.assign(equipo, estadoPrevio);
+    actualizarStats();
+    mostrarEquipo(equipo);
+    alert("Error de comunicació");
+  }
+}
+
+// Marca que este registrador se ha montado realmente en OTRO pou (ya
+// existente a l'inventari) — s'anota a les dues fitxes, sense tocar
+// l'estat ni cap altra dada de cap de les dues
+// Renombra un equipo a un código nuevo. Si ese código ya lo usa otro
+// registrador, pregunta si también quieres renombrar ese otro (y si
+// aceptas, se resuelve primero esa cadena antes de continuar). Devuelve
+// true si el renombrado (y los que hayan hecho falta por el camino) se
+// completaron con éxito.
+async function renombrarPou(equipo, codigoNuevoTexto, usuario){
+
+  let codigoNuevo = codigoNuevoTexto.trim().toUpperCase();
+
+  if(codigoNuevo === equipo.codigo.toUpperCase()){
+    alert("El codi nou no pot ser el mateix que l'actual (" + equipo.codigo + ").");
+    return false;
+  }
+
+  const conflictos = equipos.filter(e => e !== equipo && String(e.codigo).toUpperCase() === codigoNuevo);
+
+  if(conflictos.length){
+
+    const equipoConflicto = conflictos[0];
+    const descripcio = conflictos.length === 1
+      ? "(DevEUI " + equipoConflicto.deveui + ", caixa " + (equipoConflicto.caja || "-") + ", estat " + (equipoConflicto.estado || "-") + ")"
+      : "(" + conflictos.length + " registradors)";
+
+    // 1a opció: continuar igualment, afegint un asterisc al codi perquè
+    // quedi clar que és repetit/còpia. El que es renombra conserva el seu
+    // "codi original", així sempre se sap quin és quin
+    let codigoAmbAsterisc = codigoNuevo + "*";
+    while(equipos.some(e => e !== equipo && String(e.codigo).toUpperCase() === codigoAmbAsterisc)){
+      codigoAmbAsterisc += "*";
+    }
+
+    const deixarRepetit = confirm(
+      "El codi " + codigoNuevo + " ja el fa servir un altre registrador " + descripcio + ".\n\n" +
+      "Vols continuar igualment? Aquest registrador quedarà com a «" + codigoAmbAsterisc + "» (amb asterisc, per indicar que és repetit) i es guardarà el seu codi original (" + equipo.codigo + ").\n\n" +
+      "Acceptar = continuar amb «" + codigoAmbAsterisc + "»\n" +
+      "Cancel·lar = veure altres opcions"
+    );
+
+    if(deixarRepetit){
+      codigoNuevo = codigoAmbAsterisc;
+    }
+
+    if(!deixarRepetit){
+
+      // 2a opció: renombrar també l'altre per deixar el codi lliure
+      const volsRenombrarAltre = confirm(
+        "Vols renombrar l'altre registrador (actualment " + equipoConflicto.codigo + "), per deixar lliure el codi " + codigoNuevo + "?\n\n" +
+        "Cancel·lar = no fer res"
+      );
+
+      if(!volsRenombrarAltre) return false;
+
+      const nouCodiPerAltre = prompt("Nou codi per a l'altre registrador (actualment " + equipoConflicto.codigo + "):");
+      if(nouCodiPerAltre === null || !nouCodiPerAltre.trim()) return false;
+
+      // Es resol primer aquesta col·lisió (en cadena, per si també xoca amb
+      // un tercer) abans de continuar amb el renombrat original
+      const exitAltre = await renombrarPou(equipoConflicto, nouCodiPerAltre, usuario);
+      if(!exitAltre) return false;
+    }
+  }
+
+  const codigoAnterior = equipo.codigo;
+
+  const payload = Object.assign({
+    accion: "reubicar",
+    fila: equipo.fila,
+    codigo: equipo.codigo,
+    deveui: equipo.deveui,
+    usuario: usuario,
+    codigoDestino: codigoNuevo
+  }, construirAuthPayload());
+
+  try{
+
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+    const respuesta = await r.text();
+
+    if(respuesta !== "OK"){
+      alert("Error renombrant " + codigoAnterior + " a " + codigoNuevo + ": " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
+      return false;
+    }
+
+    // Si es torna exactament al codi original, es considera "desfer" la
+    // reubicació — es netegen les dades de seguiment en comptes
+    // d'actualitzar-les, igual que fa el servidor
+    const esDesfer = equipo.codigoOriginal && equipo.codigoOriginal.toUpperCase() === codigoNuevo;
+
+    if(esDesfer){
+      equipo.codigoOriginal = "";
+      equipo.reubicatPer = "";
+      equipo.reubicatData = "";
+    }else{
+      // El codi original es guarda només la primera vegada (si ja n'hi
+      // havia un, es conserva el de debò-original, no aquest darrer)
+      if(!equipo.codigoOriginal){
+        equipo.codigoOriginal = codigoAnterior;
+      }
+      equipo.reubicatPer = usuario;
+      equipo.reubicatData = new Date().toLocaleString();
+    }
+
+    equipo.codigo = codigoNuevo;
+
+    // Si un instal·lador tenia aquest pou assignat amb el codi antic,
+    // reflectim també el canvi a la sessió actual
+    const idxAsignado = instaladorPozosAsignados.indexOf(codigoAnterior.toUpperCase());
+    if(idxAsignado !== -1){
+      instaladorPozosAsignados[idxAsignado] = codigoNuevo;
+      localStorage.setItem("instaladorPozosAsignados", JSON.stringify(instaladorPozosAsignados));
+    }
+
+    return true;
+
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació renombrant " + codigoAnterior);
+    return false;
+  }
+}
+
+// Desfà del tot una reubicació anterior, tornant directament al codi
+// original — sense haver-lo d'escriure a mà. Reutilitza renombrarPou,
+// que ja sap detectar aquest cas i netejar les dades de seguiment.
+async function desferReubicacio(fila){
+
+  const equipo = equipoPerFila(fila);
+  if(!equipo || !equipo.codigoOriginal) return;
+
+  const confirmar = confirm(
+    "Vols desfer la reubicació d'aquest registrador?\n\n" +
+    "Tornarà a dir-se " + equipo.codigoOriginal + " (codi actual: " + equipo.codigo + "), i s'esborraran les dades de seguiment d'aquesta reubicació."
+  );
+  if(!confirmar) return;
+
+  const usuario = obtenerUsuario();
+  if(!usuario) return;
+
+  const exito = await renombrarPou(equipo, equipo.codigoOriginal, usuario);
+
+  if(exito){
+    mostrarEquipo(equipo);
+  }
+}
+
+async function marcarReubicacio(fila){
+
+  const equipo = equipoPerFila(fila);
+  if(!equipo) return;
+
+  const destino = prompt("Codi del pou on s'ha muntat realment aquest registrador.\n\nEl codi actual (" + equipo.codigo + ") es conservarà com a \"codi original\" — no es perd, només queda substituït com a codi actiu.");
+  if(destino === null || !destino.trim()) return;
+
+  const metratgeText = prompt(
+    "Metratge de la sonda que hi ha instal·lada ara en aquest pou (metres).\n\n" +
+    "Deixa el mateix valor si és la mateixa sonda d'abans; canvia'l si n'has posat una altra:",
+    equipo.metraje || ""
+  );
+  if(metratgeText === null) return; // ha cancel·lat
+
+  const usuario = obtenerUsuario();
+  if(!usuario) return;
+
+  const exito = await renombrarPou(equipo, destino, usuario);
+  if(!exito) return;
+
+  const metratgeNou = metratgeText.trim();
+  if(metratgeNou && metratgeNou !== String(equipo.metraje || "").trim()){
+    await actualizarMetratgeSonda(equipo, metratgeNou);
+  }
+
+  mostrarEquipo(equipo);
+}
+
+// Actualiza el metratge de la sonda (columna "long cable") — se usa sobre
+// todo después de una reubicació, cuando la sonda que queda instal·lada
+// en el pou nou no es la mateixa que la d'origen
+async function actualizarMetratgeSonda(equipo, nuevoMetraje){
+
+  const payload = Object.assign({
+    accion: "actualizarMetraje",
+    fila: equipo.fila,
+    metraje: nuevoMetraje
+  }, construirAuthPayload());
+
+  try{
+
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+    const respuesta = await r.text();
+
+    if(respuesta === "OK"){
+      // Es conserva el primer metratge de tots, només si encara no n'hi
+      // havia cap guardat
+      if(!equipo.metrajeOriginal && equipo.metraje){
+        equipo.metrajeOriginal = equipo.metraje;
+      }
+      equipo.metraje = nuevoMetraje;
+    }else{
+      alert("El codi s'ha canviat correctament, però no s'ha pogut actualitzar el metratge: " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
+    }
+
+  }catch(error){
+    console.error(error);
+    alert("El codi s'ha canviat correctament, però no s'ha pogut actualitzar el metratge (error de comunicació).");
+  }
+}
+
+// ============================================================
+// Instalación completa: foto + cobertura + cable fins cota + observacions
+// en un solo envío (sustituye a la llamada directa a cambiarEstado)
+// ============================================================
+
+let filaEnInstalacion = null;
+
+function abrirModalInstalacion(fila){
+
+  filaEnInstalacion = fila;
+  const equipoInst = equipoPerFila(fila);
+
+  document.getElementById("instalarTitulo").textContent = "Instal·lar " + (equipoInst ? equipoInst.codigo : "");
+  document.getElementById("inpFoto").value = "";
+  document.getElementById("inpCableFinsCota").value = "";
+  document.getElementById("inpObservacions").value = "";
+  document.getElementById("instalarEstado").textContent = "";
+  document.getElementById("avisCableFinsCota").style.display = "none";
+
+  document.getElementById("instalarModal").style.display = "block";
+}
+
+// Avisa si el valor escrito coincide con el largo total de la sonda —
+// error típico de confundir "cable fins cota" con el cable entero.
+// Devuelve true si el valor no es válido (para poder bloquear el envío).
+function comprovarCableFinsCota(){
+
+  const avisDiv = document.getElementById("avisCableFinsCota");
+  const equipo = equipoPerFila(filaEnInstalacion);
+  const valor = parseFloat(document.getElementById("inpCableFinsCota").value);
+  const metraje = equipo ? parseFloat(equipo.metraje) : NaN;
+
+  const esInvalid = !isNaN(valor) && !isNaN(metraje) && valor >= metraje;
+
+  if(esInvalid){
+    const prefijo = bloquejarCableFinsCotaActiu ? "🚫 No es pot guardar: " : "⚠️ Avís: ";
+    avisDiv.textContent = `${prefijo}aquest valor (${valor} m) és igual o més gran que el llarg total de la sonda (${metraje} m). Segurament has posat el cable sencer en comptes del tram fins la cota.`;
+    avisDiv.style.display = "block";
+  }else{
+    avisDiv.style.display = "none";
+  }
+
+  return esInvalid;
+}
+
+function cerrarModalInstalacion(){
+  document.getElementById("instalarModal").style.display = "none";
+  filaEnInstalacion = null;
+}
+
+// Convierte un File a base64 puro (sin el prefijo data:...;base64,)
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Hash rápido y estable del contenido (no criptográfico, solo para dar el
+// mismo nombre a un mismo archivo en reintentos y evitar duplicados).
+// Muestrea el principio y el final en vez de recorrer el base64 entero,
+// para que no penalice con fotos de varios MB.
+function hashContenido(base64){
+  let hash = 0;
+  const muestra = base64.length > 6000
+    ? base64.slice(0, 3000) + base64.slice(-3000)
+    : base64;
+
+  for(let i = 0; i < muestra.length; i++){
+    hash = ((hash << 5) - hash) + muestra.charCodeAt(i);
+    hash |= 0;
+  }
+
+  return Math.abs(hash).toString(36) + base64.length.toString(36);
+}
+
+// Redimensiona y comprime una foto en el propio navegador antes de subirla,
+// para que la subida por móvil sea mucho más rápida. Devuelve un Blob JPEG.
+function comprimirImagen(file, maxAncho = 1600, calidad = 0.72){
+  return new Promise((resolve, reject) => {
+
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+
+      URL.revokeObjectURL(url);
+
+      let ancho = img.width;
+      let alto = img.height;
+
+      if(ancho > maxAncho){
+        alto = Math.round(alto * (maxAncho / ancho));
+        ancho = maxAncho;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = ancho;
+      canvas.height = alto;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, ancho, alto);
+
+      canvas.toBlob(
+        blob => blob ? resolve(blob) : reject(new Error("No s'ha pogut comprimir la imatge")),
+        "image/jpeg",
+        calidad
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("No s'ha pogut llegir la imatge"));
+    };
+
+    img.src = url;
+  });
+}
+
+async function confirmarInstalacion(){
+
+  const equipo = equipoPerFila(filaEnInstalacion);
+  if(!equipo) return;
+
+  const esInvalid = comprovarCableFinsCota();
+  if(esInvalid && bloquejarCableFinsCotaActiu){
+    document.getElementById("instalarEstado").textContent = "";
+    return; // el aviso en rojo ya explica el motivo, no se envía nada
+  }
+
+  const usuario = obtenerUsuario();
+  if(!usuario) return;
+
+  const estadoDiv = document.getElementById("instalarEstado");
+  estadoDiv.textContent = "Guardant…";
+
+  const ficherosFoto = Array.from(document.getElementById("inpFoto").files);
+  const cableFinsCota = document.getElementById("inpCableFinsCota").value.trim();
+  const observacions = document.getElementById("inpObservacions").value.trim();
+
+  // 1) Marcar instalado primero — una petición pequeña y rápida, sin fotos
+  // dentro, para que el estado quede guardado aunque luego alguna foto
+  // tarde mucho (o falle) por mala cobertura
+  const payload = Object.assign({
+    accion: "instalado",
+    fila: equipo.fila,
+    codigo: equipo.codigo,
+    deveui: equipo.deveui,
+    usuario: usuario,
+    cableFinsCota: cableFinsCota,
+    observacions: observacions
+  }, construirAuthPayload());
+
+  try{
+
+    const r = await fetchAmbReintents(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    }, (msg) => { estadoDiv.textContent = msg; });
+
+    const respuestaTexto = await r.text();
+    const respuesta = parsearRespuestaJSON(respuestaTexto);
+
+    if(!respuesta.ok){
+      estadoDiv.textContent = "Error: " + (respuesta.mensaje || respuestaTexto);
+      return;
+    }
+
+    equipo.estado = "Instalado";
+    equipo.usuario = usuario;
+    equipo.fecha = new Date().toLocaleString();
+    actualizarStats();
+
+    const avisos = Array.isArray(respuesta.avisos) ? respuesta.avisos.slice() : [];
+
+    // 2) Fotos, una a una — cada una en su propia petición pequeña. Si
+    // alguna falla, no arrastra a las demás ni al estado ya guardado
+    for(let i = 0; i < ficherosFoto.length; i++){
+
+      estadoDiv.textContent = `Comprimint i pujant foto ${i+1} de ${ficherosFoto.length}…`;
+
+      const fichero = ficherosFoto[i];
+
+      let blobFinal = fichero;
+      try{
+        blobFinal = await comprimirImagen(fichero);
+      }catch(err){
+        console.error("No s'ha pogut comprimir, es puja l'original:", err);
+      }
+
+      const base64Foto = await fileToBase64(blobFinal);
+
+      // Nombre estable a partir del contenido: si esta misma foto se
+      // reenvía por un reintento tras un error de red, genera el mismo
+      // nombre y el servidor no la duplica
+      const nombreFoto = equipo.codigo + "_" + hashContenido(base64Foto) + "_" + fichero.name.replace(/\.[^.]+$/, "") + ".jpg";
+
+      try{
+
+        const rFoto = await fetchAmbReintents(API, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(Object.assign({
+            accion: "subirFoto",
+            codigo: equipo.codigo,
+            nombre: nombreFoto,
+            base64: base64Foto,
+            mime: "image/jpeg"
+          }, construirAuthPayload()))
+        }, (msg) => { estadoDiv.textContent = `Foto ${i+1} de ${ficherosFoto.length}: ${msg}`; });
+
+        const dadesFoto = parsearRespuestaJSON(await rFoto.text());
+
+        if(!dadesFoto.ok){
+          avisos.push(`Foto ${i+1}: ${dadesFoto.mensaje || "no s'ha pogut pujar"}`);
+        }
+
+      }catch(errorFoto){
+        console.error("Error pujant foto " + (i+1) + ":", errorFoto);
+        avisos.push(`Foto ${i+1}: error de comunicació, no s'ha pujat`);
+      }
+    }
+
+    cerrarModalInstalacion();
+    mostrarEquipo(equipo);
+
+    if(avisos.length){
+      alert("Instal·lat, però amb avisos:\n\n" + avisos.join("\n"));
+    }
+
+  }catch(error){
+    console.error(error);
+    estadoDiv.textContent = "Error de comunicació. Torna-ho a provar.";
+  }
+
+}
+
+// ============================================================
+// Subida en lote de fitxers de cobertura (des d'un altre dispositiu,
+// sense vincular-los a cap sonda concreta)
+// ============================================================
+
+function abrirModalCobertura(){
+  document.getElementById("inpCoberturaLote").value = "";
+  document.getElementById("coberturaEstado").textContent = "";
+  document.getElementById("coberturaModal").style.display = "block";
+}
+
+function cerrarModalCobertura(){
+  document.getElementById("coberturaModal").style.display = "none";
+}
+
+async function confirmarCobertura(){
+
+  const ficheros = Array.from(document.getElementById("inpCoberturaLote").files);
+  const estadoDiv = document.getElementById("coberturaEstado");
+
+  if(!ficheros.length){
+    estadoDiv.textContent = "Selecciona almenys un fitxer.";
+    return;
+  }
+
+  const errores = [];
+
+  for(let i = 0; i < ficheros.length; i++){
+
+    estadoDiv.textContent = `Pujant fitxer ${i+1} de ${ficheros.length}…`;
+
+    const fichero = ficheros[i];
+
+    try{
+
+      const base64 = await fileToBase64(fichero);
+
+      const r = await fetchAmbReintents(API, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(Object.assign({
+          accion: "subirCoberturaArchivo",
+          nombre: fichero.name,
+          base64: base64,
+          mime: fichero.type || "text/csv"
+        }, construirAuthPayload()))
+      }, (msg) => { estadoDiv.textContent = `Fitxer ${i+1} de ${ficheros.length}: ${msg}`; });
+
+      const dades = parsearRespuestaJSON(await r.text());
+
+      if(!dades.ok){
+        errores.push(`${fichero.name}: ${dades.mensaje || "no s'ha pogut pujar"}`);
+      }
+
+    }catch(error){
+      console.error("Error pujant " + fichero.name + ":", error);
+      errores.push(`${fichero.name}: error de comunicació`);
+    }
+  }
+
+  if(errores.length){
+    estadoDiv.textContent = "";
+    alert("Alguns fitxers no s'han pogut pujar:\n\n" + errores.join("\n"));
+  }else{
+    estadoDiv.textContent = "";
+  }
+
+  cerrarModalCobertura();
+}
+
+// ============================================================
+// Generar/actualizar el mapa KML (pozos ya clasificados en
+// Problematics/Acabats según el estado del inventario)
+// ============================================================
+
+async function actualizarMapa(event){
+
+  const boton = event.target;
+  const textoOriginal = boton.textContent;
+  boton.textContent = "Generant…";
+  boton.disabled = true;
+
+  try{
+
+    const r = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(Object.assign({ accion: "mapa" }, construirAuthPayload()))
+    });
+    const respuestaTexto = await r.text();
+
+    let respuesta;
+    try{
+      respuesta = JSON.parse(respuestaTexto);
+    }catch(err){
+      respuesta = { ok:false, mensaje: respuestaTexto };
+    }
+
+    if(respuesta.ok){
+      const obrir = confirm(
+        "Mapa actualitzat: " + respuesta.nombre +
+        "\n\n(Ara també es regenera sol cada hora, no cal tornar a prémer aquest botó cada dia.)" +
+        "\n\nVols descarregar-lo ara? (enllaç directe, no cal cap compte de Google)"
+      );
+      if(obrir){
+        window.open(respuesta.url, "_blank");
+      }
+    }else{
+      alert("Error generant el mapa: " + (respuesta.mensaje || respuestaTexto));
+    }
+
+  }catch(error){
+    console.error(error);
+    alert("Error de comunicació generant el mapa.");
+  }finally{
+    boton.textContent = textoOriginal;
+    boton.disabled = false;
+  }
+
+}
+
+window.addEventListener("hashchange", () => {
+  const codigo = location.hash.replace("#","").toUpperCase();
+  if(!codigo) return;
+
+  // Si la fitxa que ja hi ha oberta té aquest codi, no cal tocar res
+  // (amb codis repetits, obrir "el primer amb aquest codi" podria ser
+  // un altre registrador)
+  const actual = filaAbierta !== null ? equipoPerFila(filaAbierta) : null;
+  if(actual && String(actual.codigo||"").toUpperCase() === codigo) return;
+
+  abrirEquipo(codigo);
+});
+</script>
+
+</body>
+</html>
