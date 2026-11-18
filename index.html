@@ -1354,7 +1354,7 @@ function mostrarEquipo(equipo){
           <a class="btn btn-outline info" style="margin-left:8px;text-decoration:none;"
              href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(equipo.lat)},${encodeURIComponent(equipo.lon)}"
              target="_blank" rel="noopener">📍 Com arribar-hi</a>
-        ` : ""}
+        ` : `<span class="pill" style="margin-left:8px;">📍 Sense ubicació</span>`}
         <button class="btn btn-outline" style="margin-left:8px;" onclick="obrirCarpetaFotos('${escapeHtml(equipo.codigo)}', this)">📁 Fotos</button>
       </div>
 
@@ -2167,7 +2167,7 @@ async function renombrarPou(equipo, codigoNuevoTexto, usuario){
     });
     const respuesta = await r.text();
 
-    if(respuesta !== "OK"){
+    if(respuesta !== "OK" && !respuesta.startsWith("OK|")){
       alert("Error renombrant " + codigoAnterior + " a " + codigoNuevo + ": " + (respuesta.trim().startsWith("<") ? "resposta inesperada del servidor" : respuesta));
       return false;
     }
@@ -2192,6 +2192,14 @@ async function renombrarPou(equipo, codigoNuevoTexto, usuario){
     }
 
     equipo.codigo = codigoNuevo;
+
+    // El servidor torna "OK|lat|lon" amb la ubicació del pou nou (buida =
+    // sense ubicació). Si el servidor és una versió antiga, no es toca.
+    if(respuesta.startsWith("OK|")){
+      const parts = respuesta.trim().split("|");
+      equipo.lat = parts[1] || "";
+      equipo.lon = parts[2] || "";
+    }
 
     // Si un instal·lador tenia aquest pou assignat amb el codi antic,
     // reflectim també el canvi a la sessió actual
